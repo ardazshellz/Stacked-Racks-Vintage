@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ALL_BRANDS,
   CATEGORIES,
   ERAS,
   FITS,
@@ -53,6 +54,49 @@ const EMPTY_PRODUCT: Omit<Product, "id"> = {
 
 const INPUT = "w-full bg-[#171717] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-[#E8500A]/70 placeholder:text-[#444]";
 const LABEL = "block text-[#666] text-[9px] font-black tracking-[0.18em] uppercase mb-1.5";
+
+const LISTING_WORDS = [
+  ...ALL_BRANDS,
+  "jacket",
+  "hoodie",
+  "sweatshirt",
+  "shirt",
+  "jersey",
+  "tracksuit",
+  "trousers",
+  "joggers",
+  "shorts",
+  "jeans",
+  "denim",
+  "leather",
+  "bomber",
+  "puffer",
+  "knit",
+  "sweater",
+  "top",
+  "vintage",
+  "retro",
+  "rare",
+  "archive",
+  "oversized",
+  "baggy",
+  "fitted",
+  "excellent",
+  "condition",
+  "black",
+  "white",
+  "blue",
+  "navy",
+  "red",
+  "green",
+  "brown",
+  "beige",
+  "grey",
+  "orange",
+  "yellow",
+  "purple",
+  "pink",
+] as const;
 
 function money(value: number | string) {
   return `£${Number(value || 0).toFixed(2)}`;
@@ -370,7 +414,7 @@ export default function AdminPage() {
                 <label className="block border-2 border-dashed border-white/10 hover:border-[#E8500A]/50 p-7 text-center cursor-pointer mb-4"><input type="file" accept="image/jpeg,image/png,image/webp,image/heic" multiple className="hidden" onChange={(event) => void uploadPhotos(event.target.files)} disabled={uploading} /><span className="text-sm font-bold">{uploading ? "Uploading photos…" : "Choose product photos"}</span><span className="block text-[#555] text-[10px] mt-1">JPG, PNG, WEBP or HEIC · 4MB each</span></label>
                 {!!form.imageUrls?.length && <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">{form.imageUrls.map((url, index) => <div key={url} className="relative aspect-[3/4] bg-[#1a1a1a]"><img src={url} alt={`Product photo ${index + 1}`} className="w-full h-full object-cover" /><button onClick={() => setForm({ ...form, imageUrls: form.imageUrls?.filter((item) => item !== url) })} className="absolute top-1 right-1 bg-black/80 w-6 h-6 text-xs">×</button></div>)}</div>}
                 <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Field label="Brand" value={form.brand} onChange={(value) => setForm({ ...form, brand: value })} placeholder="Nike, Adidas, Vintage…" />
+                  <Field label="Brand" value={form.brand} onChange={(value) => setForm({ ...form, brand: value })} placeholder="Nike, Adidas, Vintage…" suggestions={ALL_BRANDS} />
                   <Select label="Category" value={form.category} options={CATEGORIES} onChange={(value) => setForm({ ...form, category: value })} />
                   <Select label="Size" value={form.size} options={SIZES} onChange={(value) => setForm({ ...form, size: value })} />
                   <Select label="Department" value={form.gender} options={["Mens", "Womens"]} onChange={(value) => setForm({ ...form, gender: value as Product["gender"] })} />
@@ -380,16 +424,17 @@ export default function AdminPage() {
                   <Select label="Fit" value={form.fit} options={FITS} onChange={(value) => setForm({ ...form, fit: value as Fit })} />
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4 mt-4"><Select label="Badge" value={form.badge} options={["NEW", "RARE"]} onChange={(value) => setForm({ ...form, badge: value as Product["badge"] })} />{form.badge === "RARE" && <Select label="Rare label" value={form.rareBadge ?? "ARCHIVE"} options={["ARCHIVE", "GRAIL", "ERA PIECE"]} onChange={(value) => setForm({ ...form, rareBadge: value as RareBadge })} />}</div>
-                <div className="mt-4"><label className={LABEL}>Notes for the AI</label><textarea value={sellerNotes} onChange={(event) => setSellerNotes(event.target.value)} rows={3} placeholder="Colour, measurements, flaws, label details, fabric if known…" className={INPUT} /></div>
+                <div className="mt-4"><label className={LABEL}>Notes for the AI</label><AutocompleteControl label="Notes for the AI" value={sellerNotes} onChange={setSellerNotes} rows={3} multiline placeholder="Colour, measurements, flaws, label details, fabric if known…" suggestions={LISTING_WORDS} /></div>
+                <p className="text-[#555] text-[10px] mt-2">Typing help: enter two letters, then press Tab or → to complete the suggested word.</p>
                 <button onClick={generateListing} disabled={generating || (!form.imageUrls?.length && !form.brand)} className="mt-4 bg-[#F5C300] disabled:opacity-40 text-black font-black text-xs tracking-[0.16em] uppercase px-5 py-3">{generating ? "Analysing photos…" : "Generate website + Vinted copy"}</button>
               </div>
 
               <div className="bg-[#111] border border-white/8 p-5 sm:p-6 space-y-4">
                 <h3 className="font-black">Review and publish</h3>
-                <Field label="Website title" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
-                <TextArea label="Website description" value={form.description} onChange={(value) => setForm({ ...form, description: value })} />
-                <CopyField label="Vinted title" value={form.vintedTitle ?? ""} onChange={(value) => setForm({ ...form, vintedTitle: value })} />
-                <CopyField label="Vinted description" value={form.vintedDescription ?? ""} onChange={(value) => setForm({ ...form, vintedDescription: value })} area />
+                <Field label="Website title" value={form.name} onChange={(value) => setForm({ ...form, name: value })} suggestions={LISTING_WORDS} />
+                <TextArea label="Website description" value={form.description} onChange={(value) => setForm({ ...form, description: value })} suggestions={LISTING_WORDS} />
+                <CopyField label="Vinted title" value={form.vintedTitle ?? ""} onChange={(value) => setForm({ ...form, vintedTitle: value })} suggestions={LISTING_WORDS} />
+                <CopyField label="Vinted description" value={form.vintedDescription ?? ""} onChange={(value) => setForm({ ...form, vintedDescription: value })} area suggestions={LISTING_WORDS} />
                 {listingMessage && <p className="text-[#F5C300] text-xs border border-[#F5C300]/20 bg-[#F5C300]/5 p-3">{listingMessage}</p>}
                 <div className="flex flex-wrap gap-3"><button onClick={saveProduct} disabled={saving || !form.name || !form.brand || form.price <= 0} className="bg-[#E8500A] disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">{saving ? "Saving…" : editingId ? "Save changes" : "Publish to website"}</button><button onClick={() => navigator.clipboard.writeText(`${form.vintedTitle}\n\n${form.vintedDescription}`)} className="border border-white/15 text-[#aaa] px-5 py-3 text-xs font-bold">Copy full Vinted listing</button><a href="https://www.vinted.co.uk/items/new" target="_blank" rel="noopener noreferrer" className="border border-[#F5C300]/40 text-[#F5C300] px-5 py-3 text-xs font-bold">Open Vinted ↗</a></div>
               </div>
@@ -409,20 +454,59 @@ export default function AdminPage() {
   );
 }
 
-function Field({ label, value, onChange, type = "text", placeholder = "" }: { label: string; value: string | number; onChange: (value: string) => void; type?: string; placeholder?: string }) {
-  return <label><span className={LABEL}>{label}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} step={type === "number" ? "0.01" : undefined} className={INPUT} /></label>;
+function Field({ label, value, onChange, type = "text", placeholder = "", suggestions }: { label: string; value: string | number; onChange: (value: string) => void; type?: string; placeholder?: string; suggestions?: readonly string[] }) {
+  return <label><span className={LABEL}>{label}</span>{type === "text" && suggestions ? <AutocompleteControl label={label} value={String(value)} onChange={onChange} placeholder={placeholder} suggestions={suggestions} /> : <input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} step={type === "number" ? "0.01" : undefined} className={INPUT} />}</label>;
 }
 
 function Select({ label, value, options, onChange }: { label: string; value: string; options: readonly string[]; onChange: (value: string) => void }) {
   return <label><span className={LABEL}>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className={INPUT}>{options.map((option) => <option key={option}>{option}</option>)}</select></label>;
 }
 
-function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label><span className={LABEL}>{label}</span><textarea value={value} onChange={(event) => onChange(event.target.value)} rows={4} className={INPUT} /></label>;
+function TextArea({ label, value, onChange, suggestions }: { label: string; value: string; onChange: (value: string) => void; suggestions?: readonly string[] }) {
+  return <label><span className={LABEL}>{label}</span><AutocompleteControl label={label} value={value} onChange={onChange} rows={4} multiline suggestions={suggestions} /></label>;
 }
 
-function CopyField({ label, value, onChange, area = false }: { label: string; value: string; onChange: (value: string) => void; area?: boolean }) {
-  return <div><div className="flex justify-between items-center"><span className={LABEL}>{label}</span><button onClick={() => navigator.clipboard.writeText(value)} className="text-[#E8500A] text-[10px] mb-1.5">Copy</button></div>{area ? <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={7} className={INPUT} /> : <input value={value} onChange={(event) => onChange(event.target.value)} className={INPUT} />}</div>;
+function CopyField({ label, value, onChange, area = false, suggestions }: { label: string; value: string; onChange: (value: string) => void; area?: boolean; suggestions?: readonly string[] }) {
+  return <div><div className="flex justify-between items-center"><span className={LABEL}>{label}</span><button onClick={() => navigator.clipboard.writeText(value)} className="text-[#E8500A] text-[10px] mb-1.5">Copy</button></div><AutocompleteControl label={label} value={value} onChange={onChange} rows={area ? 7 : undefined} multiline={area} suggestions={suggestions} /></div>;
+}
+
+function AutocompleteControl({ label, value, onChange, suggestions = [], multiline = false, rows, placeholder = "" }: { label: string; value: string; onChange: (value: string) => void; suggestions?: readonly string[]; multiline?: boolean; rows?: number; placeholder?: string }) {
+  const [focused, setFocused] = useState(false);
+  const wordMatch = value.match(/([A-Za-z][A-Za-z'-]*)$/);
+  const partial = wordMatch?.[1] ?? "";
+  const suggestion = partial.length >= 2
+    ? suggestions.find((word) => word.toLowerCase().startsWith(partial.toLowerCase()) && word.toLowerCase() !== partial.toLowerCase())
+    : undefined;
+
+  const acceptSuggestion = () => {
+    if (!suggestion || wordMatch?.index === undefined) return;
+    onChange(`${value.slice(0, wordMatch.index)}${suggestion} `);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (suggestion && (event.key === "Tab" || event.key === "ArrowRight")) {
+      event.preventDefault();
+      acceptSuggestion();
+    }
+  };
+
+  const controlProps = {
+    "aria-label": label,
+    value,
+    placeholder,
+    onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange(event.target.value),
+    onKeyDown: handleKeyDown,
+    onFocus: () => setFocused(true),
+    onBlur: () => window.setTimeout(() => setFocused(false), 120),
+    className: INPUT,
+  };
+
+  return <div className="relative">
+    {multiline ? <textarea {...controlProps} rows={rows ?? 4} /> : <input {...controlProps} />}
+    {focused && suggestion && <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={acceptSuggestion} className="absolute z-20 left-0 top-full mt-1 flex w-full items-center justify-between gap-3 border border-[#E8500A]/30 bg-[#202020] px-3 py-2 text-left text-xs shadow-xl">
+      <span className="text-white">{suggestion}</span><span className="shrink-0 text-[#777] text-[9px] uppercase tracking-wider">Tab or →</span>
+    </button>}
+  </div>;
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
