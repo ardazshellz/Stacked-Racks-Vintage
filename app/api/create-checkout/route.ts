@@ -4,8 +4,8 @@ import { products as staticProducts, type Product } from "@/lib/products";
 import { rowToProduct, type ProductRow } from "@/lib/product-db";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
 import { getProductSettings } from "@/lib/server/product-settings";
+import { calculatePostage } from "@/lib/shipping";
 
-const POSTAGE_PENCE = 399;
 const MAX_ITEMS = 8;
 
 export async function POST(req: Request) {
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
   const stripe = new Stripe(stripeKey);
   const base = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-  const { itemIds, itemId, name, email, phone, address } = await req.json();
+  const { itemIds, itemId, name, email, phone, address, promotionCode } = await req.json();
   const requestedIds = [...new Set((Array.isArray(itemIds) ? itemIds : itemId ? [itemId] : []).map(String))].slice(0, MAX_ITEMS);
 
   if (!requestedIds.length || !name || !email || !phone || !address) {
@@ -51,12 +51,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "One of these items is no longer available" }, { status: 409 });
     }
 
-    const itemPrices = products.map((product) => product.price);
+    const originalSubtotal = products.reduce((sum, product) => sum + product.price, 0);
+    const discountApplied = String(promotionCode ?? "").trim().toUpperCase() === "VINTAGE10";
+    const itemPrices = products.map((product) => Number((product.price * (discountApplied ? 0.9 : 1)).toFixed(2)));
     const subtotal = itemPrices.reduce((sum, price) => sum + price, 0);
+    const postage = calculatePostage(originalSubtotal);
+    const postagePence = Math.round(postage * 100);
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
-        ...products.map((product) => ({
+        ...products.map((product, index) => ({
           price_data: {
             currency: "gbp",
             product_data: {
@@ -64,14 +68,14 @@ export async function POST(req: Request) {
               description: `${product.brand} · Stacked Racks Vintage`,
               images: product.imageUrls?.slice(0, 1),
             },
-            unit_amount: Math.round(product.price * 100),
+            unit_amount: Math.round(itemPrices[index] * 100),
           },
           quantity: 1,
         })),
-        {
-          price_data: { currency: "gbp", product_data: { name: "UK Postage (Royal Mail)" }, unit_amount: POSTAGE_PENCE },
+        ...(postagePence > 0 ? [{
+          price_data: { currency: "gbp", product_data: { name: "UK Postage (Royal Mail)" }, unit_amount: postagePence },
           quantity: 1,
-        },
+        }] : []),
       ],
       mode: "payment",
       customer_email: safeEmail,
@@ -85,8 +89,10 @@ export async function POST(req: Request) {
         item_name: products.map((product) => product.name).join(" | ").slice(0, 500),
         item_brand: [...new Set(products.map((product) => product.brand))].join(", ").slice(0, 500),
         item_price: String(subtotal),
+        discount_code: discountApplied ? "VINTAGE10" : "",
+        discount_amount: discountApplied ? String(Number((originalSubtotal - subtotal).toFixed(2))) : "0",
         item_count: String(products.length),
-        postage: String(POSTAGE_PENCE / 100),
+        postage: String(postage),
         customer_name: safeName,
         customer_phone: safePhone,
         customer_address: safeAddress,

@@ -109,6 +109,7 @@ export default function Home() {
   const [selectedFits, setSelectedFits] = useState<string[]>([]);
   const [selectedEras, setSelectedEras] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"newest" | "price-low" | "price-high">("newest");
   const [showNew, setShowNew] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -129,6 +130,11 @@ export default function Home() {
 
   const products = useProducts();
   const inStockBrands = getBrandsInStock(products);
+  const availableProducts = products.filter((product) => product.stock > 0);
+  const availableSizes = SIZES.filter((size) => availableProducts.some((product) => product.size === size));
+  const availableEras = ERAS.filter((era) => availableProducts.some((product) => product.era === era));
+  const availableCategories = CATEGORIES.filter((category) => availableProducts.some((product) => product.category === category));
+  const availableFits = FITS.filter((fit) => availableProducts.some((product) => product.fit === fit));
 
   const hasFilters =
     selectedGender !== "All" ||
@@ -167,6 +173,10 @@ export default function Home() {
       p.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.size.toLowerCase().includes(searchQuery.toLowerCase());
     return genderMatch && sizeMatch && brandMatch && catMatch && fitMatch && eraMatch && searchMatch;
+  }).sort((a, b) => {
+    if (sortBy === "price-low") return a.price - b.price;
+    if (sortBy === "price-high") return b.price - a.price;
+    return new Date(b.listedDate).getTime() - new Date(a.listedDate).getTime();
   });
 
   const renderSidebarContent = () => {
@@ -214,7 +224,7 @@ export default function Home() {
       <div>
         <p className="text-[#E8500A] text-[10px] font-black tracking-[0.25em] uppercase mb-3">Sections</p>
         <div className="flex flex-col divide-y divide-white/5 border border-white/8">
-          {sections.map((s) => (
+          {sections.filter((section) => section.count > 0).map((s) => (
             <button
               key={s.key}
               onClick={s.onClick}
@@ -241,7 +251,7 @@ export default function Home() {
       <div>
         <p className="text-[#E8500A] text-[10px] font-black tracking-[0.25em] uppercase mb-3">Size</p>
         <div className="flex flex-wrap gap-1.5">
-          {SIZES.map((s) => {
+          {availableSizes.map((s) => {
             const active = selectedSizes.includes(s);
             return (
               <button key={s} onClick={() => setSelectedSizes((p) => toggle(p, s))}
@@ -261,7 +271,7 @@ export default function Home() {
       <div>
         <p className="text-[#E8500A] text-[10px] font-black tracking-[0.25em] uppercase mb-3">Era</p>
         <div className="flex flex-wrap gap-1.5">
-          {ERAS.map((e) => {
+          {availableEras.map((e) => {
             const active = selectedEras.includes(e);
             return (
               <button key={e} onClick={() => setSelectedEras((prev) => toggle(prev, e))}
@@ -301,7 +311,7 @@ export default function Home() {
       <div>
         <p className="text-[#E8500A] text-[10px] font-black tracking-[0.25em] uppercase mb-3">Category</p>
         <div className="flex flex-col gap-1.5">
-          {CATEGORIES.map((c) => {
+          {availableCategories.map((c) => {
             const active = selectedCategories.includes(c);
             return (
               <button key={c} onClick={() => setSelectedCategories((p) => toggle(p, c))}
@@ -321,7 +331,7 @@ export default function Home() {
       <div>
         <p className="text-[#E8500A] text-[10px] font-black tracking-[0.25em] uppercase mb-3">Fit</p>
         <div className="flex flex-col gap-1.5">
-          {FITS.map((f) => {
+          {availableFits.map((f) => {
             const active = selectedFits.includes(f);
             return (
               <button key={f} onClick={() => setSelectedFits((p) => toggle(p, f))}
@@ -391,7 +401,7 @@ export default function Home() {
 
       <Hero />
       <MarqueeBanner />
-      <SectionBoxes />
+      <SectionBoxes products={products} />
 
       {/* ── Browse section ── */}
       <div id="shop" className="border-t border-white/5">
@@ -411,16 +421,23 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex w-full sm:w-auto items-center gap-2 sm:gap-3 flex-wrap">
               {/* Search */}
-              <div className="relative hidden sm:block">
+              <div className="relative order-first w-full sm:order-none sm:w-auto">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
                   className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#555] pointer-events-none">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                 </svg>
                 <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search name, brand, size…" className="bg-[#1a1a1a] border border-white/20 text-white text-xs pl-8 pr-3 py-2.5 w-64 focus:outline-none focus:border-[#E8500A]/60 placeholder:text-white/30" />
+                  aria-label="Search products" autoComplete="off" placeholder="Search name, brand, size…" className="bg-[#1a1a1a] border border-white/20 text-white text-sm pl-8 pr-3 py-2.5 w-full sm:w-64 focus:outline-none focus:border-[#E8500A]/60 placeholder:text-white/40" />
               </div>
+
+              <label className="sr-only" htmlFor="home-sort">Sort products</label>
+              <select id="home-sort" value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="bg-[#111] border border-white/20 text-white text-xs uppercase tracking-wider px-3 py-2.5 focus:outline-none focus:border-[#E8500A]">
+                <option value="newest">Newest</option>
+                <option value="price-low">Price: low</option>
+                <option value="price-high">Price: high</option>
+              </select>
 
               {/* Mobile filter toggle */}
               <button onClick={() => setMobileFiltersOpen(true)}
@@ -442,7 +459,7 @@ export default function Home() {
         {/* ── Category shortcut strip ── */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-5">
           <div className="flex flex-wrap gap-2">
-            {CATEGORIES.map((cat) => {
+            {availableCategories.map((cat) => {
               const active = selectedCategories.includes(cat);
               return (
                 <button
@@ -513,7 +530,7 @@ export default function Home() {
       <div className={`fixed top-0 left-0 bottom-0 z-50 w-72 bg-[#111] border-r border-white/10 p-6 overflow-y-auto transition-transform duration-300 lg:hidden ${mobileFiltersOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between mb-7">
           <span className="text-white font-black text-base tracking-widest uppercase" style={{ fontFamily: "var(--font-playfair-display), serif" }}>Filters</span>
-          <button onClick={() => setMobileFiltersOpen(false)} className="text-[#aaa] hover:text-white w-8 h-8 flex items-center justify-center">
+          <button onClick={() => setMobileFiltersOpen(false)} aria-label="Close filters" className="text-[#aaa] hover:text-white w-8 h-8 flex items-center justify-center">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>

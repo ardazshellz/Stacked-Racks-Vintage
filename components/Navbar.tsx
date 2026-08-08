@@ -2,7 +2,8 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { getBrandsInStock, products } from "@/lib/products";
+import { getBrandsInStock } from "@/lib/products";
+import { useProducts } from "@/hooks/useProducts";
 import CartLink from "./CartLink";
 
 interface DropdownGroup {
@@ -120,6 +121,7 @@ function buildNavItems(inStockBrands: string[]): NavItem[] {
 }
 
 export default function Navbar() {
+  const products = useProducts();
   const inStockBrands = getBrandsInStock(products);
   const navItems = buildNavItems(inStockBrands);
 
@@ -139,18 +141,18 @@ export default function Navbar() {
 
   return (
     <nav className="fixed top-7 left-0 right-0 z-50 bg-[#0a0a0a]/96 backdrop-blur-sm border-b border-white/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-2 h-16 overflow-hidden">
 
           {/* ── Logo ── */}
-          <Link href="/" aria-label="Stacked Racks Vintage Home" className="shrink-0">
+          <Link href="/" aria-label="Stacked Racks Vintage Home" className="min-w-0 shrink">
             <span
               className="font-black tracking-wider leading-none"
               style={{ fontFamily: "var(--font-playfair-display), serif" }}
             >
-              <span className="text-[#E8500A] text-xl">STACKED</span>
-              <span className="text-[#F5C300] text-xl ml-2">RACKS</span>
-              <span className="text-white/60 text-xl ml-2">VINTAGE</span>
+              <span className="text-[#E8500A] text-base sm:text-xl">STACKED</span>
+              <span className="text-[#F5C300] text-base sm:text-xl ml-1.5 sm:ml-2">RACKS</span>
+              <span className="hidden min-[470px]:inline text-white/60 text-base sm:text-xl ml-1.5 sm:ml-2">VINTAGE</span>
             </span>
           </Link>
 
@@ -214,7 +216,7 @@ export default function Navbar() {
           </div>
 
           {/* ── Social links + Contact + hamburger ── */}
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
             <CartLink />
             {/* Instagram */}
             <a
@@ -250,7 +252,7 @@ export default function Navbar() {
 
             {/* Hamburger */}
             <button
-              className="md:hidden text-white p-2 flex flex-col justify-center items-center w-8 h-8"
+              className="md:hidden shrink-0 text-white p-1.5 flex flex-col justify-center items-center w-9 h-9"
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-label="Toggle menu"
               aria-expanded={mobileOpen}
@@ -264,7 +266,7 @@ export default function Navbar() {
       </div>
 
       {/* ── Mobile menu ── */}
-      <div className={`md:hidden bg-[#111] border-t border-white/10 overflow-hidden transition-all duration-300 ${mobileOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"}`}>
+      <div className={`md:hidden bg-[#111] border-t border-white/10 overflow-y-auto transition-all duration-300 ${mobileOpen ? "max-h-[calc(100vh-92px)] opacity-100" : "max-h-0 opacity-0"}`}>
         <CartLink mobile />
         {/* Social links row */}
         <div className="flex items-center gap-6 px-6 py-4 border-b border-white/5">
@@ -283,15 +285,19 @@ export default function Navbar() {
 
         {navItems.map((item) => (
           <div key={item.label} className="border-b border-white/5">
-            <button
-              className="w-full flex items-center justify-between px-6 py-4 text-sm font-bold text-white uppercase tracking-widest"
-              onClick={() => setMobileExpanded(mobileExpanded === item.label ? null : item.label)}
-            >
-              {item.label}
+            <div className="flex items-center">
+              <a href={item.href} onClick={() => setMobileOpen(false)} className="flex-1 px-6 py-4 text-sm font-bold text-white uppercase tracking-widest">{item.label}</a>
+              <button
+                className="w-14 h-12 flex items-center justify-center text-white"
+                onClick={() => setMobileExpanded(mobileExpanded === item.label ? null : item.label)}
+                aria-label={`Show ${item.label} options`}
+                aria-expanded={mobileExpanded === item.label}
+              >
               <svg className={`w-4 h-4 transition-transform duration-200 ${mobileExpanded === item.label ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
-            </button>
+              </button>
+            </div>
             {mobileExpanded === item.label && (
               <div className="px-6 pb-5 space-y-5">
                 {item.groups.map((group) => (

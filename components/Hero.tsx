@@ -72,7 +72,7 @@ export default function Hero() {
       {/* Content — bottom-left */}
       <div className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 pb-16 sm:pb-20">
         {/* Eyebrow */}
-        <p className="animate-fade-in-up inline-flex items-center gap-2 text-[#E8500A] text-[9px] sm:text-[10px] font-black tracking-[0.3em] uppercase mb-5">
+        <p className="animate-fade-in-up inline-flex items-center gap-2 text-[#E8500A] text-[11px] font-black tracking-[0.22em] sm:tracking-[0.3em] uppercase mb-5">
           <span className="opacity-60">✦</span>
           80S / 90S / 00S VINTAGE
           <span className="opacity-60">✦</span>
@@ -95,7 +95,7 @@ export default function Hero() {
         </h1>
 
         {/* Tagline */}
-        <p className="animate-fade-in-up-delay-2 text-white/65 text-xs sm:text-sm tracking-[0.22em] uppercase font-normal mb-5">
+        <p className="animate-fade-in-up-delay-2 text-white/80 text-sm tracking-[0.12em] sm:tracking-[0.22em] uppercase font-normal mb-5">
           Unique & Rare Vintage · London, UK
         </p>
 
@@ -104,7 +104,7 @@ export default function Hero() {
           href="https://www.vinted.co.uk/member/59714764?tab=feedback"
           target="_blank"
           rel="noopener noreferrer"
-          className="animate-fade-in-up-delay-2 inline-flex items-center gap-2 bg-[#F5C300]/8 border border-[#F5C300]/25 text-[#F5C300] text-[10px] font-bold tracking-[0.15em] uppercase px-3 py-1.5 mb-8 hover:bg-[#F5C300]/15 transition-colors"
+          className="animate-fade-in-up-delay-2 inline-flex items-center gap-2 bg-[#F5C300]/8 border border-[#F5C300]/30 text-[#F5C300] text-[11px] font-bold tracking-[0.12em] uppercase px-3 py-2 mb-8 hover:bg-[#F5C300]/15 transition-colors"
         >
           <span>★★★★★</span>
           <span>2,500+ Verified Reviews</span>
@@ -114,7 +114,7 @@ export default function Hero() {
         <div className="animate-fade-in-up-delay-3 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
           <a
             href="#shop"
-            className="w-full sm:w-auto bg-[#E8500A] text-white font-black text-[10px] tracking-[0.3em] uppercase px-9 py-3.5 hover:bg-[#c94009] transition-colors text-center shadow-[0_0_28px_rgba(232,80,10,0.35)]"
+            className="w-full sm:w-auto bg-[#E8500A] text-white font-black text-xs tracking-[0.25em] uppercase px-9 py-4 hover:bg-[#c94009] transition-colors text-center shadow-[0_0_28px_rgba(232,80,10,0.35)]"
           >
             SHOP NOW
           </a>
@@ -122,7 +122,7 @@ export default function Hero() {
             href="https://www.vinted.co.uk/member/59714764-stackedracks"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full sm:w-auto border border-[#F5C300]/60 text-[#F5C300] font-black text-[10px] tracking-[0.3em] uppercase px-9 py-3.5 hover:bg-[#F5C300]/10 transition-colors text-center"
+            className="w-full sm:w-auto border border-[#F5C300]/50 text-[#F5C300] font-black text-xs tracking-[0.22em] uppercase px-9 py-4 hover:bg-[#F5C300]/10 transition-colors text-center"
           >
             VIEW ON VINTED
           </a>

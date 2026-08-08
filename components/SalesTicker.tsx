@@ -16,7 +16,9 @@ export default function SalesTicker() {
       onClick={openEmailPopup}
       title="Sign up for 10% off"
       role="button"
+      tabIndex={0}
       aria-label="Sign up for 10% off"
+      onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openEmailPopup(); }}
     >
       <div
         className="flex whitespace-nowrap shrink-0 text-[10px] text-white font-black tracking-[0.3em] pointer-events-none"

@@ -11,7 +11,7 @@ export default function ClientShell() {
   return (
     <>
       <SalesTicker />
-      <FloatingButtons />
+      {!pathname.startsWith("/checkout") && <FloatingButtons />}
       <CookieConsent />
     </>
   );

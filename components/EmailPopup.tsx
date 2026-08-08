@@ -30,15 +30,20 @@ export default function EmailPopup() {
     setError("");
     setLoading(true);
     try {
-      await fetch("/api/subscribe", {
+      const response = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-    } catch { /* non-fatal */ }
-    setLoading(false);
-    setSubmitted(true);
-    localStorage.setItem(SUBSCRIBED_KEY, "1");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Could not send your code");
+      setSubmitted(true);
+      localStorage.setItem(SUBSCRIBED_KEY, "1");
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Could not send your code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!visible) return null;
@@ -80,6 +85,8 @@ export default function EmailPopup() {
               <form onSubmit={handleSubmit} className="space-y-3">
                 <input
                   type="email"
+                  aria-label="Email address"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Your email address"
@@ -96,9 +103,9 @@ export default function EmailPopup() {
                 </button>
               </form>
 
-              <p className="text-[#333] text-[9px] text-center mt-3 leading-relaxed">
+              <p className="text-[#777] text-[11px] text-center mt-3 leading-relaxed">
                 No spam. Unsubscribe any time. By signing up you agree to our{" "}
-                <a href="/legal" className="underline hover:text-[#555] transition-colors">privacy policy</a>.
+                <a href="/legal/privacy" className="underline hover:text-[#777] transition-colors">privacy policy</a>.
               </p>
             </>
           ) : (
@@ -126,8 +133,8 @@ export default function EmailPopup() {
                 <div className="text-left bg-[#161616] border border-white/5 p-4 mb-4 space-y-2">
                   <p className="text-white text-[10px] font-bold tracking-wider uppercase">How to use it</p>
                   <ol className="text-[#aaa] text-[10px] leading-relaxed space-y-1 list-decimal list-inside">
-                    <li>Find an item you love and click it</li>
-                    <li>Choose <span className="text-white font-medium">&ldquo;Checkout with Card&rdquo;</span></li>
+                    <li>Find an item you love and add it to your cart</li>
+                    <li>Continue to secure checkout</li>
                     <li>Enter <span className="text-[#E8500A] font-black">{VOUCHER_CODE}</span> in the discount code field at checkout</li>
                     <li>10% comes off your total automatically</li>
                   </ol>

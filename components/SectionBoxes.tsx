@@ -1,3 +1,5 @@
+import { isNew, type Product } from "@/lib/products";
+
 const boxes = [
   { id: "new-in",  label: "New In",  sub: "Latest 14-day drops", href: "/shop?new=true",     image: "/section-new-in.jpg"  },
   { id: "mens",    label: "Mens",    sub: "All menswear",       href: "/shop?gender=Mens",  image: "/section-mens.jpg"    },
@@ -5,15 +7,24 @@ const boxes = [
   { id: "marquee", label: "Marquee", sub: "Featured standout pieces", href: "/shop?rare=true",image: "/section-marquee.jpg" },
 ] as const;
 
-export default function SectionBoxes() {
+export default function SectionBoxes({ products }: { products: Product[] }) {
+  const availableBoxes = boxes.filter((box) => {
+    if (box.id === "new-in") return products.some((product) => product.stock > 0 && isNew(product));
+    if (box.id === "mens") return products.some((product) => product.stock > 0 && product.gender === "Mens");
+    if (box.id === "womens") return products.some((product) => product.stock > 0 && product.gender === "Womens");
+    return products.some((product) => product.stock > 0 && product.badge === "RARE");
+  });
+
+  if (!availableBoxes.length) return null;
+
   return (
     <section className="bg-[#0a0a0a] border-b border-white/5 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <p className="text-[#333] text-[10px] font-black tracking-[0.3em] uppercase mb-8 text-center">
           Shop by section
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {boxes.map((box) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {availableBoxes.map((box) => (
             <a
               key={box.id}
               href={box.href}
@@ -41,11 +52,11 @@ export default function SectionBoxes() {
                   >
                     {box.label}
                   </h3>
-                  <p className="text-white/40 text-[9px] tracking-wide uppercase group-hover:text-white/60 transition-colors duration-200">
+                  <p className="text-white/70 text-[11px] tracking-wide uppercase transition-colors duration-200">
                     {box.sub}
                   </p>
                   <div className="flex items-center gap-1.5 mt-2.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-1 group-hover:translate-y-0">
-                    <span className="text-[#E8500A] text-[9px] font-black tracking-[0.2em] uppercase">Browse</span>
+                    <span className="text-[#E8500A] text-[11px] font-black tracking-[0.2em] uppercase">Browse</span>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-2.5 h-2.5 text-[#E8500A]">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                     </svg>

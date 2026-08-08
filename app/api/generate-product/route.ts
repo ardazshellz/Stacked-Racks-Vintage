@@ -20,6 +20,9 @@ const OUTPUT_FIELDS = [
   "suggestedGender",
   "suggestedFit",
   "suggestedMarquee",
+  "suggestedColour",
+  "suggestedMaterial",
+  "visibleFlaws",
   "photoFindings",
 ] as const;
 
@@ -122,6 +125,9 @@ Return ONLY valid JSON:
   "suggestedGender": "one of Mens,Womens",
   "suggestedFit": "one of Regular,Fitted,Baggy,Oversized",
   "suggestedMarquee": "Yes only for an especially distinctive featured piece, otherwise No",
+  "suggestedColour": "concise main colour and pattern visible in the photos",
+  "suggestedMaterial": "material only when supported by a readable care label or seller notes, otherwise blank",
+  "visibleFlaws": "concise visible flaws, or None visible when the photos support that",
   "photoFindings": "2-4 sentences summarising visible evidence, label details and any cautious possible model match"
 }`;
 

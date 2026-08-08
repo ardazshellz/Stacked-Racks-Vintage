@@ -1,5 +1,35 @@
 import type { Product } from "./products";
 
+const PRODUCT_META_PREFIX = "__SR_PRODUCT_META__";
+
+function parseEditorialMeta(value: string | null) {
+  if (!value?.startsWith(PRODUCT_META_PREFIX)) {
+    return { editorialStory: value ?? undefined, garmentDetails: undefined };
+  }
+  try {
+    const meta = JSON.parse(value.slice(PRODUCT_META_PREFIX.length)) as {
+      editorialStory?: string;
+      garmentDetails?: Product["garmentDetails"];
+    };
+    return {
+      editorialStory: meta.editorialStory || undefined,
+      garmentDetails: meta.garmentDetails,
+    };
+  } catch {
+    return { editorialStory: undefined, garmentDetails: undefined };
+  }
+}
+
+function editorialMeta(product: Omit<Product, "id">) {
+  const details = product.garmentDetails;
+  const hasDetails = details && Object.values(details).some((value) => value?.trim());
+  if (!hasDetails) return product.editorialStory?.trim() || null;
+  return `${PRODUCT_META_PREFIX}${JSON.stringify({
+    editorialStory: product.editorialStory?.trim() || undefined,
+    garmentDetails: details,
+  })}`;
+}
+
 export interface ProductRow {
   id: string;
   name: string;
@@ -23,6 +53,7 @@ export interface ProductRow {
 }
 
 export function rowToProduct(row: ProductRow): Product {
+  const meta = parseEditorialMeta(row.editorial_story);
   return {
     id: row.id,
     name: row.name,
@@ -39,7 +70,8 @@ export function rowToProduct(row: ProductRow): Product {
     fit: row.fit,
     listedDate: row.listed_date,
     description: row.description,
-    editorialStory: row.editorial_story ?? undefined,
+    editorialStory: meta.editorialStory,
+    garmentDetails: meta.garmentDetails,
     imageUrls: row.image_urls ?? [],
     vintedTitle: row.vinted_title ?? undefined,
     vintedDescription: row.vinted_description ?? undefined,
@@ -62,7 +94,7 @@ export function productToRow(product: Omit<Product, "id">) {
     fit: product.fit,
     listed_date: product.listedDate,
     description: product.description.trim(),
-    editorial_story: product.editorialStory?.trim() || null,
+    editorial_story: editorialMeta(product),
     image_urls: product.imageUrls ?? [],
     vinted_title: product.vintedTitle?.trim() || null,
     vinted_description: product.vintedDescription?.trim() || null,

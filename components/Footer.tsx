@@ -34,12 +34,11 @@ export default function Footer() {
           {[
             { label: "Instagram", href: "https://instagram.com/stacked_racks_vintage" },
             { label: "Vinted",    href: "https://www.vinted.co.uk/member/59714764-stackedracks" },
-            { label: "eBay",      href: "#" },
           ].map(({ label, href }) => (
             <a key={label} href={href}
               target={href.startsWith("http") ? "_blank" : undefined}
               rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
-              className="text-[#555] text-xs font-bold tracking-widest uppercase hover:text-[#E8500A] transition-colors">
+              className="text-[#888] text-sm font-bold tracking-widest uppercase hover:text-[#E8500A] transition-colors">
               {label}
             </a>
           ))}
@@ -76,7 +75,7 @@ export default function Footer() {
             { label: "Legal & Returns", href: "/legal" },
           ].map(({ label, href }) => (
             <a key={label} href={href}
-              className="text-[#333] text-[10px] hover:text-[#aaa] uppercase tracking-widest transition-colors">
+              className="text-[#777] text-[11px] hover:text-white uppercase tracking-widest transition-colors">
               {label}
             </a>
           ))}

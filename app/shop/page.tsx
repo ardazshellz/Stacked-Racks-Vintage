@@ -19,6 +19,10 @@ interface SidebarProps {
   selectedCategories: string[];
   selectedFits: string[];
   allBrands: string[];
+  availableSizes: string[];
+  availableCategories: string[];
+  availableFits: string[];
+  availableGenders: Array<"Mens" | "Womens">;
   onGender: (g: "All" | "Mens" | "Womens") => void;
   onToggleSize: (s: string) => void;
   onToggleBrand: (b: string) => void;
@@ -41,6 +45,8 @@ function ChipRow({
   onToggle: (v: string) => void;
   pill?: boolean;
 }) {
+  if (!items.length) return null;
+
   return (
     <div className="mb-7">
       <p className="text-[10px] font-black text-[#E8500A] uppercase tracking-[0.25em] mb-3">{label}</p>
@@ -71,7 +77,8 @@ function ChipRow({
 function Sidebar(props: SidebarProps) {
   const {
     selectedGender, selectedSizes, selectedBrands, selectedCategories, selectedFits,
-    allBrands, onGender, onToggleSize, onToggleBrand, onToggleCategory, onToggleFit,
+    allBrands, availableSizes, availableCategories, availableFits, availableGenders,
+    onGender, onToggleSize, onToggleBrand, onToggleCategory, onToggleFit,
     onClear, resultCount,
   } = props;
 
@@ -107,7 +114,7 @@ function Sidebar(props: SidebarProps) {
         <div className="mb-7">
           <p className="text-[10px] font-black text-[#E8500A] uppercase tracking-[0.25em] mb-3">Gender</p>
           <div className="flex gap-2">
-            {(["All", "Mens", "Womens"] as const).map((g) => (
+            {(["All", ...availableGenders] as const).map((g) => (
               <button
                 key={g}
                 onClick={() => onGender(g)}
@@ -126,13 +133,13 @@ function Sidebar(props: SidebarProps) {
         <div className="border-t border-white/5 mb-7" />
 
         {/* Order: Size → Brand → Category → Fit */}
-        <ChipRow label="Size" items={SIZES} selected={selectedSizes} onToggle={onToggleSize} pill />
+        <ChipRow label="Size" items={availableSizes} selected={selectedSizes} onToggle={onToggleSize} pill />
         <div className="border-t border-white/5 mb-7" />
         <ChipRow label="Brand" items={allBrands} selected={selectedBrands} onToggle={onToggleBrand} />
         <div className="border-t border-white/5 mb-7" />
-        <ChipRow label="Item Type" items={CATEGORIES} selected={selectedCategories} onToggle={onToggleCategory} />
+        <ChipRow label="Item Type" items={availableCategories} selected={selectedCategories} onToggle={onToggleCategory} />
         <div className="border-t border-white/5 mb-7" />
-        <ChipRow label="Fit" items={FITS} selected={selectedFits} onToggle={onToggleFit} />
+        <ChipRow label="Fit" items={availableFits} selected={selectedFits} onToggle={onToggleFit} />
 
         {/* Count */}
         <div className="border-t border-white/5 pt-5">
@@ -167,7 +174,7 @@ function MobileFilterDrawer({
             style={{ fontFamily: "var(--font-playfair-display), serif" }}>
             Filters
           </span>
-          <button onClick={onClose} className="text-[#aaa] hover:text-white w-8 h-8 flex items-center justify-center">
+          <button onClick={onClose} aria-label="Close filters" className="text-[#aaa] hover:text-white w-8 h-8 flex items-center justify-center">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -202,6 +209,11 @@ function ShopContent() {
 
   const products = useProducts();
   const allBrands = getBrandsInStock(products);
+  const availableProducts = products.filter((product) => product.stock > 0);
+  const availableSizes = SIZES.filter((size) => availableProducts.some((product) => product.size === size));
+  const availableCategories = CATEGORIES.filter((category) => availableProducts.some((product) => product.category === category));
+  const availableFits = FITS.filter((fit) => availableProducts.some((product) => product.fit === fit));
+  const availableGenders = (["Mens", "Womens"] as const).filter((gender) => availableProducts.some((product) => product.gender === gender));
 
   const [selectedGender, setSelectedGender] = useState<"All" | "Mens" | "Womens">(
     paramGender ?? "All"
@@ -216,6 +228,8 @@ function ShopContent() {
     paramCategory ? [paramCategory] : []
   );
   const [selectedFits, setSelectedFits] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"newest" | "price-low" | "price-high">("newest");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [newOnly] = useState(paramNew);
@@ -248,7 +262,14 @@ function ShopContent() {
     const brandMatch = selectedBrands.length === 0 || selectedBrands.includes(p.brand);
     const catMatch = selectedCategories.length === 0 || selectedCategories.includes(p.category);
     const fitMatch = selectedFits.length === 0 || selectedFits.includes(p.fit);
-    return genderMatch && sizeMatch && brandMatch && catMatch && fitMatch;
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const searchMatch = !normalizedSearch || [p.name, p.brand, p.size, p.category, p.era]
+      .some((value) => value.toLowerCase().includes(normalizedSearch));
+    return genderMatch && sizeMatch && brandMatch && catMatch && fitMatch && searchMatch;
+  }).sort((a, b) => {
+    if (sortBy === "price-low") return a.price - b.price;
+    if (sortBy === "price-high") return b.price - a.price;
+    return new Date(b.listedDate).getTime() - new Date(a.listedDate).getTime();
   });
 
   const sidebarProps: SidebarProps = {
@@ -258,6 +279,10 @@ function ShopContent() {
     selectedCategories,
     selectedFits,
     allBrands,
+    availableSizes,
+    availableCategories,
+    availableFits,
+    availableGenders: [...availableGenders],
     onGender: setSelectedGender,
     onToggleSize: (s) => setSelectedSizes((prev) => tog(prev, s)),
     onToggleBrand: (b) => setSelectedBrands((prev) => tog(prev, b)),
@@ -269,6 +294,7 @@ function ShopContent() {
       setSelectedBrands([]);
       setSelectedCategories([]);
       setSelectedFits([]);
+      setSearchQuery("");
     },
     resultCount: filtered.length,
   };
@@ -343,6 +369,22 @@ function ShopContent() {
             </button>
           </div>
 
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 mt-5 max-w-2xl">
+            <label className="relative">
+              <span className="sr-only">Search products</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666] pointer-events-none"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.2-5.2m0 0A7.5 7.5 0 105.2 5.2a7.5 7.5 0 0010.6 10.6z" /></svg>
+              <input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search name, brand, size…" className="w-full bg-[#151515] border border-white/20 text-white text-sm pl-10 pr-3 py-3 outline-none focus:border-[#E8500A] placeholder:text-white/40" />
+            </label>
+            <label>
+              <span className="sr-only">Sort products</span>
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-full bg-[#151515] border border-white/20 text-white text-xs uppercase tracking-wider px-3 outline-none focus:border-[#E8500A]">
+                <option value="newest">Newest</option>
+                <option value="price-low">Price: low</option>
+                <option value="price-high">Price: high</option>
+              </select>
+            </label>
+          </div>
+
           {/* Active filter chips */}
           {activeChips.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-4">
@@ -357,7 +399,6 @@ function ShopContent() {
                       if (chip === "Mens" || chip === "Womens") setSelectedGender("All");
                       else if (chip.startsWith("Size ")) setSelectedSizes((p) => p.filter((s) => `Size ${s}` !== chip));
                       else if (chip.startsWith("Fit: ")) setSelectedFits((p) => p.filter((f) => `Fit: ${f}` !== chip));
-                      else if (selectedBrands.includes(chip)) setSelectedBrands((p) => p.filter((b) => b !== chip));
                       else setSelectedCategories((p) => p.filter((c) => c !== chip));
                     }}
                     className="opacity-60 hover:opacity-100 transition-opacity ml-0.5"

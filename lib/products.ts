@@ -4,6 +4,15 @@ export type Era = "60s" | "70s" | "80s" | "90s" | "00s" | "2010s" | "2020s";
 export const ERAS = ["60s", "70s", "80s", "90s", "00s", "2010s", "2020s"] as const;
 export type Fit = "Regular" | "Fitted" | "Baggy" | "Oversized";
 
+export interface GarmentDetails {
+  colour?: string;
+  material?: string;
+  pitToPit?: string;
+  length?: string;
+  sleeve?: string;
+  flaws?: string;
+}
+
 export interface Product {
   id: number | string;
   name: string;
@@ -24,6 +33,7 @@ export interface Product {
   imageUrls?: string[];
   vintedTitle?: string;
   vintedDescription?: string;
+  garmentDetails?: GarmentDetails;
 }
 
 export const SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;

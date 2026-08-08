@@ -5,138 +5,46 @@ import { Product, isNew } from "@/lib/products";
 import SizeGuide from "./SizeGuide";
 import AddToCartButton from "./AddToCartButton";
 
-interface Props {
-  product: Product;
-  onClick: () => void;
-}
+interface Props { product: Product; onClick: () => void }
 
 const ICONS: Record<string, string> = {
-  "Jackets": "🧥",
-  "Hoodies": "👕",
-  "T-Shirts & Tops": "👕",
-  "Sweatshirts": "🧶",
-  "Tracksuits": "🏃",
-  "Joggers & Tracksuit Bottoms": "🏃",
-  "Trousers": "👖",
-  "Shorts": "🩳",
-  "Football Shirts": "⚽",
-  "Headwear": "🧢",
-  "Bags & Backpacks": "🎒",
-  "Swimwear": "🩱",
-  "Shoes": "👟",
+  Jackets: "🧥", Hoodies: "👕", "T-Shirts & Tops": "👕", Sweatshirts: "🧶",
+  Tracksuits: "🏃", "Joggers & Tracksuit Bottoms": "🏃", Trousers: "👖",
+  Shorts: "🩳", "Football Shirts": "⚽", Headwear: "🧢", "Bags & Backpacks": "🎒",
+  Swimwear: "🩱", Shoes: "👟",
 };
 
 export default function ProductCard({ product, onClick }: Props) {
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
-  const icon = ICONS[product.category] ?? "👕";
-
   const isSoldOut = product.stock === 0;
   const showMarqueeBadge = product.badge === "RARE";
   const showNewBadge = !showMarqueeBadge && isNew(product);
   const badgeLabel = showMarqueeBadge ? "MARQUEE" : "NEW";
-  const badgeCls = showMarqueeBadge
-    ? "bg-[#E8500A] text-white shadow-[0_0_10px_rgba(232,80,10,0.4)]"
-    : "bg-[#F5C300] text-black";
+  const badgeCls = showMarqueeBadge ? "bg-[#E8500A] text-white" : "bg-[#F5C300] text-black";
 
-  return (
-    <>
-      <article
-        onClick={() => !isSoldOut && onClick()}
-        className={`group relative bg-[#111] border border-white/8 transition-all duration-200 ${
-          isSoldOut
-            ? "opacity-55 cursor-default"
-            : "cursor-pointer hover:border-[#E8500A] hover:-translate-y-1.5 hover:shadow-[0_8px_32px_rgba(232,80,10,0.2)]"
-        }`}
-        role={isSoldOut ? undefined : "button"}
-        tabIndex={isSoldOut ? undefined : 0}
-        onKeyDown={(e) => !isSoldOut && e.key === "Enter" && onClick()}
-        aria-label={isSoldOut ? `${product.name} — sold out` : `View ${product.name}`}
-      >
-        {/* ── Image area ── */}
+  return <>
+    <article className={`group relative bg-[#111] border border-white/10 transition-all duration-200 ${isSoldOut ? "opacity-55" : "hover:border-[#E8500A] hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(232,80,10,0.18)]"}`}>
+      <button type="button" onClick={onClick} disabled={isSoldOut} className="block w-full text-left disabled:cursor-default" aria-label={isSoldOut ? `${product.name} — sold out` : `View ${product.name}`}>
         <div className="aspect-[3/4] bg-[#161616] flex items-center justify-center relative overflow-hidden">
-          {product.imageUrls?.[0] && (
-            <img
-              src={product.imageUrls[0]}
-              alt={product.name}
-              className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 ${isSoldOut ? "grayscale" : "group-hover:scale-[1.03]"}`}
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
-
-          {!product.imageUrls?.[0] && <div className="text-center p-4 z-10">
-            <div className={`text-4xl sm:text-5xl mb-3 transition-opacity duration-300 ${isSoldOut ? "opacity-20" : "opacity-50 group-hover:opacity-80"}`}>
-              {icon}
-            </div>
-            <p className="text-[#2a2a2a] text-[10px] font-medium leading-tight px-2 group-hover:text-[#444] transition-colors">
-              {product.name}
-            </p>
-          </div>}
-
-          {/* Badge */}
-          {(showMarqueeBadge || showNewBadge) && (
-            <div className={`absolute top-2.5 left-2.5 text-[9px] sm:text-[10px] font-black tracking-[0.15em] px-2 py-1 ${badgeCls}`}>
-              {badgeLabel}
-            </div>
-          )}
-
-          {/* Sold-out stamp */}
-          {isSoldOut && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-20">
-              <span className="text-white/55 text-xl font-black tracking-[0.3em] border-2 border-white/25 px-4 py-1.5 rotate-[-8deg]">
-                SOLD
-              </span>
-            </div>
-          )}
-
-          {/* Ships tag — in-stock items */}
-          {!isSoldOut && (
-            <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 px-2 py-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-              <span className="text-emerald-400/80 text-[9px] font-bold tracking-wide uppercase">Ships 24hrs</span>
-            </div>
-          )}
-
-          <div className="absolute inset-0 bg-[#E8500A]/0 group-hover:bg-[#E8500A]/3 transition-colors duration-300 pointer-events-none" />
+          {product.imageUrls?.[0] ? <img src={product.imageUrls[0]} alt={product.name} loading="lazy" decoding="async" className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 ${isSoldOut ? "grayscale" : "group-hover:scale-[1.03]"}`} /> : <div className="text-center p-4"><div className="text-4xl sm:text-5xl mb-3 opacity-45">{ICONS[product.category] ?? "👕"}</div><p className="text-[#666] text-xs">Photo coming soon</p></div>}
+          {(showMarqueeBadge || showNewBadge) && <span className={`absolute top-2.5 left-2.5 text-[10px] font-black tracking-[0.12em] px-2 py-1 ${badgeCls}`}>{badgeLabel}</span>}
+          {isSoldOut ? <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-white/70 text-xl font-black tracking-[0.25em] border-2 border-white/30 px-4 py-1.5 -rotate-6">SOLD</span></div> : <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/75 px-2 py-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /><span className="text-emerald-300 text-[10px] font-bold tracking-wide uppercase">Ships 24–48hrs</span></div>}
+          {product.imageUrls && product.imageUrls.length > 1 && <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] px-2 py-1">{product.imageUrls.length} photos</span>}
         </div>
-
-        {/* ── Info ── */}
-        <div className="p-3 sm:p-4">
-          <h3 className={`text-xs sm:text-sm font-semibold leading-snug mb-1.5 transition-colors duration-200 line-clamp-2 ${isSoldOut ? "text-white/40" : "text-white group-hover:text-[#E8500A]"}`}>
-            {product.name}
-          </h3>
-
-          {/* Brand · Size */}
-          <p className="text-[10px] tracking-wide mb-2">
-            <span className={isSoldOut ? "text-[#444]" : "text-[#aaa] font-medium"}>
-              {product.brand}
-            </span>
-            <span className="text-[#333] mx-1.5">·</span>
-            <span className="text-[#555]">Size {product.size}</span>
-          </p>
-
-          <div className="flex items-center justify-between pt-2 border-t border-white/5">
-            {/* Size Guide link */}
-            <button
-              onClick={(e) => { e.stopPropagation(); setSizeGuideOpen(true); }}
-              className="text-[#444] text-[9px] hover:text-[#aaa] underline underline-offset-2 tracking-wide transition-colors"
-            >
-              Size Guide
-            </button>
-
-            <span className={`font-black text-base sm:text-lg ${isSoldOut ? "text-[#444]" : "text-[#E8500A]"}`}>
-              {isSoldOut ? "SOLD" : `£${product.price}`}
-            </span>
-          </div>
-          {!isSoldOut && (
-            <AddToCartButton
-              product={product}
-              className="mt-3 w-full border border-[#E8500A]/50 text-[#E8500A] hover:bg-[#E8500A] hover:text-white py-2 text-[9px] font-black tracking-[0.15em] transition-colors"
-            />
-          )}
+        <div className="p-3 sm:p-4 pb-2">
+          <h3 className={`text-sm font-semibold leading-snug mb-1.5 line-clamp-2 ${isSoldOut ? "text-white/50" : "text-white group-hover:text-[#E8500A]"}`}>{product.name}</h3>
+          <p className="text-xs tracking-wide"><span className={isSoldOut ? "text-[#666]" : "text-[#bbb] font-medium"}>{product.brand}</span><span className="text-[#555] mx-1.5">·</span><span className="text-[#888]">Size {product.size}</span></p>
         </div>
-      </article>
+      </button>
 
-      {sizeGuideOpen && <SizeGuide onClose={() => setSizeGuideOpen(false)} />}
-    </>
-  );
+      <div className="px-3 sm:px-4 pb-3 sm:pb-4">
+        <div className="flex items-center justify-between pt-2 border-t border-white/8">
+          <button type="button" onClick={() => setSizeGuideOpen(true)} className="text-[#888] text-[11px] hover:text-white underline underline-offset-2 transition-colors">Size guide</button>
+          <span className={`font-black text-lg ${isSoldOut ? "text-[#666]" : "text-[#E8500A]"}`}>{isSoldOut ? "SOLD" : `£${product.price.toFixed(2)}`}</span>
+        </div>
+        {!isSoldOut && <AddToCartButton product={product} className="mt-3 w-full border border-[#E8500A]/60 text-[#E8500A] hover:bg-[#E8500A] hover:text-white py-2.5 text-[11px] font-black tracking-[0.14em] transition-colors" />}
+      </div>
+    </article>
+    {sizeGuideOpen && <SizeGuide onClose={() => setSizeGuideOpen(false)} />}
+  </>;
 }

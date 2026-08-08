@@ -50,6 +50,7 @@ const EMPTY_PRODUCT: Omit<Product, "id"> = {
   imageUrls: [],
   vintedTitle: "",
   vintedDescription: "",
+  garmentDetails: {},
 };
 
 const INPUT = "w-full bg-[#171717] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-[#E8500A]/70 placeholder:text-[#444]";
@@ -383,6 +384,12 @@ export default function AdminPage() {
         fit: FITS.includes(data.suggestedFit) ? data.suggestedFit : overrides.fit || current.fit,
         badge: mode === "photos" ? (String(data.suggestedMarquee).toLowerCase() === "yes" ? "RARE" : "NEW") : overrides.badge || current.badge,
         rareBadge: mode === "photos" ? (String(data.suggestedMarquee).toLowerCase() === "yes" ? "ARCHIVE" : undefined) : overrides.rareBadge ?? current.rareBadge,
+        garmentDetails: {
+          ...current.garmentDetails,
+          colour: data.suggestedColour || current.garmentDetails?.colour,
+          material: data.suggestedMaterial || current.garmentDetails?.material,
+          flaws: data.visibleFlaws || current.garmentDetails?.flaws,
+        },
       }));
       if (mode === "photos") setPhotoAnalysis(data.photoFindings || "Photos analysed successfully.");
       setListingMessage(mode === "photos" ? "Pictures analysed and fields populated — add any extra details above, then merge with AI" : "Draft generated — check the details before publishing");
@@ -572,6 +579,18 @@ export default function AdminPage() {
 
               <div className="bg-[#111] border border-white/8 p-5 sm:p-6 space-y-4">
                 <h3 className="font-black">Review and publish</h3>
+                <div className="border border-white/8 bg-[#161616] p-4">
+                  <p className="text-[#E8500A] text-[10px] font-black tracking-[0.18em] uppercase mb-3">Garment details & measurements</p>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <Field label="Colour / pattern" value={form.garmentDetails?.colour ?? ""} onChange={(value) => setForm({ ...form, garmentDetails: { ...form.garmentDetails, colour: value } })} placeholder="Desert camouflage" />
+                    <Field label="Material" value={form.garmentDetails?.material ?? ""} onChange={(value) => setForm({ ...form, garmentDetails: { ...form.garmentDetails, material: value } })} placeholder="Only if known from label" />
+                    <Field label="Pit to pit" value={form.garmentDetails?.pitToPit ?? ""} onChange={(value) => setForm({ ...form, garmentDetails: { ...form.garmentDetails, pitToPit: value } })} placeholder="56 cm" />
+                    <Field label="Length" value={form.garmentDetails?.length ?? ""} onChange={(value) => setForm({ ...form, garmentDetails: { ...form.garmentDetails, length: value } })} placeholder="66 cm" />
+                    <Field label="Sleeve" value={form.garmentDetails?.sleeve ?? ""} onChange={(value) => setForm({ ...form, garmentDetails: { ...form.garmentDetails, sleeve: value } })} placeholder="62 cm" />
+                    <Field label="Flaws" value={form.garmentDetails?.flaws ?? ""} onChange={(value) => setForm({ ...form, garmentDetails: { ...form.garmentDetails, flaws: value } })} placeholder="None visible / describe clearly" />
+                  </div>
+                  <p className="text-[#777] text-[11px] mt-3">Measure garments flat. These details appear beside the item and help reduce sizing questions and returns.</p>
+                </div>
                 <Field label="Website title" value={form.name} onChange={(value) => setForm({ ...form, name: value })} suggestions={LISTING_WORDS} />
                 <TextArea label="Website description" value={form.description} onChange={(value) => setForm({ ...form, description: value })} suggestions={LISTING_WORDS} />
                 <CopyField label="Vinted title" value={form.vintedTitle ?? ""} onChange={(value) => setForm({ ...form, vintedTitle: value })} suggestions={LISTING_WORDS} />
