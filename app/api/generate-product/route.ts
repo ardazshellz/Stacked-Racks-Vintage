@@ -30,6 +30,16 @@ const LISTING_SCHEMA = {
   additionalProperties: false,
 };
 
+function sentencesOnSeparateLines(value: string, maximum: number) {
+  return value
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(/(?<=[.!?])\s+(?=[A-Z0-9])/)
+    .filter(Boolean)
+    .slice(0, maximum)
+    .join("\n");
+}
+
 function isProductImageUrl(value: unknown): value is string {
   if (typeof value !== "string" || !process.env.SUPABASE_URL) return false;
   try {
@@ -94,16 +104,16 @@ Study every supplied photo closely. Read visible brand labels, size labels, care
 Combine the known details, seller notes, any previous photo findings and the supplied photos into a polished listing. Treat seller-provided facts as authoritative. Never claim authenticity, precise fabric or an exact year unless the evidence supports it.`}
 
 Writing style:
-- websiteDescription: detailed, useful and engaging; 4-6 sentences covering design details, era, condition, fit, styling and collectability where supported.
-- vintedDescription: short and easy to scan; 1-2 sentences and no more than 240 characters, containing only the key facts and visible flaws.
+- websiteDescription: concise and useful; 3-4 short sentences and no more than 80 words total. Cover the strongest design details, condition and fit without flowery filler. Put every sentence on its own line.
+- vintedDescription: very easy to scan; 2-3 short factual sentences and no more than 240 characters total. Put every sentence on its own line and include visible flaws.
 - Titles must be factual, search-friendly and free from unsupported claims.
 
 Return ONLY valid JSON:
 {
   "websiteTitle": "max 8 words",
-  "websiteDescription": "detailed 4-6 sentence website description",
+  "websiteDescription": "concise 3-4 sentence website description, each sentence on a new line",
   "vintedTitle": "search-friendly title, max 80 characters",
-  "vintedDescription": "short Vinted description, 1-2 sentences, max 240 characters, no hashtags",
+  "vintedDescription": "short Vinted description, 2-3 sentence lines, max 240 characters, no hashtags",
   "suggestedBrand": "brand or Vintage",
   "suggestedCategory": "best matching category",
   "suggestedEra": "one of 60s,70s,80s,90s,00s,2010s,2020s",
@@ -190,6 +200,8 @@ Return ONLY valid JSON:
     const listing = Object.fromEntries(
       OUTPUT_FIELDS.map((field) => [field, typeof parsed[field] === "string" ? parsed[field] : ""]),
     );
+    listing.websiteDescription = sentencesOnSeparateLines(listing.websiteDescription, 4);
+    listing.vintedDescription = sentencesOnSeparateLines(listing.vintedDescription, 3);
     if (!listing.websiteTitle || !listing.vintedTitle || !listing.vintedDescription) {
       throw new Error("Missing required listing fields");
     }

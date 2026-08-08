@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { getBrandsInStock, products } from "@/lib/products";
+import CartLink from "./CartLink";
 
 interface DropdownGroup {
   heading: string;
@@ -214,6 +215,7 @@ export default function Navbar() {
 
           {/* ── Social links + Contact + hamburger ── */}
           <div className="flex items-center gap-1">
+            <CartLink />
             {/* Instagram */}
             <a
               href="https://instagram.com/stacked_racks_vintage"
@@ -263,6 +265,7 @@ export default function Navbar() {
 
       {/* ── Mobile menu ── */}
       <div className={`md:hidden bg-[#111] border-t border-white/10 overflow-hidden transition-all duration-300 ${mobileOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"}`}>
+        <CartLink mobile />
         {/* Social links row */}
         <div className="flex items-center gap-6 px-6 py-4 border-b border-white/5">
           <a href="https://instagram.com/stacked_racks_vintage" target="_blank" rel="noopener noreferrer"

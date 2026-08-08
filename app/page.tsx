@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { isNew, SIZES, FITS, ERAS, getBrandsInStock, CATEGORIES } from "@/lib/products";
 import { useProducts } from "@/hooks/useProducts";
 import Navbar from "@/components/Navbar";
@@ -13,6 +13,7 @@ import { Product } from "@/lib/products";
 import Footer from "@/components/Footer";
 import EmailPopup from "@/components/EmailPopup";
 import { useRouter } from "next/navigation";
+import { clearCart } from "@/lib/cart";
 
 function toggle<T>(arr: T[], val: T): T[] {
   return arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
@@ -115,15 +116,16 @@ export default function Home() {
   const [orderStatus, setOrderStatus] = useState<"success" | "cancelled" | null>(null);
 
   // Read ?order= param from URL without useSearchParams (no Suspense needed)
-  useState(() => {
-    if (typeof window === "undefined") return;
+  useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const s = p.get("order");
     if (s === "success" || s === "cancelled") {
-      setOrderStatus(s);
+      if (s === "success") clearCart();
       window.history.replaceState({}, "", window.location.pathname);
+      const timer = window.setTimeout(() => setOrderStatus(s), 0);
+      return () => window.clearTimeout(timer);
     }
-  });
+  }, []);
 
   const products = useProducts();
   const inStockBrands = getBrandsInStock(products);

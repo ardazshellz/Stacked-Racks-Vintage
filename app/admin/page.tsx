@@ -7,6 +7,7 @@ import {
   ERAS,
   FITS,
   SIZES,
+  products as staticProducts,
   type Condition,
   type Era,
   type Fit,
@@ -199,6 +200,8 @@ export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("orders");
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [hiddenProductIds, setHiddenProductIds] = useState<string[]>([]);
+  const [productSearch, setProductSearch] = useState("");
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState("");
   const [search, setSearch] = useState("");
@@ -232,7 +235,13 @@ export default function AdminPage() {
       const productsData = await productsResponse.json();
       if (!ordersResponse.ok) throw new Error(ordersData.error ?? "Could not load orders");
       setOrders(ordersData.orders ?? []);
-      setProducts(productsData.products ?? []);
+      const deletedIds = new Set<string>(productsData.deletedProductIds ?? []);
+      const combined = [...(productsData.products ?? []), ...staticProducts].filter((product, index, all) => {
+        const id = String(product.id);
+        return !deletedIds.has(id) && all.findIndex((item) => String(item.id) === id) === index;
+      });
+      setProducts(combined);
+      setHiddenProductIds(productsData.hiddenProductIds ?? []);
     } catch (error) {
       setDataError(error instanceof Error ? error.message : "Could not load dashboard data");
     } finally {
@@ -284,6 +293,14 @@ export default function AdminPage() {
   const recentRevenue = paidOrders
     .filter((order) => new Date(order.date_of_sale).getTime() >= thirtyDaysAgo)
     .reduce((sum, order) => sum + Number(order.total), 0);
+  const managedProducts = useMemo(() => {
+    const query = productSearch.trim().toLowerCase();
+    const sorted = [...products].sort((a, b) =>
+      new Date(b.listedDate).getTime() - new Date(a.listedDate).getTime(),
+    );
+    if (!query) return sorted.slice(0, 5);
+    return sorted.filter((product) => `${product.name} ${product.brand}`.toLowerCase().includes(query));
+  }, [productSearch, products]);
 
   const recordManualSale = async () => {
     const total = manualSale.total || manualSale.price + manualSale.postage;
@@ -438,10 +455,28 @@ export default function AdminPage() {
     if (response.ok) await loadDashboard();
   };
 
+  const toggleProductVisibility = async (product: Product) => {
+    setDataError("");
+    const id = String(product.id);
+    const hidden = !hiddenProductIds.includes(id);
+    const response = await fetch("/api/products", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visibility: { id, hidden } }),
+    });
+    const data = await response.json();
+    if (!response.ok) return setDataError(data.error ?? "Could not change product visibility");
+    await loadDashboard();
+    window.dispatchEvent(new CustomEvent("sr:products-updated"));
+  };
+
   const removeProduct = async (product: Product) => {
-    if (!window.confirm(`Delete ${product.name}?`)) return;
+    if (!window.confirm(`Permanently delete ${product.name}? This cannot be undone from the dashboard.`)) return;
     const response = await fetch(`/api/products?id=${encodeURIComponent(String(product.id))}`, { method: "DELETE" });
-    if (response.ok) await loadDashboard();
+    const data = await response.json();
+    if (!response.ok) return setDataError(data.error ?? "Could not delete product");
+    await loadDashboard();
+    window.dispatchEvent(new CustomEvent("sr:products-updated"));
   };
 
   if (checkingAuth) {
@@ -484,7 +519,7 @@ export default function AdminPage() {
         {tab === "orders" && (
           <section>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-7">
-              {[{ label: "Paid orders", value: paidOrders.length }, { label: "All-time revenue", value: money(revenue) }, { label: "Last 30 days", value: money(recentRevenue) }, { label: "Live products", value: products.filter((product) => product.stock > 0).length }].map((stat) => <div key={stat.label} className="bg-[#111] border border-white/8 p-5"><p className="text-[#555] text-[9px] uppercase tracking-[0.2em] mb-2">{stat.label}</p><p className="text-2xl font-black">{stat.value}</p></div>)}
+              {[{ label: "Paid orders", value: paidOrders.length }, { label: "All-time revenue", value: money(revenue) }, { label: "Last 30 days", value: money(recentRevenue) }, { label: "Live products", value: products.filter((product) => product.stock > 0 && !hiddenProductIds.includes(String(product.id))).length }].map((stat) => <div key={stat.label} className="bg-[#111] border border-white/8 p-5"><p className="text-[#555] text-[9px] uppercase tracking-[0.2em] mb-2">{stat.label}</p><p className="text-2xl font-black">{stat.value}</p></div>)}
             </div>
             <div className="flex flex-wrap gap-3 items-center mb-4">
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customer, item or order…" className={`${INPUT} sm:max-w-xs`} />
@@ -547,9 +582,15 @@ export default function AdminPage() {
             </div>
 
             <aside className="bg-[#111] border border-white/8 p-5 xl:sticky xl:top-24">
-              <h3 className="font-black mb-1">Website products</h3><p className="text-[#555] text-xs mb-4">Products uploaded through this dashboard.</p>
-              <div className="space-y-3 max-h-[72vh] overflow-y-auto">{products.map((product) => <div key={product.id} className="border border-white/8 p-3 flex gap-3"><div className="w-16 h-20 bg-[#1a1a1a] shrink-0 overflow-hidden">{product.imageUrls?.[0] && <img src={product.imageUrls[0]} alt="" className="w-full h-full object-cover" />}</div><div className="min-w-0 flex-1"><p className="text-sm font-bold truncate">{product.name}</p><p className="text-[#666] text-[10px]">{product.brand} · {money(product.price)}</p><p className={`text-[9px] mt-1 ${product.stock > 0 ? "text-emerald-400" : "text-red-400"}`}>{product.stock > 0 ? "LIVE" : "SOLD"}</p><div className="flex gap-3 mt-2"><button onClick={() => editProduct(product)} className="text-[#E8500A] text-[10px]">Edit</button><button onClick={() => void updateStock(product)} className="text-[#aaa] text-[10px]">{product.stock > 0 ? "Mark sold" : "Relist"}</button><button onClick={() => void removeProduct(product)} className="text-red-400 text-[10px]">Delete</button></div></div></div>)}</div>
-              {!products.length && <p className="text-[#555] text-xs py-8 text-center">No dashboard products yet.</p>}
+              <h3 className="font-black mb-1">Manage website products</h3><p className="text-[#555] text-xs mb-4">Your 5 newest listings appear here. Search to find any other item.</p>
+              <input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Search product name or brand…" className={`${INPUT} mb-4`} />
+              <div className="space-y-3 max-h-[72vh] overflow-y-auto">{managedProducts.map((product) => {
+                const id = String(product.id);
+                const hidden = hiddenProductIds.includes(id);
+                const databaseProduct = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id);
+                return <div key={product.id} className={`border p-3 flex gap-3 ${hidden ? "border-amber-500/25 bg-amber-500/[0.03]" : "border-white/8"}`}><div className="w-16 h-20 bg-[#1a1a1a] shrink-0 overflow-hidden">{product.imageUrls?.[0] && <img src={product.imageUrls[0]} alt="" className="w-full h-full object-cover" />}</div><div className="min-w-0 flex-1"><p className="text-sm font-bold truncate">{product.name}</p><p className="text-[#666] text-[10px]">{product.brand} · {money(product.price)}</p><p className={`text-[9px] mt-1 ${hidden ? "text-amber-300" : product.stock > 0 ? "text-emerald-400" : "text-red-400"}`}>{hidden ? "HIDDEN FROM PUBLIC" : product.stock > 0 ? "LIVE" : "SOLD"}</p><div className="flex flex-wrap gap-x-3 gap-y-2 mt-2">{databaseProduct && <button onClick={() => editProduct(product)} className="text-[#E8500A] text-[10px]">Edit</button>}{databaseProduct && <button onClick={() => void updateStock(product)} className="text-[#aaa] text-[10px]">{product.stock > 0 ? "Mark sold" : "Relist"}</button>}<button onClick={() => void toggleProductVisibility(product)} className="text-amber-300 text-[10px]">{hidden ? "Show publicly" : "Hide from public"}</button><button onClick={() => void removeProduct(product)} className="text-red-400 text-[10px]">Delete</button></div></div></div>;
+              })}</div>
+              {!managedProducts.length && <p className="text-[#555] text-xs py-8 text-center">No matching products.</p>}
             </aside>
           </section>
         )}

@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import { Product, isNew } from "@/lib/products";
+import AddToCartButton from "./AddToCartButton";
 
 interface Props {
   product: Product;
@@ -31,6 +32,10 @@ export default function ProductModal({ product, onClose }: Props) {
   const showBadge = product.badge === "RARE" || isNew(product);
   const badgeLabel = product.badge === "RARE" ? "MARQUEE" : "NEW";
   const badgeCls = product.badge === "RARE" ? "bg-[#E8500A] text-white" : "bg-[#F5C300] text-black";
+  const descriptionLines = (product.editorialStory || product.description)
+    .trim()
+    .split(/\n+|(?<=[.!?])\s+(?=[A-Z0-9])/)
+    .filter(Boolean);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
@@ -137,13 +142,11 @@ export default function ProductModal({ product, onClose }: Props) {
               Size {product.size}
             </p>
 
-            {product.editorialStory ? (
-              <div className="border-l-2 border-[#E8500A]/50 pl-4 mb-4">
-                <p className="text-[#aaa]/80 text-sm italic leading-relaxed">{product.editorialStory}</p>
-              </div>
-            ) : (
-              <p className="text-[#aaa] text-sm leading-relaxed mb-4">{product.description}</p>
-            )}
+            <div className={product.editorialStory ? "border-l-2 border-[#E8500A]/50 pl-4 mb-4" : "mb-4"}>
+              {descriptionLines.map((line, index) => (
+                <p key={`${line}-${index}`} className={`${product.editorialStory ? "text-[#aaa]/80 italic" : "text-[#aaa]"} text-sm leading-relaxed mb-2 last:mb-0`}>{line}</p>
+              ))}
+            </div>
 
             {/* Specs */}
             <div className="grid grid-cols-4 gap-1.5 mb-4">
@@ -180,17 +183,20 @@ export default function ProductModal({ product, onClose }: Props) {
               </div>
             </div>
 
-            {/* ── Dual CTAs ── */}
+            {/* ── Purchase actions ── */}
             <div className="space-y-2">
-              {/* Primary: direct checkout */}
+              <AddToCartButton
+                product={product}
+                className="w-full bg-[#E8500A] text-white font-black text-xs tracking-[0.2em] uppercase py-4 hover:bg-[#c94009] transition-colors shadow-[0_4px_24px_rgba(232,80,10,0.35)]"
+              />
               <a
                 href={`/checkout?item=${product.id}`}
-                className="flex items-center justify-center gap-2 w-full bg-[#E8500A] text-white font-black text-xs tracking-[0.2em] uppercase py-4 hover:bg-[#c94009] transition-colors shadow-[0_4px_24px_rgba(232,80,10,0.35)]"
+                className="flex items-center justify-center gap-2 w-full border border-[#E8500A]/60 text-[#E8500A] font-black text-xs tracking-[0.2em] uppercase py-3 hover:bg-[#E8500A]/10 transition-colors"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
                 </svg>
-                CHECKOUT WITH CARD
+                BUY THIS ITEM NOW
               </a>
 
               {/* Secondary: Vinted */}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Product, isNew } from "@/lib/products";
 import SizeGuide from "./SizeGuide";
+import AddToCartButton from "./AddToCartButton";
 
 interface Props {
   product: Product;
@@ -126,6 +127,12 @@ export default function ProductCard({ product, onClick }: Props) {
               {isSoldOut ? "SOLD" : `£${product.price}`}
             </span>
           </div>
+          {!isSoldOut && (
+            <AddToCartButton
+              product={product}
+              className="mt-3 w-full border border-[#E8500A]/50 text-[#E8500A] hover:bg-[#E8500A] hover:text-white py-2 text-[9px] font-black tracking-[0.15em] transition-colors"
+            />
+          )}
         </div>
       </article>
 
