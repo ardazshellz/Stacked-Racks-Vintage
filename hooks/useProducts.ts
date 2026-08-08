@@ -5,14 +5,34 @@ import { products as staticProducts, Product } from "@/lib/products";
 import { getDynamicProducts } from "@/lib/dynamicProducts";
 
 export function useProducts(): Product[] {
-  const [dynamic, setDynamic] = useState<Product[]>([]);
+  const [databaseProducts, setDatabaseProducts] = useState<Product[]>([]);
+  const [legacyProducts, setLegacyProducts] = useState<Product[]>([]);
 
   useEffect(() => {
-    setDynamic(getDynamicProducts());
-    const refresh = () => setDynamic(getDynamicProducts());
+    let active = true;
+    const refresh = async () => {
+      setLegacyProducts(getDynamicProducts());
+      try {
+        const response = await fetch("/api/products", { cache: "no-store" });
+        const data = await response.json();
+        if (active && response.ok) setDatabaseProducts(data.products ?? []);
+      } catch {
+        if (active) setDatabaseProducts([]);
+      }
+    };
+    void refresh();
     window.addEventListener("sr:products-updated", refresh);
-    return () => window.removeEventListener("sr:products-updated", refresh);
+    return () => {
+      active = false;
+      window.removeEventListener("sr:products-updated", refresh);
+    };
   }, []);
 
-  return [...dynamic, ...staticProducts];
+  const seen = new Set<string>();
+  return [...databaseProducts, ...legacyProducts, ...staticProducts].filter((product) => {
+    const id = String(product.id);
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
 }

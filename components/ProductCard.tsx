@@ -55,16 +55,23 @@ export default function ProductCard({ product, onClick }: Props) {
       >
         {/* ── Image area ── */}
         <div className="aspect-[3/4] bg-[#161616] flex items-center justify-center relative overflow-hidden">
+          {product.imageUrls?.[0] && (
+            <img
+              src={product.imageUrls[0]}
+              alt={product.name}
+              className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 ${isSoldOut ? "grayscale" : "group-hover:scale-[1.03]"}`}
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
 
-          <div className="text-center p-4 z-10">
+          {!product.imageUrls?.[0] && <div className="text-center p-4 z-10">
             <div className={`text-4xl sm:text-5xl mb-3 transition-opacity duration-300 ${isSoldOut ? "opacity-20" : "opacity-50 group-hover:opacity-80"}`}>
               {icon}
             </div>
             <p className="text-[#2a2a2a] text-[10px] font-medium leading-tight px-2 group-hover:text-[#444] transition-colors">
               {product.name}
             </p>
-          </div>
+          </div>}
 
           {/* Badge */}
           {(showRareBadge || showNewBadge) && (

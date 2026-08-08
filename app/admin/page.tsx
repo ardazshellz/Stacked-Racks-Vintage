@@ -1,88 +1,36 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { CATEGORIES, SIZES, FITS, ERAS, ALL_BRANDS, getBrandsInStock, products as staticProducts, type Product, type Era, type Fit, type Condition, type RareBadge } from "@/lib/products";
-import { getDynamicProducts, addDynamicProduct, updateDynamicProduct, deleteDynamicProduct } from "@/lib/dynamicProducts";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  CATEGORIES,
+  ERAS,
+  FITS,
+  SIZES,
+  type Condition,
+  type Era,
+  type Fit,
+  type Product,
+  type RareBadge,
+} from "@/lib/products";
 
-const ADMIN_PASSWORD = "stackedracks2024";
-const STORAGE_KEY = "sr_orders";
+type Tab = "orders" | "listings";
 
-type PaymentStatus = "Paid" | "Pending" | "Refunded";
-
-interface Order {
+interface OrderRow {
   id: string;
-  name: string;
-  phone: string;
-  address: string;
-  itemTitle: string;
-  cost: number;
-  paid: PaymentStatus;
-  dateCompleted: string;
+  source: string;
+  item_name: string;
+  brand: string;
+  price: number | string;
+  postage: number | string;
+  total: number | string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  customer_address: string;
+  payment_status: string;
   notes: string;
+  date_of_sale: string;
 }
-
-const EMPTY_ORDER: Omit<Order, "id"> = {
-  name: "",
-  phone: "",
-  address: "",
-  itemTitle: "",
-  cost: 0,
-  paid: "Pending",
-  dateCompleted: new Date().toISOString().split("T")[0],
-  notes: "",
-};
-
-function generateId() {
-  return `SR-${Date.now().toString(36).toUpperCase()}`;
-}
-
-function loadOrders(): Order[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
-  } catch {
-    return [];
-  }
-}
-
-function saveOrders(orders: Order[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-}
-
-function toCSV(orders: Order[]): string {
-  const headers = ["Order ID", "Customer Name", "Phone", "Address", "Item", "Cost (£)", "Payment Status", "Date Completed", "Notes"];
-  const rows = orders.map((o) => [
-    o.id,
-    o.name,
-    o.phone,
-    `"${o.address.replace(/"/g, '""')}"`,
-    `"${o.itemTitle.replace(/"/g, '""')}"`,
-    o.cost.toFixed(2),
-    o.paid,
-    o.dateCompleted,
-    `"${o.notes.replace(/"/g, '""')}"`,
-  ]);
-  return [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-}
-
-function downloadCSV(orders: Order[]) {
-  const csv = toCSV(orders);
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `stacked-racks-orders-${new Date().toISOString().split("T")[0]}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-const STATUS_CLS: Record<PaymentStatus, string> = {
-  Paid: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
-  Pending: "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30",
-  Refunded: "bg-red-500/15 text-red-400 border border-red-500/30",
-};
-
-// ─── Product form types ───────────────────────────────────────────────────────
 
 const EMPTY_PRODUCT: Omit<Product, "id"> = {
   name: "",
@@ -92,784 +40,391 @@ const EMPTY_PRODUCT: Omit<Product, "id"> = {
   price: 0,
   category: "Jackets",
   badge: "NEW",
-  rareBadge: undefined,
   stock: 1,
   condition: "Good",
   era: "90s",
   fit: "Regular",
-  listedDate: new Date().toISOString().split("T")[0],
+  listedDate: new Date().toISOString().slice(0, 10),
   description: "",
-  editorialStory: undefined,
+  imageUrls: [],
+  vintedTitle: "",
+  vintedDescription: "",
 };
 
-function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`text-[10px] font-black tracking-[0.12em] uppercase px-3 py-1.5 border transition-all duration-100 ${
-        active ? "bg-[#E8500A] border-[#E8500A] text-white" : "border-white/15 text-[#666] hover:border-white/35 hover:text-white"
-      }`}
-    >
-      {label}
-    </button>
-  );
+const INPUT = "w-full bg-[#171717] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-[#E8500A]/70 placeholder:text-[#444]";
+const LABEL = "block text-[#666] text-[9px] font-black tracking-[0.18em] uppercase mb-1.5";
+
+function money(value: number | string) {
+  return `£${Number(value || 0).toFixed(2)}`;
 }
 
-// ─── Admin page ───────────────────────────────────────────────────────────────
+function csvCell(value: unknown) {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
+function downloadHmrcCsv(orders: OrderRow[]) {
+  const headers = ["Date", "Order ID", "Item", "Brand", "Sale Price", "Postage", "Total", "Customer Name"];
+  const rows = orders.map((order) => [
+    new Date(order.date_of_sale).toLocaleDateString("en-GB"),
+    order.id,
+    csvCell(order.item_name),
+    csvCell(order.brand),
+    Number(order.price).toFixed(2),
+    Number(order.postage).toFixed(2),
+    Number(order.total).toFixed(2),
+    csvCell(order.customer_name),
+  ]);
+  const blob = new Blob([[headers.join(","), ...rows.map((row) => row.join(","))].join("\n")], {
+    type: "text/csv;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `stacked-racks-hmrc-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function AdminPage() {
-  const [authed, setAuthed] = useState(false);
-  const [pwInput, setPwInput] = useState("");
-  const [pwError, setPwError] = useState(false);
-  const [tab, setTab] = useState<"orders" | "products">("orders");
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [configured, setConfigured] = useState(true);
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [tab, setTab] = useState<Tab>("orders");
+  const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingData, setLoadingData] = useState(false);
+  const [dataError, setDataError] = useState("");
+  const [search, setSearch] = useState("");
+  const [showManualSale, setShowManualSale] = useState(false);
+  const [thirtyDaysAgo] = useState(() => Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const [manualSale, setManualSale] = useState({ customer_name: "", item_name: "", brand: "", price: 0, postage: 0, total: 0, notes: "Vinted sale" });
 
-  // Orders state
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Omit<Product, "id">>(EMPTY_PRODUCT);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<Omit<Order, "id">>(EMPTY_ORDER);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<PaymentStatus | "All">("All");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [sellerNotes, setSellerNotes] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [listingMessage, setListingMessage] = useState("");
 
-  // Products state
-  const [dynProducts, setDynProducts] = useState<Product[]>([]);
-  const [showProductForm, setShowProductForm] = useState(false);
-  const [editingProductId, setEditingProductId] = useState<number | null>(null);
-  const [productForm, setProductForm] = useState<Omit<Product, "id">>(EMPTY_PRODUCT);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState("");
-  const [productDeleteConfirm, setProductDeleteConfirm] = useState<number | null>(null);
+  const loadDashboard = useCallback(async () => {
+    setLoadingData(true);
+    setDataError("");
+    try {
+      const [ordersResponse, productsResponse] = await Promise.all([
+        fetch("/api/admin-orders", { cache: "no-store" }),
+        fetch("/api/products", { cache: "no-store" }),
+      ]);
+      if (ordersResponse.status === 401) {
+        setAuthenticated(false);
+        return;
+      }
+      const ordersData = await ordersResponse.json();
+      const productsData = await productsResponse.json();
+      if (!ordersResponse.ok) throw new Error(ordersData.error ?? "Could not load orders");
+      setOrders(ordersData.orders ?? []);
+      setProducts(productsData.products ?? []);
+    } catch (error) {
+      setDataError(error instanceof Error ? error.message : "Could not load dashboard data");
+    } finally {
+      setLoadingData(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("sr_admin_auth");
-    if (stored === "1") {
-      setAuthed(true);
-      setOrders(loadOrders());
-      setDynProducts(getDynamicProducts());
+    fetch("/api/admin/session", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => {
+        setAuthenticated(Boolean(data.authenticated));
+        setConfigured(Boolean(data.configured));
+        if (data.authenticated) void loadDashboard();
+      })
+      .finally(() => setCheckingAuth(false));
+  }, [loadDashboard]);
+
+  const handleLogin = async () => {
+    setLoginError("");
+    const response = await fetch("/api/admin/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setLoginError(data.error ?? "Could not sign in");
+      return;
     }
-    const refresh = () => setDynProducts(getDynamicProducts());
-    window.addEventListener("sr:products-updated", refresh);
-    return () => window.removeEventListener("sr:products-updated", refresh);
-  }, []);
-
-  const handleLogin = () => {
-    if (pwInput === ADMIN_PASSWORD) {
-      sessionStorage.setItem("sr_admin_auth", "1");
-      setAuthed(true);
-      setOrders(loadOrders());
-      setDynProducts(getDynamicProducts());
-    } else {
-      setPwError(true);
-      setTimeout(() => setPwError(false), 2000);
-    }
+    setPassword("");
+    setAuthenticated(true);
+    await loadDashboard();
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("sr_admin_auth");
-    setAuthed(false);
-    setPwInput("");
+  const handleLogout = async () => {
+    await fetch("/api/admin/session", { method: "DELETE" });
+    setAuthenticated(false);
   };
 
-  const persist = useCallback((updated: Order[]) => {
-    setOrders(updated);
-    saveOrders(updated);
-  }, []);
+  const filteredOrders = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return orders;
+    return orders.filter((order) => `${order.id} ${order.customer_name} ${order.item_name} ${order.brand}`.toLowerCase().includes(query));
+  }, [orders, search]);
 
-  const openNew = () => {
-    setForm(EMPTY_ORDER);
-    setEditingId(null);
-    setShowForm(true);
+  const paidOrders = orders.filter((order) => order.payment_status === "paid");
+  const revenue = paidOrders.reduce((sum, order) => sum + Number(order.total), 0);
+  const recentRevenue = paidOrders
+    .filter((order) => new Date(order.date_of_sale).getTime() >= thirtyDaysAgo)
+    .reduce((sum, order) => sum + Number(order.total), 0);
+
+  const recordManualSale = async () => {
+    const total = manualSale.total || manualSale.price + manualSale.postage;
+    const response = await fetch("/api/admin-orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...manualSale, total, payment_status: "paid" }),
+    });
+    const data = await response.json();
+    if (!response.ok) return setDataError(data.error ?? "Could not save sale");
+    setShowManualSale(false);
+    setManualSale({ customer_name: "", item_name: "", brand: "", price: 0, postage: 0, total: 0, notes: "Vinted sale" });
+    await loadDashboard();
   };
 
-  const openEdit = (order: Order) => {
-    const { id, ...rest } = order;
-    setForm(rest);
-    setEditingId(id);
-    setShowForm(true);
-  };
-
-  const handleSave = () => {
-    if (!form.name || !form.itemTitle) return;
-    if (editingId) {
-      persist(orders.map((o) => (o.id === editingId ? { ...form, id: editingId } : o)));
-    } else {
-      persist([{ ...form, id: generateId() }, ...orders]);
-    }
-    setShowForm(false);
-    setEditingId(null);
-  };
-
-  const handleDelete = (id: string) => {
-    persist(orders.filter((o) => o.id !== id));
-    setDeleteConfirm(null);
-  };
-
-  const filteredOrders = orders.filter((o) => {
-    const matchStatus = filterStatus === "All" || o.paid === filterStatus;
-    const q = searchQuery.toLowerCase();
-    const matchSearch = !q || o.name.toLowerCase().includes(q) || o.itemTitle.toLowerCase().includes(q);
-    return matchStatus && matchSearch;
-  });
-
-  const totalRevenue = orders.filter((o) => o.paid === "Paid").reduce((s, o) => s + o.cost, 0);
-  const pendingCount = orders.filter((o) => o.paid === "Pending").length;
-
-  const downloadHMRCExport = async () => {
+  const uploadPhotos = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setUploading(true);
+    setListingMessage("");
     try {
-      const res = await fetch(`/api/admin-orders?key=${encodeURIComponent(ADMIN_PASSWORD)}`);
-      if (!res.ok) { alert("Failed to fetch Stripe orders from Supabase."); return; }
-      const { orders: stripeOrders } = await res.json();
-      const headers = ["Date", "Order ID", "Item", "Brand", "Sale Price", "Postage", "Total", "Customer Name"];
-      const rows = stripeOrders.map((o: Record<string, unknown>) => [
-        new Date(o.date_of_sale as string).toLocaleDateString("en-GB"),
-        o.id,
-        `"${String(o.item_name ?? "").replace(/"/g, '""')}"`,
-        `"${String(o.brand ?? "").replace(/"/g, '""')}"`,
-        Number(o.price).toFixed(2),
-        Number(o.postage).toFixed(2),
-        Number(o.total).toFixed(2),
-        `"${String(o.customer_name ?? "").replace(/"/g, '""')}"`,
-      ]);
-      const csv = [headers.join(","), ...rows.map((r: string[]) => r.join(","))].join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `stacked-racks-hmrc-${new Date().getFullYear()}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      alert("Could not connect to Supabase. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local");
+      const urls: string[] = [];
+      for (const file of Array.from(files).slice(0, 6 - (form.imageUrls?.length ?? 0))) {
+        const body = new FormData();
+        body.append("file", file);
+        const response = await fetch("/api/admin/upload", { method: "POST", body });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error ?? `Could not upload ${file.name}`);
+        urls.push(data.url);
+      }
+      setForm((current) => ({ ...current, imageUrls: [...(current.imageUrls ?? []), ...urls] }));
+      setListingMessage(`${urls.length} photo${urls.length === 1 ? "" : "s"} uploaded`);
+    } catch (error) {
+      setListingMessage(error instanceof Error ? error.message : "Photo upload failed");
+    } finally {
+      setUploading(false);
     }
   };
 
-  // ── Product handlers ──
-  const openNewProduct = () => {
-    setProductForm({ ...EMPTY_PRODUCT, listedDate: new Date().toISOString().split("T")[0] });
-    setEditingProductId(null);
-    setAiError("");
-    setShowProductForm(true);
-  };
-
-  const openEditProduct = (p: Product) => {
-    const { id, ...rest } = p;
-    setProductForm(rest);
-    setEditingProductId(id as number);
-    setAiError("");
-    setShowProductForm(true);
-  };
-
-  const handleSaveProduct = () => {
-    if (!productForm.name || !productForm.brand) return;
-    if (editingProductId !== null) {
-      updateDynamicProduct({ ...productForm, id: editingProductId });
-    } else {
-      addDynamicProduct(productForm);
-    }
-    setShowProductForm(false);
-    setEditingProductId(null);
-  };
-
-  const handleDeleteProduct = (id: number) => {
-    deleteDynamicProduct(id);
-    setProductDeleteConfirm(null);
-  };
-
-  const handleToggleSold = (p: Product) => {
-    updateDynamicProduct({ ...p, stock: p.stock === 0 ? 1 : 0 });
-  };
-
-  const handleAiGenerate = async () => {
-    if (!productForm.brand && !productForm.category) return;
-    setAiLoading(true);
-    setAiError("");
+  const generateListing = async () => {
+    setGenerating(true);
+    setListingMessage("");
     try {
-      const res = await fetch("/api/generate-product", {
+      const response = await fetch("/api/generate-product", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          brand: productForm.brand,
-          category: productForm.category,
-          era: productForm.era,
-          condition: productForm.condition,
-          size: productForm.size,
-          fit: productForm.fit,
-          gender: productForm.gender,
-          badge: productForm.badge,
+          brand: form.brand,
+          category: form.category,
+          era: form.era,
+          condition: form.condition,
+          size: form.size,
+          fit: form.fit,
+          gender: form.gender,
+          badge: form.badge,
+          notes: sellerNotes,
+          imageUrls: form.imageUrls,
         }),
       });
-      const data = await res.json();
-      if (data.title) setProductForm((prev) => ({ ...prev, name: data.title, description: data.description }));
-      else setAiError(data.error ?? "AI generation failed");
-    } catch {
-      setAiError("Network error — check your connection");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "AI generation failed");
+      setForm((current) => ({
+        ...current,
+        name: data.websiteTitle || current.name,
+        description: data.websiteDescription || current.description,
+        vintedTitle: data.vintedTitle || current.vintedTitle,
+        vintedDescription: data.vintedDescription || current.vintedDescription,
+        brand: data.suggestedBrand || current.brand,
+        category: CATEGORIES.includes(data.suggestedCategory) ? data.suggestedCategory : current.category,
+        era: ERAS.includes(data.suggestedEra) ? data.suggestedEra : current.era,
+        condition: (["Excellent", "Good", "Fair"] as const).includes(data.suggestedCondition) ? data.suggestedCondition : current.condition,
+      }));
+      setListingMessage("Draft generated — check the details before publishing");
+    } catch (error) {
+      setListingMessage(error instanceof Error ? error.message : "AI generation failed");
+    } finally {
+      setGenerating(false);
     }
-    setAiLoading(false);
   };
 
-  if (!authed) {
+  const saveProduct = async () => {
+    setSaving(true);
+    setListingMessage("");
+    try {
+      const response = await fetch("/api/products", {
+        method: editingId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editingId ? { id: editingId, product: form } : form),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Could not save product");
+      setListingMessage(editingId ? "Product updated" : "Product published to the website");
+      setEditingId(null);
+      setForm({ ...EMPTY_PRODUCT, listedDate: new Date().toISOString().slice(0, 10) });
+      setSellerNotes("");
+      await loadDashboard();
+      window.dispatchEvent(new CustomEvent("sr:products-updated"));
+    } catch (error) {
+      setListingMessage(error instanceof Error ? error.message : "Could not save product");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const editProduct = (product: Product) => {
+    const { id, ...details } = product;
+    setEditingId(String(id));
+    setForm({ ...EMPTY_PRODUCT, ...details, imageUrls: details.imageUrls ?? [] });
+    setTab("listings");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const updateStock = async (product: Product) => {
+    const { id, ...details } = product;
+    const response = await fetch("/api/products", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, product: { ...details, stock: product.stock > 0 ? 0 : 1 } }),
+    });
+    if (response.ok) await loadDashboard();
+  };
+
+  const removeProduct = async (product: Product) => {
+    if (!window.confirm(`Delete ${product.name}?`)) return;
+    const response = await fetch(`/api/products?id=${encodeURIComponent(String(product.id))}`, { method: "DELETE" });
+    if (response.ok) await loadDashboard();
+  };
+
+  if (checkingAuth) {
+    return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-[#666]">Checking admin access…</div>;
+  }
+
+  if (!authenticated) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-8">
-            <h1 className="text-white text-2xl font-black tracking-widest mb-1" style={{ fontFamily: "var(--font-playfair-display), serif" }}>
-              STACKED RACKS
-            </h1>
-            <p className="text-[#444] text-xs tracking-[0.3em] uppercase">Admin Portal</p>
-          </div>
-          <div className="bg-[#111] border border-white/10 p-6">
-            <p className="text-[#aaa] text-xs tracking-wider uppercase mb-4">Password</p>
-            <input
-              type="password"
-              value={pwInput}
-              onChange={(e) => setPwInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-              placeholder="Enter admin password"
-              className={`w-full bg-[#1a1a1a] border text-white text-sm px-4 py-3 outline-none focus:border-[#E8500A] transition-colors mb-4 ${
-                pwError ? "border-red-500" : "border-white/10"
-              }`}
-            />
-            {pwError && <p className="text-red-400 text-xs mb-3">Incorrect password</p>}
-            <button
-              onClick={handleLogin}
-              className="w-full bg-[#E8500A] text-white font-black text-xs tracking-[0.2em] uppercase py-3 hover:bg-[#c94009] transition-colors"
-            >
-              Sign In
-            </button>
-          </div>
+      <main className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+        <div className="w-full max-w-sm bg-[#111] border border-white/10 p-7">
+          <p className="text-[#E8500A] text-[10px] font-black tracking-[0.3em] uppercase mb-3">Private area</p>
+          <h1 className="text-white text-2xl font-black mb-1">Stacked Racks Admin</h1>
+          <p className="text-[#666] text-sm mb-6">Orders, listings and HMRC exports.</p>
+          {!configured && <p className="text-amber-300 text-xs bg-amber-500/10 border border-amber-500/20 p-3 mb-4">Admin password still needs to be configured on Vercel.</p>}
+          <label className={LABEL}>Admin password</label>
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void handleLogin()} className={`${INPUT} mb-3`} />
+          {loginError && <p className="text-red-400 text-xs mb-3">{loginError}</p>}
+          <button onClick={handleLogin} disabled={!password || !configured} className="w-full bg-[#E8500A] disabled:opacity-40 text-white font-black text-xs tracking-[0.2em] uppercase py-3">Sign in</button>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      {/* Header */}
-      <div className="bg-[#111] border-b border-white/10 px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-6">
-          <div>
-            <h1 className="text-white font-black tracking-widest text-sm" style={{ fontFamily: "var(--font-playfair-display), serif" }}>
-              STACKED RACKS — ADMIN
-            </h1>
-          </div>
-          {/* Tabs */}
-          <div className="flex gap-1">
-            {(["orders", "products"] as const).map((t) => (
-              <button key={t} onClick={() => setTab(t)}
-                className={`text-[10px] font-black tracking-[0.2em] uppercase px-4 py-1.5 border transition-all ${
-                  tab === t ? "bg-[#E8500A] border-[#E8500A] text-white" : "border-white/15 text-[#555] hover:text-white hover:border-white/30"
-                }`}>
-                {t === "orders" ? "Orders" : "Products"}
-              </button>
-            ))}
-          </div>
+    <main className="min-h-screen bg-[#0a0a0a] text-white">
+      <header className="sticky top-0 z-30 bg-[#0d0d0d]/95 backdrop-blur border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+          <div><h1 className="font-black tracking-widest text-sm">STACKED RACKS — ADMIN</h1><p className="text-[#555] text-[10px] mt-1">Live shop management</p></div>
+          <nav className="flex gap-1">
+            {(["orders", "listings"] as const).map((item) => <button key={item} onClick={() => setTab(item)} className={`px-4 py-2 text-[10px] font-black tracking-[0.16em] uppercase border ${tab === item ? "bg-[#E8500A] border-[#E8500A]" : "border-white/10 text-[#777]"}`}>{item === "orders" ? "Sales" : "Listing studio"}</button>)}
+          </nav>
+          <button onClick={handleLogout} className="text-[#666] hover:text-white text-xs">Sign out</button>
         </div>
-        <div className="flex items-center gap-3">
-          {tab === "orders" && (
-            <>
-              <button onClick={() => downloadCSV(orders)}
-                className="flex items-center gap-2 border border-white/15 px-3 py-2 text-xs font-bold tracking-wider text-[#aaa] hover:text-white hover:border-white/30 transition-colors">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
-                </svg>
-                Manual Orders
-              </button>
-              <button onClick={downloadHMRCExport}
-                className="flex items-center gap-2 border border-[#F5C300]/30 px-3 py-2 text-xs font-bold tracking-wider text-[#F5C300]/70 hover:text-[#F5C300] hover:border-[#F5C300]/60 transition-colors">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
-                </svg>
-                HMRC Export
-              </button>
-            </>
-          )}
-          <button onClick={handleLogout} className="text-[#444] hover:text-white text-xs tracking-wider transition-colors">
-            Sign Out
-          </button>
-        </div>
-      </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-7">
+        {dataError && <div className="border border-red-500/30 bg-red-500/10 text-red-300 text-sm p-4 mb-5">{dataError}</div>}
+        {loadingData && <p className="text-[#666] text-xs mb-4">Refreshing live data…</p>}
 
-        {/* ══ ORDERS TAB ══ */}
-        {tab === "orders" && (<>
-        {/* Stats row */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          {[
-            { label: "Total Orders", value: orders.length },
-            { label: "Revenue (Paid)", value: `£${totalRevenue.toFixed(2)}` },
-            { label: "Awaiting Payment", value: pendingCount },
-          ].map(({ label, value }) => (
-            <div key={label} className="bg-[#111] border border-white/8 p-4">
-              <p className="text-[#444] text-[9px] tracking-[0.25em] uppercase mb-1">{label}</p>
-              <p className="text-white font-black text-xl">{value}</p>
+        {tab === "orders" && (
+          <section>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-7">
+              {[{ label: "Paid orders", value: paidOrders.length }, { label: "All-time revenue", value: money(revenue) }, { label: "Last 30 days", value: money(recentRevenue) }, { label: "Live products", value: products.filter((product) => product.stock > 0).length }].map((stat) => <div key={stat.label} className="bg-[#111] border border-white/8 p-5"><p className="text-[#555] text-[9px] uppercase tracking-[0.2em] mb-2">{stat.label}</p><p className="text-2xl font-black">{stat.value}</p></div>)}
             </div>
-          ))}
-        </div>
-
-        {/* Controls */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
-          <button
-            onClick={openNew}
-            className="flex items-center gap-2 bg-[#E8500A] text-white font-black text-xs tracking-[0.2em] uppercase px-4 py-2.5 hover:bg-[#c94009] transition-colors shrink-0"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3.5 h-3.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Add Order
-          </button>
-
-          <input
-            type="text"
-            placeholder="Search name or item…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-[#111] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-[#E8500A]/50 transition-colors w-full sm:w-56 placeholder-[#333]"
-          />
-
-          <div className="flex gap-2">
-            {(["All", "Paid", "Pending", "Refunded"] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setFilterStatus(s)}
-                className={`text-[10px] font-bold tracking-wider px-3 py-1.5 border transition-colors ${
-                  filterStatus === s
-                    ? "border-[#E8500A] text-[#E8500A] bg-[#E8500A]/10"
-                    : "border-white/10 text-[#555] hover:text-[#aaa] hover:border-white/20"
-                }`}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-
-          <span className="text-[#444] text-[10px] ml-auto">
-            {filteredOrders.length} of {orders.length} orders
-          </span>
-        </div>
-
-        {/* Orders table */}
-        {filteredOrders.length === 0 ? (
-          <div className="bg-[#111] border border-white/8 p-12 text-center">
-            <p className="text-[#333] text-sm tracking-wider">
-              {orders.length === 0 ? "No orders yet — add your first order above." : "No orders match your filter."}
-            </p>
-          </div>
-        ) : (
-          <div className="bg-[#111] border border-white/8 overflow-x-auto">
-            <table className="w-full min-w-[900px]">
-              <thead>
-                <tr className="border-b border-white/8">
-                  {["Order ID", "Customer", "Item", "Cost", "Status", "Date", "Actions"].map((h) => (
-                    <th key={h} className="text-left text-[9px] font-black tracking-[0.2em] text-[#444] uppercase px-4 py-3">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOrders.map((order, i) => (
-                  <tr
-                    key={order.id}
-                    className={`border-b border-white/5 hover:bg-white/[0.02] transition-colors ${i % 2 === 0 ? "" : "bg-white/[0.01]"}`}
-                  >
-                    <td className="px-4 py-3 text-[#E8500A] text-[10px] font-black tracking-wider whitespace-nowrap">{order.id}</td>
-                    <td className="px-4 py-3">
-                      <p className="text-white text-xs font-semibold">{order.name}</p>
-                      {order.phone && <p className="text-[#555] text-[10px]">{order.phone}</p>}
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-white text-xs font-medium max-w-[180px] leading-snug">{order.itemTitle}</p>
-                      {order.notes && <p className="text-[#444] text-[10px] mt-0.5 italic">{order.notes}</p>}
-                    </td>
-                    <td className="px-4 py-3 text-white font-black text-sm whitespace-nowrap">£{order.cost.toFixed(2)}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`text-[9px] font-black tracking-wider px-2 py-1 ${STATUS_CLS[order.paid]}`}>{order.paid}</span>
-                    </td>
-                    <td className="px-4 py-3 text-[#555] text-[10px] whitespace-nowrap">{order.dateCompleted}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => openEdit(order)}
-                          className="text-[#444] hover:text-white text-[10px] tracking-wider transition-colors"
-                        >
-                          Edit
-                        </button>
-                        {deleteConfirm === order.id ? (
-                          <span className="flex items-center gap-1">
-                            <button onClick={() => handleDelete(order.id)} className="text-red-400 text-[10px] font-bold hover:text-red-300">
-                              Confirm
-                            </button>
-                            <button onClick={() => setDeleteConfirm(null)} className="text-[#444] text-[10px] hover:text-[#aaa]">
-                              Cancel
-                            </button>
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => setDeleteConfirm(order.id)}
-                            className="text-[#333] hover:text-red-400 text-[10px] tracking-wider transition-colors"
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+            <div className="flex flex-wrap gap-3 items-center mb-4">
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customer, item or order…" className={`${INPUT} sm:max-w-xs`} />
+              <button onClick={() => setShowManualSale(true)} className="bg-[#E8500A] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Record Vinted sale</button>
+              <button onClick={() => downloadHmrcCsv(orders)} className="border border-[#F5C300]/40 text-[#F5C300] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Export HMRC CSV</button>
+              <button onClick={loadDashboard} className="border border-white/10 text-[#888] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Refresh</button>
+            </div>
+            <div className="bg-[#111] border border-white/8 overflow-x-auto">
+              <table className="w-full min-w-[940px] text-left">
+                <thead><tr className="border-b border-white/10">{["Date", "Order", "Customer", "Item", "Source", "Status", "Total"].map((heading) => <th key={heading} className="px-4 py-3 text-[#555] text-[9px] tracking-[0.18em] uppercase">{heading}</th>)}</tr></thead>
+                <tbody>{filteredOrders.map((order) => <tr key={order.id} className="border-b border-white/5 hover:bg-white/[0.02]"><td className="px-4 py-3 text-[#777] text-xs">{new Date(order.date_of_sale).toLocaleDateString("en-GB")}</td><td className="px-4 py-3 text-[#E8500A] text-xs font-bold">{order.id}</td><td className="px-4 py-3"><p className="text-sm font-semibold">{order.customer_name}</p><p className="text-[#555] text-[10px]">{order.customer_email}</p></td><td className="px-4 py-3"><p className="text-sm">{order.item_name}</p><p className="text-[#555] text-[10px]">{order.brand}</p></td><td className="px-4 py-3 text-[#777] text-xs uppercase">{order.source}</td><td className="px-4 py-3"><span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[9px] uppercase">{order.payment_status}</span></td><td className="px-4 py-3 font-black">{money(order.total)}</td></tr>)}</tbody>
+              </table>
+              {!filteredOrders.length && <p className="text-[#555] text-center py-14">No sales recorded yet.</p>}
+            </div>
+          </section>
         )}
 
-      {/* Add/Edit Order Drawer */}
-      {showForm && (
-        <div
-          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm"
-          onClick={(e) => e.target === e.currentTarget && setShowForm(false)}
-        >
-          <div className="bg-[#111] border border-white/10 w-full sm:max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl rounded-t-2xl sm:rounded-none">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 sticky top-0 bg-[#111] z-10">
-              <h2 className="text-white font-black text-sm tracking-widest">{editingId ? "EDIT ORDER" : "NEW ORDER"}</h2>
-              <button onClick={() => setShowForm(false)} className="text-[#aaa] hover:text-white w-8 h-8 flex items-center justify-center">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4">
-              {/* Customer fields */}
-              <div>
-                <p className="text-[#444] text-[9px] tracking-[0.25em] uppercase mb-3">Customer</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Full Name *" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-                  <Field label="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
-                  <Field label="Date Completed" type="date" value={form.dateCompleted} onChange={(v) => setForm({ ...form, dateCompleted: v })} />
+        {tab === "listings" && (
+          <section className="grid xl:grid-cols-[1fr_380px] gap-6 items-start">
+            <div className="space-y-5">
+              <div className="bg-[#111] border border-white/8 p-5 sm:p-6">
+                <div className="flex items-start justify-between gap-4 mb-5"><div><p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">Photo-first listing</p><h2 className="text-xl font-black">{editingId ? "Edit product" : "Create a product"}</h2><p className="text-[#666] text-xs mt-1">Upload up to six photos, add what you know, then generate the copy.</p></div>{editingId && <button onClick={() => { setEditingId(null); setForm(EMPTY_PRODUCT); }} className="text-[#777] text-xs">Cancel edit</button>}</div>
+                <label className="block border-2 border-dashed border-white/10 hover:border-[#E8500A]/50 p-7 text-center cursor-pointer mb-4"><input type="file" accept="image/jpeg,image/png,image/webp,image/heic" multiple className="hidden" onChange={(event) => void uploadPhotos(event.target.files)} disabled={uploading} /><span className="text-sm font-bold">{uploading ? "Uploading photos…" : "Choose product photos"}</span><span className="block text-[#555] text-[10px] mt-1">JPG, PNG, WEBP or HEIC · 4MB each</span></label>
+                {!!form.imageUrls?.length && <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">{form.imageUrls.map((url, index) => <div key={url} className="relative aspect-[3/4] bg-[#1a1a1a]"><img src={url} alt={`Product photo ${index + 1}`} className="w-full h-full object-cover" /><button onClick={() => setForm({ ...form, imageUrls: form.imageUrls?.filter((item) => item !== url) })} className="absolute top-1 right-1 bg-black/80 w-6 h-6 text-xs">×</button></div>)}</div>}
+                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Field label="Brand" value={form.brand} onChange={(value) => setForm({ ...form, brand: value })} placeholder="Nike, Adidas, Vintage…" />
+                  <Select label="Category" value={form.category} options={CATEGORIES} onChange={(value) => setForm({ ...form, category: value })} />
+                  <Select label="Size" value={form.size} options={SIZES} onChange={(value) => setForm({ ...form, size: value })} />
+                  <Select label="Department" value={form.gender} options={["Mens", "Womens"]} onChange={(value) => setForm({ ...form, gender: value as Product["gender"] })} />
+                  <Field label="Price (£)" value={form.price || ""} type="number" onChange={(value) => setForm({ ...form, price: Number(value) })} />
+                  <Select label="Era" value={form.era} options={ERAS} onChange={(value) => setForm({ ...form, era: value as Era })} />
+                  <Select label="Condition" value={form.condition} options={["Excellent", "Good", "Fair"]} onChange={(value) => setForm({ ...form, condition: value as Condition })} />
+                  <Select label="Fit" value={form.fit} options={FITS} onChange={(value) => setForm({ ...form, fit: value as Fit })} />
                 </div>
-                <div className="mt-3">
-                  <p className="text-[#555] text-[9px] tracking-wider uppercase mb-1">Shipping Address</p>
-                  <textarea
-                    value={form.address}
-                    onChange={(e) => setForm({ ...form, address: e.target.value })}
-                    rows={3}
-                    placeholder="House, Street, City, Postcode"
-                    className="w-full bg-[#1a1a1a] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-[#E8500A]/50 transition-colors resize-none placeholder-[#333]"
-                  />
-                </div>
+                <div className="grid sm:grid-cols-2 gap-4 mt-4"><Select label="Badge" value={form.badge} options={["NEW", "RARE"]} onChange={(value) => setForm({ ...form, badge: value as Product["badge"] })} />{form.badge === "RARE" && <Select label="Rare label" value={form.rareBadge ?? "ARCHIVE"} options={["ARCHIVE", "GRAIL", "ERA PIECE"]} onChange={(value) => setForm({ ...form, rareBadge: value as RareBadge })} />}</div>
+                <div className="mt-4"><label className={LABEL}>Notes for the AI</label><textarea value={sellerNotes} onChange={(event) => setSellerNotes(event.target.value)} rows={3} placeholder="Colour, measurements, flaws, label details, fabric if known…" className={INPUT} /></div>
+                <button onClick={generateListing} disabled={generating || (!form.imageUrls?.length && !form.brand)} className="mt-4 bg-[#F5C300] disabled:opacity-40 text-black font-black text-xs tracking-[0.16em] uppercase px-5 py-3">{generating ? "Analysing photos…" : "Generate website + Vinted copy"}</button>
               </div>
 
-              {/* Item fields */}
-              <div>
-                <p className="text-[#444] text-[9px] tracking-[0.25em] uppercase mb-3">Item</p>
-                <div className="space-y-3">
-                  <Field label="Item Title *" value={form.itemTitle} onChange={(v) => setForm({ ...form, itemTitle: v })} />
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-[#555] text-[9px] tracking-wider uppercase mb-1">Cost (£) *</p>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={form.cost || ""}
-                        onChange={(e) => setForm({ ...form, cost: parseFloat(e.target.value) || 0 })}
-                        className="w-full bg-[#1a1a1a] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-[#E8500A]/50 transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <p className="text-[#555] text-[9px] tracking-wider uppercase mb-1">Payment Status</p>
-                      <select
-                        value={form.paid}
-                        onChange={(e) => setForm({ ...form, paid: e.target.value as PaymentStatus })}
-                        className="w-full bg-[#1a1a1a] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-[#E8500A]/50 transition-colors"
-                      >
-                        <option value="Paid">Paid</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Refunded">Refunded</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[#555] text-[9px] tracking-wider uppercase mb-1">Notes</p>
-                    <input
-                      type="text"
-                      value={form.notes}
-                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                      placeholder="e.g. Vinted sale, discount applied…"
-                      className="w-full bg-[#1a1a1a] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-[#E8500A]/50 transition-colors placeholder-[#333]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={handleSave}
-                  disabled={!form.name || !form.itemTitle}
-                  className="flex-1 bg-[#E8500A] disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xs tracking-[0.2em] uppercase py-3 hover:bg-[#c94009] transition-colors"
-                >
-                  {editingId ? "Save Changes" : "Add Order"}
-                </button>
-                <button
-                  onClick={() => setShowForm(false)}
-                  className="px-5 border border-white/10 text-[#aaa] text-xs font-bold tracking-wider hover:text-white hover:border-white/20 transition-colors"
-                >
-                  Cancel
-                </button>
+              <div className="bg-[#111] border border-white/8 p-5 sm:p-6 space-y-4">
+                <h3 className="font-black">Review and publish</h3>
+                <Field label="Website title" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
+                <TextArea label="Website description" value={form.description} onChange={(value) => setForm({ ...form, description: value })} />
+                <CopyField label="Vinted title" value={form.vintedTitle ?? ""} onChange={(value) => setForm({ ...form, vintedTitle: value })} />
+                <CopyField label="Vinted description" value={form.vintedDescription ?? ""} onChange={(value) => setForm({ ...form, vintedDescription: value })} area />
+                {listingMessage && <p className="text-[#F5C300] text-xs border border-[#F5C300]/20 bg-[#F5C300]/5 p-3">{listingMessage}</p>}
+                <div className="flex flex-wrap gap-3"><button onClick={saveProduct} disabled={saving || !form.name || !form.brand || form.price <= 0} className="bg-[#E8500A] disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">{saving ? "Saving…" : editingId ? "Save changes" : "Publish to website"}</button><button onClick={() => navigator.clipboard.writeText(`${form.vintedTitle}\n\n${form.vintedDescription}`)} className="border border-white/15 text-[#aaa] px-5 py-3 text-xs font-bold">Copy full Vinted listing</button><a href="https://www.vinted.co.uk/items/new" target="_blank" rel="noopener noreferrer" className="border border-[#F5C300]/40 text-[#F5C300] px-5 py-3 text-xs font-bold">Open Vinted ↗</a></div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-      </>)}
 
-        {/* ══ PRODUCTS TAB ══ */}
-        {tab === "products" && (<>
-
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <p className="text-white font-black text-sm tracking-wider">Your Products</p>
-              <p className="text-[#444] text-[10px] mt-0.5">{dynProducts.length} item{dynProducts.length !== 1 ? "s" : ""} added via admin</p>
-            </div>
-            <button onClick={openNewProduct}
-              className="flex items-center gap-2 bg-[#E8500A] text-white font-black text-xs tracking-[0.2em] uppercase px-4 py-2.5 hover:bg-[#c94009] transition-colors">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3.5 h-3.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Add Product
-            </button>
-          </div>
-
-          {dynProducts.length === 0 ? (
-            <div className="bg-[#111] border border-white/8 p-12 text-center">
-              <p className="text-[#333] text-sm">No products added yet — click Add Product to get started.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {dynProducts.map((p) => (
-                <div key={p.id} className="bg-[#111] border border-white/8 p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <span className={`text-[9px] font-black tracking-wider px-2 py-0.5 ${p.stock === 0 ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"}`}>
-                      {p.stock === 0 ? "SOLD" : "IN STOCK"}
-                    </span>
-                    <span className="text-[#E8500A] font-black text-sm">£{p.price}</span>
-                  </div>
-                  <p className="text-white text-xs font-bold leading-snug mb-1 line-clamp-2">{p.name}</p>
-                  <p className="text-[#555] text-[10px] mb-1">{p.brand} · {p.category} · Size {p.size}</p>
-                  <p className="text-[#444] text-[10px] mb-3">{p.era} · {p.condition} · {p.gender}</p>
-                  <div className="flex gap-2">
-                    <button onClick={() => handleToggleSold(p)}
-                      className={`flex-1 text-[9px] font-black tracking-wider uppercase py-1.5 border transition-colors ${p.stock === 0 ? "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10" : "border-red-500/40 text-red-400 hover:bg-red-500/10"}`}>
-                      {p.stock === 0 ? "Mark In Stock" : "Mark Sold"}
-                    </button>
-                    <button onClick={() => openEditProduct(p)}
-                      className="px-3 text-[9px] font-bold tracking-wider uppercase border border-white/15 text-[#aaa] hover:text-white transition-colors">
-                      Edit
-                    </button>
-                    {productDeleteConfirm === p.id ? (
-                      <span className="flex gap-1">
-                        <button onClick={() => handleDeleteProduct(p.id as number)} className="text-red-400 text-[9px] font-bold px-2 hover:text-red-300">Del</button>
-                        <button onClick={() => setProductDeleteConfirm(null)} className="text-[#444] text-[9px] px-1">✕</button>
-                      </span>
-                    ) : (
-                      <button onClick={() => setProductDeleteConfirm(p.id as number)}
-                        className="px-2 text-[#333] hover:text-red-400 text-[9px] transition-colors">✕</button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* ── Add/Edit Product Form ── */}
-          {showProductForm && (
-            <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 pt-8 bg-black/80 backdrop-blur-sm overflow-y-auto"
-              onClick={(e) => e.target === e.currentTarget && setShowProductForm(false)}>
-              <div className="bg-[#111] border border-white/10 w-full max-w-2xl shadow-2xl mb-8">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 sticky top-0 bg-[#111] z-10">
-                  <h2 className="text-white font-black text-sm tracking-widest">{editingProductId ? "EDIT PRODUCT" : "NEW PRODUCT"}</h2>
-                  <button onClick={() => setShowProductForm(false)} className="text-[#aaa] hover:text-white w-8 h-8 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-
-                <div className="p-5 space-y-5">
-
-                  {/* Brand + Price */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-[#555] text-[9px] tracking-[0.2em] uppercase mb-2">Brand *</p>
-                      <input
-                        list="brand-suggestions"
-                        value={productForm.brand}
-                        onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })}
-                        placeholder="e.g. Nike, Adidas, Burberry"
-                        className="w-full bg-[#1a1a1a] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-[#E8500A]/50 placeholder-[#333]"
-                      />
-                      <datalist id="brand-suggestions">
-                        {Array.from(new Set([
-                          ...getBrandsInStock([...dynProducts, ...staticProducts]),
-                          ...ALL_BRANDS,
-                        ])).sort().map((b) => <option key={b} value={b} />)}
-                      </datalist>
-                    </div>
-                    <div>
-                      <p className="text-[#555] text-[9px] tracking-[0.2em] uppercase mb-2">Price (£) *</p>
-                      <input type="number" min="0" step="0.01" value={productForm.price || ""}
-                        onChange={(e) => setProductForm({ ...productForm, price: parseFloat(e.target.value) || 0 })}
-                        className="w-full bg-[#1a1a1a] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-[#E8500A]/50" />
-                    </div>
-                  </div>
-
-                  {/* Gender */}
-                  <div>
-                    <p className="text-[#555] text-[9px] tracking-[0.2em] uppercase mb-2">Gender</p>
-                    <div className="flex gap-2">
-                      {(["Mens", "Womens"] as const).map((g) => (
-                        <Chip key={g} label={g} active={productForm.gender === g} onClick={() => setProductForm({ ...productForm, gender: g })} />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Category */}
-                  <div>
-                    <p className="text-[#555] text-[9px] tracking-[0.2em] uppercase mb-2">Category</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {CATEGORIES.map((c) => (
-                        <Chip key={c} label={c} active={productForm.category === c} onClick={() => setProductForm({ ...productForm, category: c })} />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Size + Era */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-[#555] text-[9px] tracking-[0.2em] uppercase mb-2">Size</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {SIZES.map((s) => (
-                          <Chip key={s} label={s} active={productForm.size === s} onClick={() => setProductForm({ ...productForm, size: s })} />
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[#555] text-[9px] tracking-[0.2em] uppercase mb-2">Era</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {ERAS.map((e) => (
-                          <Chip key={e} label={e} active={productForm.era === e as Era} onClick={() => setProductForm({ ...productForm, era: e as Era })} />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Condition + Fit */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-[#555] text-[9px] tracking-[0.2em] uppercase mb-2">Condition</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(["Excellent", "Good", "Fair"] as const).map((c) => (
-                          <Chip key={c} label={c} active={productForm.condition === c} onClick={() => setProductForm({ ...productForm, condition: c as Condition })} />
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[#555] text-[9px] tracking-[0.2em] uppercase mb-2">Fit</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {FITS.map((f) => (
-                          <Chip key={f} label={f} active={productForm.fit === f as Fit} onClick={() => setProductForm({ ...productForm, fit: f as Fit })} />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Badge */}
-                  <div>
-                    <p className="text-[#555] text-[9px] tracking-[0.2em] uppercase mb-2">Badge</p>
-                    <div className="flex flex-wrap gap-2">
-                      {(["NEW", "RARE"] as const).map((b) => (
-                        <Chip key={b} label={b} active={productForm.badge === b} onClick={() => setProductForm({ ...productForm, badge: b })} />
-                      ))}
-                      {productForm.badge === "RARE" && (
-                        <div className="flex flex-wrap gap-1.5 mt-1 w-full">
-                          {(["ARCHIVE", "GRAIL", "ERA PIECE"] as const).map((rb) => (
-                            <Chip key={rb} label={rb}
-                              active={productForm.rareBadge === rb}
-                              onClick={() => setProductForm({ ...productForm, rareBadge: productForm.rareBadge === rb ? undefined : rb as RareBadge })} />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* AI Generate */}
-                  <div className="border-t border-white/8 pt-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[#555] text-[9px] tracking-[0.2em] uppercase">Title & Description</p>
-                      <button onClick={handleAiGenerate} disabled={aiLoading || !productForm.brand}
-                        className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#E8500A]/40 text-[#E8500A] text-[9px] font-black tracking-[0.15em] uppercase px-3 py-1.5 hover:bg-[#E8500A]/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                        {aiLoading ? (
-                          <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                            <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" strokeOpacity={0.25} />
-                            <path d="M3.75 12a8.25 8.25 0 018.25-8.25" />
-                          </svg>
-                        ) : (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                          </svg>
-                        )}
-                        {aiLoading ? "Generating…" : "AI Generate"}
-                      </button>
-                    </div>
-                    {aiError && <p className="text-red-400 text-[10px] mb-2">{aiError}</p>}
-                    <input value={productForm.name}
-                      onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                      placeholder="Product title"
-                      className="w-full bg-[#1a1a1a] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-[#E8500A]/50 placeholder-[#333] mb-2" />
-                    <textarea value={productForm.description}
-                      onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                      rows={3} placeholder="Product description"
-                      className="w-full bg-[#1a1a1a] border border-white/10 text-white text-xs px-3 py-2.5 outline-none focus:border-[#E8500A]/50 placeholder-[#333] resize-none" />
-                    <p className="text-[#333] text-[9px] mt-1">Fill in Brand, Category, Era and Condition first for best AI results</p>
-                  </div>
-
-                  <div className="flex gap-3 pt-1">
-                    <button onClick={handleSaveProduct} disabled={!productForm.name || !productForm.brand || productForm.price <= 0}
-                      className="flex-1 bg-[#E8500A] disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-xs tracking-[0.2em] uppercase py-3 hover:bg-[#c94009] transition-colors">
-                      {editingProductId ? "Save Changes" : "Add to Shop"}
-                    </button>
-                    <button onClick={() => setShowProductForm(false)}
-                      className="px-5 border border-white/10 text-[#aaa] text-xs font-bold hover:text-white hover:border-white/20 transition-colors">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-        </>)}
-
+            <aside className="bg-[#111] border border-white/8 p-5 xl:sticky xl:top-24">
+              <h3 className="font-black mb-1">Website products</h3><p className="text-[#555] text-xs mb-4">Products uploaded through this dashboard.</p>
+              <div className="space-y-3 max-h-[72vh] overflow-y-auto">{products.map((product) => <div key={product.id} className="border border-white/8 p-3 flex gap-3"><div className="w-16 h-20 bg-[#1a1a1a] shrink-0 overflow-hidden">{product.imageUrls?.[0] && <img src={product.imageUrls[0]} alt="" className="w-full h-full object-cover" />}</div><div className="min-w-0 flex-1"><p className="text-sm font-bold truncate">{product.name}</p><p className="text-[#666] text-[10px]">{product.brand} · {money(product.price)}</p><p className={`text-[9px] mt-1 ${product.stock > 0 ? "text-emerald-400" : "text-red-400"}`}>{product.stock > 0 ? "LIVE" : "SOLD"}</p><div className="flex gap-3 mt-2"><button onClick={() => editProduct(product)} className="text-[#E8500A] text-[10px]">Edit</button><button onClick={() => void updateStock(product)} className="text-[#aaa] text-[10px]">{product.stock > 0 ? "Mark sold" : "Relist"}</button><button onClick={() => void removeProduct(product)} className="text-red-400 text-[10px]">Delete</button></div></div></div>)}</div>
+              {!products.length && <p className="text-[#555] text-xs py-8 text-center">No dashboard products yet.</p>}
+            </aside>
+          </section>
+        )}
       </div>
-    </div>
+
+      {showManualSale && <Modal title="Record a Vinted or manual sale" onClose={() => setShowManualSale(false)}><div className="grid sm:grid-cols-2 gap-4"><Field label="Customer name" value={manualSale.customer_name} onChange={(value) => setManualSale({ ...manualSale, customer_name: value })} /><Field label="Item" value={manualSale.item_name} onChange={(value) => setManualSale({ ...manualSale, item_name: value })} /><Field label="Brand" value={manualSale.brand} onChange={(value) => setManualSale({ ...manualSale, brand: value })} /><Field label="Sale price" value={manualSale.price || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, price: Number(value) })} /><Field label="Postage" value={manualSale.postage || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, postage: Number(value) })} /><Field label="Notes" value={manualSale.notes} onChange={(value) => setManualSale({ ...manualSale, notes: value })} /></div><button onClick={recordManualSale} disabled={!manualSale.customer_name || !manualSale.item_name || manualSale.price <= 0} className="w-full mt-5 bg-[#E8500A] disabled:opacity-40 py-3 font-black text-xs tracking-wider uppercase">Save sale</button></Modal>}
+    </main>
   );
 }
 
-function Field({
-  label, value, onChange, type = "text",
-}: {
-  label: string; value: string; onChange: (v: string) => void; type?: string;
-}) {
-  return (
-    <div>
-      <p className="text-[#555] text-[9px] tracking-wider uppercase mb-1">{label}</p>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-[#1a1a1a] border border-white/10 text-white text-xs px-3 py-2 outline-none focus:border-[#E8500A]/50 transition-colors"
-      />
-    </div>
-  );
+function Field({ label, value, onChange, type = "text", placeholder = "" }: { label: string; value: string | number; onChange: (value: string) => void; type?: string; placeholder?: string }) {
+  return <label><span className={LABEL}>{label}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} step={type === "number" ? "0.01" : undefined} className={INPUT} /></label>;
+}
+
+function Select({ label, value, options, onChange }: { label: string; value: string; options: readonly string[]; onChange: (value: string) => void }) {
+  return <label><span className={LABEL}>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className={INPUT}>{options.map((option) => <option key={option}>{option}</option>)}</select></label>;
+}
+
+function TextArea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return <label><span className={LABEL}>{label}</span><textarea value={value} onChange={(event) => onChange(event.target.value)} rows={4} className={INPUT} /></label>;
+}
+
+function CopyField({ label, value, onChange, area = false }: { label: string; value: string; onChange: (value: string) => void; area?: boolean }) {
+  return <div><div className="flex justify-between items-center"><span className={LABEL}>{label}</span><button onClick={() => navigator.clipboard.writeText(value)} className="text-[#E8500A] text-[10px] mb-1.5">Copy</button></div>{area ? <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={7} className={INPUT} /> : <input value={value} onChange={(event) => onChange(event.target.value)} className={INPUT} />}</div>;
+}
+
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return <div className="fixed inset-0 z-50 bg-black/80 p-4 flex items-center justify-center" onClick={(event) => event.target === event.currentTarget && onClose()}><div className="w-full max-w-xl bg-[#111] border border-white/10 p-6"><div className="flex justify-between mb-5"><h2 className="font-black">{title}</h2><button onClick={onClose} className="text-[#777]">×</button></div>{children}</div></div>;
 }

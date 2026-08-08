@@ -5,7 +5,7 @@ export const ERAS = ["60s", "70s", "80s", "90s", "00s", "2010s", "2020s"] as con
 export type Fit = "Regular" | "Fitted" | "Baggy" | "Oversized";
 
 export interface Product {
-  id: number;
+  id: number | string;
   name: string;
   brand: string;
   size: string;
@@ -21,6 +21,9 @@ export interface Product {
   listedDate: string; // ISO date — NEW badge shown for 14 days
   description: string;
   editorialStory?: string;
+  imageUrls?: string[];
+  vintedTitle?: string;
+  vintedDescription?: string;
 }
 
 export const SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;

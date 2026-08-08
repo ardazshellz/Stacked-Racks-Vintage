@@ -89,10 +89,12 @@ export default function ProductModal({ product, onClose }: Props) {
             {badgeLabel}
           </div>
 
-          <div className="text-center px-6">
+          {product.imageUrls?.[0] ? (
+            <img src={product.imageUrls[0]} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
+          ) : <div className="text-center px-6">
             <div className="text-[6rem] mb-4 opacity-40">{icon}</div>
             <p className="text-[#2a2a2a] text-xs text-center leading-snug">{product.name}</p>
-          </div>
+          </div>}
           <div
             className="absolute bottom-4 right-4 text-[#E8500A]/15 text-xs font-black tracking-widest"
             style={{ fontFamily: "var(--font-playfair-display), serif" }}
@@ -118,10 +120,12 @@ export default function ProductModal({ product, onClose }: Props) {
 
           {/* Mobile-only image */}
           <div className="sm:hidden bg-[#161616] aspect-square flex items-center justify-center relative">
-            <div className="text-center">
+            {product.imageUrls?.[0] ? (
+              <img src={product.imageUrls[0]} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
+            ) : <div className="text-center">
               <div className="text-7xl mb-4 opacity-40">{icon}</div>
               <p className="text-[#2a2a2a] text-xs px-8 text-center">{product.name}</p>
-            </div>
+            </div>}
           </div>
 
           {/* Details content */}

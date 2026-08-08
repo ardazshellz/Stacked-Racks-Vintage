@@ -1,40 +1,60 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { isAdminRequest } from "@/lib/server/admin-auth";
 
 export async function POST(req: Request) {
+  if (!(await isAdminRequest())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY not set in .env.local" }, { status: 500 });
+    return NextResponse.json({ error: "The AI listing key has not been connected yet" }, { status: 503 });
   }
 
-  const { brand, category, era, condition, size, fit, gender, badge } = await req.json();
+  const { brand, category, era, condition, size, fit, gender, badge, notes, imageUrls } = await req.json();
 
   const client = new Anthropic({ apiKey });
 
+  const prompt = `You create accurate resale listings for Stacked Racks Vintage, a UK vintage clothing shop.
+
+Known details (some may be blank):
+Brand: ${brand || "Unknown"}
+Type: ${category || "Unknown"}
+Era: ${era || "Unknown"}
+Condition: ${condition || "Unknown"}
+Size label: ${size || "Unknown"}
+Fit: ${fit || "Unknown"}
+Department: ${gender || "Unknown"}
+Rarity: ${badge === "RARE" ? "Rare / collector piece" : "Standard listing"}
+Seller notes: ${notes || "None"}
+
+Study the supplied photos when present. Never claim an item is authentic, a precise fabric, or an exact year unless the supplied details prove it. Mention visible wear honestly. Return ONLY valid JSON:
+{
+  "websiteTitle": "max 7 words",
+  "websiteDescription": "2-3 concise sentences",
+  "vintedTitle": "search-friendly title, max 80 characters",
+  "vintedDescription": "clear Vinted-ready description with item, colour, labelled size, fit, condition and visible flaws; no hashtags",
+  "suggestedBrand": "brand or Vintage",
+  "suggestedCategory": "best matching category",
+  "suggestedEra": "one of 60s,70s,80s,90s,00s,2010s,2020s",
+  "suggestedCondition": "one of Excellent,Good,Fair"
+}`;
+
+  const content: Anthropic.Messages.ContentBlockParam[] = [
+    ...((Array.isArray(imageUrls) ? imageUrls : []).slice(0, 4).map((url: string) => ({
+      type: "image" as const,
+      source: { type: "url" as const, url },
+    }))),
+    { type: "text", text: prompt },
+  ];
+
   const msg = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 300,
+    max_tokens: 700,
     messages: [
       {
         role: "user",
-        content: `You write product listings for a London vintage clothing shop called Stacked Racks Vintage. Write a title and description for this item:
-
-Brand: ${brand || "Unknown"}
-Type: ${category}
-Era: ${era}
-Condition: ${condition}
-Size: ${size}
-Fit: ${fit}
-For: ${gender}
-${badge === "RARE" ? "Rarity: Rare / collector piece" : ""}
-
-Rules:
-- Title: max 7 words. Format: Brand + item type + era. No hype words. Example: "Nike 90s Windbreaker Jacket" or "Burberry Nova Check Overshirt"
-- Description: 2–3 short sentences. Honest, atmospheric, knowledgeable. Mention the era feel, what makes it stand out, and condition. No clichés like "timeless" or "must-have".
-- Tone: confident, like a person who really knows vintage
-
-Return ONLY valid JSON with no extra text:
-{"title": "...", "description": "..."}`,
+        content,
       },
     ],
   });
@@ -45,7 +65,7 @@ Return ONLY valid JSON with no extra text:
     // Strip markdown code fences if present
     const cleaned = raw.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
     const parsed = JSON.parse(cleaned);
-    return NextResponse.json({ title: parsed.title ?? "", description: parsed.description ?? "" });
+    return NextResponse.json(parsed);
   } catch {
     return NextResponse.json({ error: "Could not parse AI response", raw }, { status: 500 });
   }

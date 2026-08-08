@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { products as staticProducts } from "@/lib/products";
+import { products as staticProducts, type Product } from "@/lib/products";
 import { getDynamicProducts } from "@/lib/dynamicProducts";
 import Navbar from "@/components/Navbar";
 
@@ -34,7 +34,7 @@ function CheckoutContent() {
   const router = useRouter();
   const itemId = params.get("item");
 
-  const [product, setProduct] = useState<ReturnType<typeof staticProducts.find>>(undefined);
+  const [product, setProduct] = useState<Product | null | undefined>(undefined);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -44,9 +44,24 @@ function CheckoutContent() {
 
   useEffect(() => {
     if (!itemId) return;
-    const allProducts = [...getDynamicProducts(), ...staticProducts];
-    const found = allProducts.find((p) => String(p.id) === itemId);
-    setProduct(found);
+    let active = true;
+    const localProducts = [...getDynamicProducts(), ...staticProducts];
+    const localProduct = localProducts.find((p) => String(p.id) === itemId);
+    if (localProduct) {
+      Promise.resolve().then(() => {
+        if (active) setProduct(localProduct);
+      });
+    } else {
+      fetch("/api/products", { cache: "no-store" })
+        .then((response) => response.json())
+        .then((data) => {
+          if (active) setProduct((data.products ?? []).find((p: Product) => String(p.id) === itemId) ?? null);
+        })
+        .catch(() => {
+          if (active) setProduct(null);
+        });
+    }
+    return () => { active = false; };
   }, [itemId]);
 
   const total = (product?.price ?? 0) + POSTAGE;
@@ -62,9 +77,6 @@ function CheckoutContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           itemId: product.id,
-          itemName: product.name,
-          itemBrand: product.brand,
-          itemPrice: product.price,
           name, email, phone, address,
         }),
       });
@@ -162,8 +174,12 @@ function CheckoutContent() {
             <p className="text-[#E8500A] text-[9px] font-black tracking-[0.3em] uppercase mb-5">Order Summary</p>
 
             <div className="flex gap-4 mb-5 pb-5 border-b border-white/8">
-              <div className="w-16 h-16 bg-[#1a1a1a] border border-white/8 flex items-center justify-center shrink-0">
-                <span className="text-[#333] text-[10px] uppercase tracking-widest">Item</span>
+              <div className="w-16 h-16 bg-[#1a1a1a] border border-white/8 flex items-center justify-center shrink-0 overflow-hidden">
+                {product.imageUrls?.[0] ? (
+                  <img src={product.imageUrls[0]} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-[#333] text-[10px] uppercase tracking-widest">Item</span>
+                )}
               </div>
               <div>
                 <p className="text-white text-sm font-bold leading-snug">{product.name}</p>
@@ -190,7 +206,7 @@ function CheckoutContent() {
 
             <div className="mt-5 pt-4 border-t border-white/5">
               <p className="text-[#444] text-[10px] leading-relaxed">
-                Ships within 24–48 hours via Royal Mail. UK delivery 2–3 working days. You'll receive tracking info by email.
+                Ships within 24–48 hours via Royal Mail. UK delivery 2–3 working days. You&apos;ll receive tracking info by email.
               </p>
             </div>
           </div>

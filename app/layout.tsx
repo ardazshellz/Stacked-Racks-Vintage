@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     description: "Rare 80s, 90s & 00s vintage clothing. 5,000+ sales.",
     images: ["/og-image.jpg"],
   },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL ?? "https://stackedracks.co.uk"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL ?? "https://stackedracksvintage.co.uk"),
 };
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
