@@ -48,16 +48,33 @@ Study the supplied photos when present. Never claim an item is authentic, a prec
     { type: "text", text: prompt },
   ];
 
-  const msg = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 700,
-    messages: [
-      {
-        role: "user",
-        content,
-      },
-    ],
-  });
+  let msg: Anthropic.Messages.Message;
+  try {
+    msg = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 700,
+      messages: [
+        {
+          role: "user",
+          content,
+        },
+      ],
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.toLowerCase().includes("credit balance")) {
+      return NextResponse.json(
+        { error: "AI credits have run out. Add funds in Claude Console billing, then try again." },
+        { status: 402 },
+      );
+    }
+
+    console.error("AI listing generation failed:", error);
+    return NextResponse.json(
+      { error: "The AI listing service is temporarily unavailable. Please try again." },
+      { status: 502 },
+    );
+  }
 
   const raw = msg.content[0].type === "text" ? msg.content[0].text.trim() : "";
 
