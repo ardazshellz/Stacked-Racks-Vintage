@@ -1,28 +1,43 @@
 "use client";
 
-import { useState } from "react";
-import { addCartItem } from "@/lib/cart";
+import { useState, useSyncExternalStore } from "react";
+import { addCartItem, CART_UPDATED_EVENT, getCartIds } from "@/lib/cart";
 import type { Product } from "@/lib/products";
 
+function subscribeToCart(onStoreChange: () => void) {
+  window.addEventListener(CART_UPDATED_EVENT, onStoreChange);
+  window.addEventListener("storage", onStoreChange);
+  return () => {
+    window.removeEventListener(CART_UPDATED_EVENT, onStoreChange);
+    window.removeEventListener("storage", onStoreChange);
+  };
+}
+
 export default function AddToCartButton({ product, className = "" }: { product: Product; className?: string }) {
-  const [message, setMessage] = useState("ADD TO CART");
+  const cartSnapshot = useSyncExternalStore(
+    subscribeToCart,
+    () => getCartIds().join("|"),
+    () => "",
+  );
+  const isInCart = cartSnapshot.split("|").includes(String(product.id));
+  const [cartFull, setCartFull] = useState(false);
 
   const add = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
     const result = addCartItem(product.id);
-    setMessage(result === "full" ? "CART FULL" : result === "exists" ? "ALREADY IN CART" : "ADDED TO CART ✓");
-    window.setTimeout(() => setMessage("ADD TO CART"), 1800);
+    setCartFull(result === "full");
   };
 
   return (
     <button
       type="button"
       onClick={add}
-      disabled={product.stock < 1}
+      disabled={product.stock < 1 || isInCart}
       className={className}
+      aria-live="polite"
     >
-      {message}
+      {isInCart ? "ALREADY IN CART" : cartFull ? "CART FULL" : "ADD TO CART"}
     </button>
   );
 }

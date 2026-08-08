@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Product, isNew } from "@/lib/products";
 import { FREE_SHIPPING_THRESHOLD, qualifiesForFreeShipping } from "@/lib/shipping";
@@ -19,6 +19,9 @@ export default function ProductModal({ product, onClose }: Props) {
   const images = product.imageUrls ?? [];
   const [activeImage, setActiveImage] = useState(0);
   const [zoomed, setZoomed] = useState(false);
+  const desktopCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const touchStartX = useRef<number | null>(null);
   const handleClose = useCallback(() => onClose(), [onClose]);
   const icon = ICONS[product.category] ?? "👕";
   const showBadge = product.badge === "RARE" || isNew(product);
@@ -38,6 +41,7 @@ export default function ProductModal({ product, onClose }: Props) {
   const nextImage = useCallback(() => setActiveImage((index) => (index + 1) % images.length), [images.length]);
 
   useEffect(() => {
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         if (zoomed) setZoomed(false);
@@ -49,14 +53,29 @@ export default function ProductModal({ product, onClose }: Props) {
     document.addEventListener("keydown", handleKey);
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    if (window.matchMedia("(min-width: 640px)").matches) desktopCloseButtonRef.current?.focus();
+    else mobileCloseButtonRef.current?.focus();
     return () => {
       document.removeEventListener("keydown", handleKey);
       document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus();
     };
   }, [handleClose, images.length, nextImage, previousImage, zoomed]);
 
   const renderGallery = (mobile = false) => (
-    <div className={`${mobile ? "sm:hidden aspect-[4/5]" : "hidden sm:flex sm:w-[46%]"} shrink-0 bg-[#161616] items-center justify-center relative overflow-hidden`}>
+    <div
+      className={`${mobile ? "sm:hidden aspect-[4/5]" : "hidden sm:flex sm:w-[46%]"} shrink-0 bg-[#161616] items-center justify-center relative overflow-hidden touch-pan-y`}
+      onTouchStart={(event) => { touchStartX.current = event.touches[0]?.clientX ?? null; }}
+      onTouchEnd={(event) => {
+        if (touchStartX.current === null || images.length < 2) return;
+        const distance = (event.changedTouches[0]?.clientX ?? touchStartX.current) - touchStartX.current;
+        if (Math.abs(distance) > 45) {
+          if (distance < 0) nextImage();
+          else previousImage();
+        }
+        touchStartX.current = null;
+      }}
+    >
       {showBadge && <div className={`absolute top-4 left-4 z-20 text-[11px] font-black tracking-[0.15em] px-2.5 py-1 ${badgeCls}`}>{badgeLabel}</div>}
       {images[activeImage] ? (
         <button type="button" onClick={() => setZoomed(true)} aria-label={`Zoom image ${activeImage + 1} of ${images.length}`} className="absolute inset-0 w-full h-full cursor-zoom-in">
@@ -70,7 +89,7 @@ export default function ProductModal({ product, onClose }: Props) {
         <button type="button" onClick={nextImage} aria-label="Next product photo" className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-black/70 border border-white/20 text-white text-xl">›</button>
         <div className="absolute left-3 right-3 bottom-3 z-20 flex items-end justify-between gap-3">
           <div className="flex gap-1.5 overflow-x-auto">
-            {images.map((image, index) => <button type="button" key={`${image}-${index}`} onClick={() => setActiveImage(index)} aria-label={`Show photo ${index + 1}`} className={`w-10 h-12 shrink-0 bg-black border ${index === activeImage ? "border-[#E8500A]" : "border-white/20"}`}><img src={image} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" /></button>)}
+            {images.map((image, index) => <button type="button" key={`${image}-${index}`} onClick={() => setActiveImage(index)} aria-label={`Show photo ${index + 1}`} className={`w-11 h-14 shrink-0 bg-black border ${index === activeImage ? "border-[#E8500A]" : "border-white/20"}`}><img src={image} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" /></button>)}
           </div>
           <span className="shrink-0 bg-black/75 text-white text-[11px] px-2 py-1">{activeImage + 1}/{images.length}</span>
         </div>
@@ -81,15 +100,16 @@ export default function ProductModal({ product, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-6 bg-black/80 backdrop-blur-sm" onClick={(event) => event.target === event.currentTarget && handleClose()} role="dialog" aria-modal="true" aria-label={product.name}>
       <div className="bg-[#111] border border-white/10 shadow-2xl w-full rounded-t-2xl sm:rounded-none relative max-h-[94vh] overflow-y-auto sm:max-w-[980px] sm:max-h-[90vh] sm:overflow-hidden sm:flex">
-        <button onClick={handleClose} className="absolute top-3 right-3 z-30 bg-black/55 text-[#aaa] hover:text-white w-10 h-10 flex items-center justify-center hover:bg-black transition-colors" aria-label="Close product details">
+        <button ref={desktopCloseButtonRef} onClick={handleClose} className="hidden sm:flex absolute top-3 right-3 z-30 bg-black/65 border border-white/15 text-white w-10 h-10 items-center justify-center hover:bg-black hover:border-white/35 transition-colors" aria-label="Close product details">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
 
         {renderGallery()}
         <div className="sm:flex-1 sm:overflow-y-auto flex flex-col">
-          <div className="sm:hidden flex items-center px-5 py-4 border-b border-white/10 sticky top-0 bg-[#111] z-10 min-h-16">
+          <button ref={mobileCloseButtonRef} type="button" onClick={handleClose} className="sm:hidden w-full flex items-center justify-between gap-4 px-5 py-4 border-b border-white/10 sticky top-0 bg-[#111] z-30 min-h-16 text-left" aria-label="Close product details">
             <span className="text-[#bbb] text-xs tracking-wider uppercase">{product.gender} · {product.category}</span>
-          </div>
+            <span aria-hidden="true" className="w-8 h-8 shrink-0 rounded-full border border-white/20 bg-black/35 text-white text-xl leading-none flex items-center justify-center">×</span>
+          </button>
           {renderGallery(true)}
 
           <div className="p-5 sm:p-7 flex flex-col flex-1">
@@ -99,7 +119,7 @@ export default function ProductModal({ product, onClose }: Props) {
 
             {!!descriptionLines.length && <div className={product.editorialStory ? "border-l-2 border-[#E8500A]/50 pl-4 mb-5" : "mb-5"}>{descriptionLines.map((line, index) => <p key={`${line}-${index}`} className={`${product.editorialStory ? "text-[#bbb] italic" : "text-[#bbb]"} text-sm leading-relaxed mb-2 last:mb-0`}>{line}</p>)}</div>}
 
-            <div className="grid grid-cols-4 gap-1.5 mb-5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-5">
               {[["Size", product.size], ["Era", product.era], ["Condition", product.condition], ["Fit", product.fit]].map(([label, value]) => <div key={label} className="bg-[#1a1a1a] border border-white/8 p-2.5 text-center"><p className="text-[#888] text-[10px] uppercase tracking-[0.14em] mb-1">{label}</p><p className="text-white font-bold text-xs leading-tight">{value}</p></div>)}
             </div>
 
