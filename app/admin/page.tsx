@@ -98,6 +98,68 @@ const LISTING_WORDS = [
   "pink",
 ] as const;
 
+const QUICK_CATEGORIES = [
+  { words: ["t-shirt", "tshirt", "tee"], category: "T-Shirts & Tops", item: "T-Shirt" },
+  { words: ["hoodie"], category: "Hoodies", item: "Hoodie" },
+  { words: ["bomber"], category: "Jackets", item: "Bomber Jacket" },
+  { words: ["puffer"], category: "Jackets", item: "Puffer Jacket" },
+  { words: ["jacket", "coat"], category: "Jackets", item: "Jacket" },
+  { words: ["sweatshirt", "sweater", "jumper", "knit"], category: "Sweatshirts", item: "Sweatshirt" },
+  { words: ["tracksuit"], category: "Tracksuits", item: "Tracksuit" },
+  { words: ["joggers", "jogger"], category: "Joggers & Tracksuit Bottoms", item: "Joggers" },
+  { words: ["trousers", "trouser", "pants"], category: "Trousers", item: "Trousers" },
+  { words: ["shorts", "short"], category: "Shorts", item: "Shorts" },
+  { words: ["football shirt", "jersey"], category: "Football Shirts", item: "Football Shirt" },
+  { words: ["cap", "hat", "beanie"], category: "Headwear", item: "Headwear" },
+  { words: ["backpack", "bag"], category: "Bags & Backpacks", item: "Bag" },
+  { words: ["swimwear", "swimsuit"], category: "Swimwear", item: "Swimwear" },
+  { words: ["trainers", "trainer", "shoes", "shoe"], category: "Shoes", item: "Shoes" },
+] as const;
+
+function parseQuickListing(details: string, current: Omit<Product, "id">): Partial<Omit<Product, "id">> {
+  const text = details.toLowerCase().replaceAll("’", "'");
+  const parsed: Partial<Omit<Product, "id">> = {};
+  const brand = ALL_BRANDS.find((item) => text.includes(item.toLowerCase()));
+  const categoryMatch = QUICK_CATEGORIES.find((item) => item.words.some((word) => text.includes(word)));
+  const sizeMatches: Array<[RegExp, string]> = [
+    [/\b(?:xxl|2xl|extra extra large)\b/, "XXL"],
+    [/\b(?:xl|extra large)\b/, "XL"],
+    [/\b(?:xs|extra small)\b/, "XS"],
+    [/\b(?:large|size l)\b/, "L"],
+    [/\b(?:medium|size m)\b/, "M"],
+    [/\b(?:small|size s)\b/, "S"],
+  ];
+  const size = sizeMatches.find(([pattern]) => pattern.test(text))?.[1];
+  const eraMatch = text.match(/\b(?:19|20)?(60|70|80|90|00|10|20)s\b/);
+  const priceMatch = details.match(/(?:£|gbp\s*)(\d+(?:\.\d{1,2})?)/i);
+
+  if (brand) parsed.brand = brand;
+  if (categoryMatch) parsed.category = categoryMatch.category;
+  if (size) parsed.size = size;
+  if (/\b(?:women|womens|women's|female)\b/.test(text)) parsed.gender = "Womens";
+  else if (/\b(?:men|mens|men's|male)\b/.test(text)) parsed.gender = "Mens";
+  if (eraMatch) parsed.era = `${eraMatch[1]}s` as Era;
+  if (/\bexcellent\b/.test(text)) parsed.condition = "Excellent";
+  else if (/\bfair\b/.test(text)) parsed.condition = "Fair";
+  else if (/\bgood\b/.test(text)) parsed.condition = "Good";
+  if (/\boversized\b/.test(text)) parsed.fit = "Oversized";
+  else if (/\bbaggy\b/.test(text)) parsed.fit = "Baggy";
+  else if (/\bfitted\b/.test(text)) parsed.fit = "Fitted";
+  else if (/\bregular\b/.test(text)) parsed.fit = "Regular";
+  if (priceMatch) parsed.price = Number(priceMatch[1]);
+  if (/\b(?:rare|archive|grail|one of one|1 of 1)\b/.test(text)) parsed.badge = "RARE";
+  if (/\bgrail\b/.test(text)) parsed.rareBadge = "GRAIL";
+  else if (/\bera piece\b/.test(text)) parsed.rareBadge = "ERA PIECE";
+  else if (/\b(?:archive|rare)\b/.test(text)) parsed.rareBadge = "ARCHIVE";
+
+  const titleParts = [brand ?? current.brand, parsed.era ?? current.era, categoryMatch?.item].filter(Boolean);
+  if (titleParts.length >= 2) {
+    parsed.name = titleParts.join(" ");
+    parsed.vintedTitle = titleParts.join(" ");
+  }
+  return parsed;
+}
+
 function money(value: number | string) {
   return `£${Number(value || 0).toFixed(2)}`;
 }
@@ -147,6 +209,7 @@ export default function AdminPage() {
 
   const [form, setForm] = useState<Omit<Product, "id">>(EMPTY_PRODUCT);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [quickDetails, setQuickDetails] = useState("");
   const [sellerNotes, setSellerNotes] = useState("");
   const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -259,38 +322,40 @@ export default function AdminPage() {
     }
   };
 
-  const generateListing = async () => {
+  const generateListing = async (overrides: Partial<Omit<Product, "id">> = {}, notesOverride?: string) => {
     setGenerating(true);
     setListingMessage("");
+    const listingForm = { ...form, ...overrides };
     try {
       const response = await fetch("/api/generate-product", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          brand: form.brand,
-          category: form.category,
-          era: form.era,
-          condition: form.condition,
-          size: form.size,
-          fit: form.fit,
-          gender: form.gender,
-          badge: form.badge,
-          notes: sellerNotes,
-          imageUrls: form.imageUrls,
+          brand: listingForm.brand,
+          category: listingForm.category,
+          era: listingForm.era,
+          condition: listingForm.condition,
+          size: listingForm.size,
+          fit: listingForm.fit,
+          gender: listingForm.gender,
+          badge: listingForm.badge,
+          notes: notesOverride ?? sellerNotes,
+          imageUrls: listingForm.imageUrls,
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "AI generation failed");
       setForm((current) => ({
         ...current,
-        name: data.websiteTitle || current.name,
-        description: data.websiteDescription || current.description,
-        vintedTitle: data.vintedTitle || current.vintedTitle,
-        vintedDescription: data.vintedDescription || current.vintedDescription,
-        brand: data.suggestedBrand || current.brand,
-        category: CATEGORIES.includes(data.suggestedCategory) ? data.suggestedCategory : current.category,
-        era: ERAS.includes(data.suggestedEra) ? data.suggestedEra : current.era,
-        condition: (["Excellent", "Good", "Fair"] as const).includes(data.suggestedCondition) ? data.suggestedCondition : current.condition,
+        ...overrides,
+        name: data.websiteTitle || overrides.name || current.name,
+        description: data.websiteDescription || overrides.description || current.description,
+        vintedTitle: data.vintedTitle || overrides.vintedTitle || current.vintedTitle,
+        vintedDescription: data.vintedDescription || overrides.vintedDescription || current.vintedDescription,
+        brand: data.suggestedBrand || overrides.brand || current.brand,
+        category: CATEGORIES.includes(data.suggestedCategory) ? data.suggestedCategory : overrides.category || current.category,
+        era: ERAS.includes(data.suggestedEra) ? data.suggestedEra : overrides.era || current.era,
+        condition: (["Excellent", "Good", "Fair"] as const).includes(data.suggestedCondition) ? data.suggestedCondition : overrides.condition || current.condition,
       }));
       setListingMessage("Draft generated — check the details before publishing");
     } catch (error) {
@@ -298,6 +363,13 @@ export default function AdminPage() {
     } finally {
       setGenerating(false);
     }
+  };
+
+  const generateQuickListing = async () => {
+    const parsed = parseQuickListing(quickDetails, form);
+    setForm((current) => ({ ...current, ...parsed }));
+    setSellerNotes(quickDetails);
+    await generateListing(parsed, quickDetails);
   };
 
   const saveProduct = async () => {
@@ -411,6 +483,11 @@ export default function AdminPage() {
             <div className="space-y-5">
               <div className="bg-[#111] border border-white/8 p-5 sm:p-6">
                 <div className="flex items-start justify-between gap-4 mb-5"><div><p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">Photo-first listing</p><h2 className="text-xl font-black">{editingId ? "Edit product" : "Create a product"}</h2><p className="text-[#666] text-xs mt-1">Upload up to six photos, add what you know, then generate the copy.</p></div>{editingId && <button onClick={() => { setEditingId(null); setForm(EMPTY_PRODUCT); }} className="text-[#777] text-xs">Cancel edit</button>}</div>
+                <div className="mb-5 border border-[#F5C300]/25 bg-[#F5C300]/[0.04] p-4">
+                  <label className="block text-[#F5C300] text-[10px] font-black tracking-[0.2em] uppercase mb-2">Quick listing — describe it once</label>
+                  <AutocompleteControl label="Quick listing details" value={quickDetails} onChange={setQuickDetails} rows={3} multiline placeholder="Example: Nike, jacket, medium, mens, 90s, black, good condition, £65" suggestions={LISTING_WORDS} />
+                  <div className="mt-3 flex flex-wrap items-center gap-3"><button onClick={() => void generateQuickListing()} disabled={generating || quickDetails.trim().length < 3} className="bg-[#F5C300] disabled:opacity-40 text-black font-black text-xs tracking-[0.14em] uppercase px-5 py-3">{generating ? "Filling every box…" : "Fill every box with AI"}</button><span className="text-[#777] text-[10px]">Include the price with £ if you want that filled too.</span></div>
+                </div>
                 <label className="block border-2 border-dashed border-white/10 hover:border-[#E8500A]/50 p-7 text-center cursor-pointer mb-4"><input type="file" accept="image/jpeg,image/png,image/webp,image/heic" multiple className="hidden" onChange={(event) => void uploadPhotos(event.target.files)} disabled={uploading} /><span className="text-sm font-bold">{uploading ? "Uploading photos…" : "Choose product photos"}</span><span className="block text-[#555] text-[10px] mt-1">JPG, PNG, WEBP or HEIC · 4MB each</span></label>
                 {!!form.imageUrls?.length && <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">{form.imageUrls.map((url, index) => <div key={url} className="relative aspect-[3/4] bg-[#1a1a1a]"><img src={url} alt={`Product photo ${index + 1}`} className="w-full h-full object-cover" /><button onClick={() => setForm({ ...form, imageUrls: form.imageUrls?.filter((item) => item !== url) })} className="absolute top-1 right-1 bg-black/80 w-6 h-6 text-xs">×</button></div>)}</div>}
                 <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -426,7 +503,7 @@ export default function AdminPage() {
                 <div className="grid sm:grid-cols-2 gap-4 mt-4"><Select label="Badge" value={form.badge} options={["NEW", "RARE"]} onChange={(value) => setForm({ ...form, badge: value as Product["badge"] })} />{form.badge === "RARE" && <Select label="Rare label" value={form.rareBadge ?? "ARCHIVE"} options={["ARCHIVE", "GRAIL", "ERA PIECE"]} onChange={(value) => setForm({ ...form, rareBadge: value as RareBadge })} />}</div>
                 <div className="mt-4"><label className={LABEL}>Notes for the AI</label><AutocompleteControl label="Notes for the AI" value={sellerNotes} onChange={setSellerNotes} rows={3} multiline placeholder="Colour, measurements, flaws, label details, fabric if known…" suggestions={LISTING_WORDS} /></div>
                 <p className="text-[#555] text-[10px] mt-2">Typing help: enter two letters, then press Tab or → to complete the suggested word.</p>
-                <button onClick={generateListing} disabled={generating || (!form.imageUrls?.length && !form.brand)} className="mt-4 bg-[#F5C300] disabled:opacity-40 text-black font-black text-xs tracking-[0.16em] uppercase px-5 py-3">{generating ? "Analysing photos…" : "Generate website + Vinted copy"}</button>
+                <button onClick={() => void generateListing()} disabled={generating || (!form.imageUrls?.length && !form.brand)} className="mt-4 bg-[#F5C300] disabled:opacity-40 text-black font-black text-xs tracking-[0.16em] uppercase px-5 py-3">{generating ? "Analysing photos…" : "Generate website + Vinted copy"}</button>
               </div>
 
               <div className="bg-[#111] border border-white/8 p-5 sm:p-6 space-y-4">
