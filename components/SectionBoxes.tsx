@@ -1,5 +1,3 @@
-import { isNew, type Product } from "@/lib/products";
-
 const boxes = [
   { id: "new-in",  label: "New In",  sub: "Latest 14-day drops", href: "/shop?new=true",     image: "/section-new-in.jpg"  },
   { id: "mens",    label: "Mens",    sub: "All menswear",       href: "/shop?gender=Mens",  image: "/section-mens.jpg"    },
@@ -7,16 +5,7 @@ const boxes = [
   { id: "marquee", label: "Marquee", sub: "Featured standout pieces", href: "/shop?rare=true",image: "/section-marquee.jpg" },
 ] as const;
 
-export default function SectionBoxes({ products }: { products: Product[] }) {
-  const availableBoxes = boxes.filter((box) => {
-    if (box.id === "new-in") return products.some((product) => product.stock > 0 && isNew(product));
-    if (box.id === "mens") return products.some((product) => product.stock > 0 && product.gender === "Mens");
-    if (box.id === "womens") return products.some((product) => product.stock > 0 && product.gender === "Womens");
-    return products.some((product) => product.stock > 0 && product.badge === "RARE");
-  });
-
-  if (!availableBoxes.length) return null;
-
+export default function SectionBoxes() {
   return (
     <section className="bg-[#0a0a0a] border-b border-white/5 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -24,7 +13,7 @@ export default function SectionBoxes({ products }: { products: Product[] }) {
           Shop by section
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {availableBoxes.map((box) => (
+          {boxes.map((box) => (
             <a
               key={box.id}
               href={box.href}

@@ -401,7 +401,7 @@ export default function Home() {
 
       <Hero />
       <MarqueeBanner />
-      <SectionBoxes products={products} />
+      <SectionBoxes />
 
       {/* ── Browse section ── */}
       <div id="shop" className="border-t border-white/5">
