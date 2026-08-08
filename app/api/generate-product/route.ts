@@ -18,6 +18,13 @@ const OUTPUT_FIELDS = [
   "suggestedCondition",
 ] as const;
 
+const LISTING_SCHEMA = {
+  type: "object",
+  properties: Object.fromEntries(OUTPUT_FIELDS.map((field) => [field, { type: "string" }])),
+  required: [...OUTPUT_FIELDS],
+  additionalProperties: false,
+};
+
 function isProductImageUrl(value: unknown): value is string {
   if (typeof value !== "string" || !process.env.SUPABASE_URL) return false;
   try {
@@ -110,8 +117,16 @@ Study the supplied photos when present. Never claim an item is authentic, a prec
         body: JSON.stringify({
           contents: [{ role: "user", parts }],
           generationConfig: {
-            maxOutputTokens: 700,
-            responseMimeType: "application/json",
+            maxOutputTokens: 2_000,
+            thinkingConfig: {
+              thinkingLevel: "minimal",
+            },
+            responseFormat: {
+              text: {
+                mimeType: "APPLICATION_JSON",
+                schema: LISTING_SCHEMA,
+              },
+            },
           },
         }),
         signal: AbortSignal.timeout(30_000),
