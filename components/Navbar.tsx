@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Link from "next/link";
 import { getBrandsInStock, products } from "@/lib/products";
 
 interface DropdownGroup {
@@ -143,7 +144,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
 
           {/* ── Logo ── */}
-          <a href="/" aria-label="Stacked Racks Vintage Home" className="shrink-0">
+          <Link href="/" aria-label="Stacked Racks Vintage Home" className="shrink-0">
             <span
               className="font-black tracking-wider leading-none"
               style={{ fontFamily: "var(--font-playfair-display), serif" }}
@@ -152,7 +153,7 @@ export default function Navbar() {
               <span className="text-[#F5C300] text-xl ml-2">RACKS</span>
               <span className="text-white/60 text-xl ml-2">VINTAGE</span>
             </span>
-          </a>
+          </Link>
 
           {/* ── Desktop nav ── */}
           <div className="hidden md:flex items-center gap-1">

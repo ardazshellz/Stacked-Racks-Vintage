@@ -224,8 +224,12 @@ function ShopContent() {
   useEffect(() => {
     if (paramItem) {
       const found = products.find((p) => String(p.id) === paramItem);
+      // The product list is populated asynchronously; update the modal once it arrives.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (found) setSelectedProduct(found);
     }
+    // `products` is intentionally omitted because the hook returns a merged array each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paramItem]);
 
   const tog = (arr: string[], val: string) =>

@@ -51,7 +51,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What is your returns policy?",
-    a: "We accept returns within 7 days of delivery on reasonable grounds. Items must be returned in the same condition as received. Clear photo evidence of the issue is required before any return is approved — contact us via Instagram DM. Buyers cover return postage unless the item is significantly not as described.",
+    a: "You can cancel and return most items within 14 days of receiving them. Items must be returned in the same condition as received. Contact us by email or Instagram DM to start a return. Buyers cover return postage unless the item is faulty or significantly not as described.",
   },
 ];
 
@@ -167,7 +167,7 @@ export default function Home() {
     return genderMatch && sizeMatch && brandMatch && catMatch && fitMatch && eraMatch && searchMatch;
   });
 
-  const SidebarContent = () => {
+  const renderSidebarContent = () => {
     const sectionCounts = {
       newIn: products.filter(isNew).length,
       mens: products.filter((p) => p.gender === "Mens" && p.stock > 0).length,
@@ -367,7 +367,7 @@ export default function Home() {
             </h2>
             <p className="text-[#aaa] text-sm mb-2">Payment received — thank you.</p>
             <p className="text-[#666] text-sm mb-7">
-              You'll receive a confirmation email shortly. We'll dispatch within 24–48 hours via Royal Mail.
+              You&apos;ll receive a confirmation email shortly. We&apos;ll dispatch within 24–48 hours via Royal Mail.
             </p>
             <button
               onClick={() => setOrderStatus(null)}
@@ -464,7 +464,7 @@ export default function Home() {
           <div className="flex gap-10">
             <aside className="hidden lg:block w-44 xl:w-52 shrink-0">
               <div className="sticky top-[108px]">
-                <SidebarContent />
+                {renderSidebarContent()}
               </div>
             </aside>
 
@@ -517,7 +517,7 @@ export default function Home() {
             </svg>
           </button>
         </div>
-        <SidebarContent />
+        {renderSidebarContent()}
         <button onClick={() => setMobileFiltersOpen(false)}
           className="w-full mt-6 bg-[#E8500A] text-white font-black text-xs tracking-[0.2em] uppercase py-3.5 hover:bg-[#c94009] transition-colors">
           SHOW {filtered.length} RESULTS

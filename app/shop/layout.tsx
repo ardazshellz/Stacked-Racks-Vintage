@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Shop Vintage Clothing | Stacked Racks Vintage",
     description: "Browse rare 80s, 90s & 00s vintage clothing. Nike, Adidas, Burberry and more.",
-    images: [{ url: "/og-image.jpg" }],
+    images: [{ url: "/hero-rail.jpg" }],
   },
 };
 

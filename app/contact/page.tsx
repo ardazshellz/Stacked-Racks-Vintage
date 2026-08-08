@@ -2,7 +2,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 export const metadata = {
-  title: "Contact | Stacked Racks Vintage",
+  title: "Contact",
 };
 
 export default function ContactPage() {
@@ -51,18 +51,20 @@ export default function ContactPage() {
             </svg>
           </a>
 
-          {/* Email — placeholder, to be added */}
-          <div className="flex items-center gap-5 bg-[#111] border border-white/5 p-6 opacity-40 cursor-not-allowed">
+          <a
+            href="mailto:stackedracksvintage@gmail.com"
+            className="flex items-center gap-5 bg-[#111] border border-white/10 p-6 hover:border-[#E8500A]/50 transition-all group"
+          >
             <div className="w-10 h-10 flex items-center justify-center bg-[#1a1a1a] border border-white/10 shrink-0">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5 text-[#555]">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
               </svg>
             </div>
             <div className="flex-1">
-              <p className="text-white font-bold text-sm tracking-wide">Email</p>
-              <p className="text-[#555] text-xs mt-0.5">Coming soon</p>
+              <p className="text-white font-bold text-sm tracking-wide group-hover:text-[#E8500A] transition-colors">Email</p>
+              <p className="text-[#555] text-xs mt-0.5">stackedracksvintage@gmail.com</p>
             </div>
-          </div>
+          </a>
 
           {/* Vinted messages */}
           <a

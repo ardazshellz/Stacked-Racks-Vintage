@@ -3,7 +3,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "Terms & Conditions | Stacked Racks Vintage",
+  title: "Terms & Conditions",
   description: "Terms and conditions for purchasing from Stacked Racks Vintage Ltd.",
 };
 

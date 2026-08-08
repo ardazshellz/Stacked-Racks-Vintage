@@ -3,7 +3,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | Stacked Racks Vintage",
+  title: "Privacy Policy",
   description: "How Stacked Racks Vintage Ltd collects, uses and protects your personal data.",
 };
 

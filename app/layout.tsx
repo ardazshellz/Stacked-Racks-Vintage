@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Playfair_Display } from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
 import ClientShell from "@/components/ClientShell";
 
@@ -28,7 +27,7 @@ export const metadata: Metadata = {
       "Unique & Rare Vintage Clothing. 5,000+ sales. London-based. Shop Nike, Adidas, Burberry and more.",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/hero-rail.jpg",
         width: 1200,
         height: 630,
         alt: "Stacked Racks Vintage — London Vintage Clothing",
@@ -39,32 +38,14 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Stacked Racks Vintage | London Vintage Clothing",
     description: "Rare 80s, 90s & 00s vintage clothing. 5,000+ sales.",
-    images: ["/og-image.jpg"],
+    images: ["/hero-rail.jpg"],
   },
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL ?? "https://stackedracksvintage.co.uk"),
 };
 
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={playfairDisplay.variable}>
-      <head>
-        {GA_ID && (
-          <>
-            <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-              strategy="afterInteractive"
-            />
-            <Script id="ga-init" strategy="afterInteractive">{`
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', '${GA_ID}');
-            `}</Script>
-          </>
-        )}
-      </head>
       <body className="bg-[#0a0a0a] text-white antialiased overflow-x-hidden">
         <ClientShell />
         {children}

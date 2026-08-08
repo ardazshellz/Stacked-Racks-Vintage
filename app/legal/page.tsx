@@ -2,7 +2,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 export const metadata = {
-  title: "Legal | Stacked Racks Vintage",
+  title: "Legal",
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -58,9 +58,9 @@ export default function LegalPage() {
               good faith and any vintage wear consistent with age will be noted in the listing.
             </p>
             <p>
-              Prices are displayed in GBP (£) inclusive of VAT where applicable. All purchases
-              are completed via Vinted — we are not responsible for Vinted's platform policies
-              or checkout experience.
+              Prices are displayed in GBP (£) inclusive of VAT where applicable. Website
+              purchases are processed securely by Stripe; items may also be available through
+              our separate Vinted shop.
             </p>
             <p>
               We make no guarantees of availability. Items may sell before a listing is updated.
@@ -91,9 +91,9 @@ export default function LegalPage() {
 
           <Section title="Privacy Policy">
             <p>
-              This website does not collect personal data directly. Analytics may be collected
-              by third-party services (e.g. Vercel Analytics). Purchases are handled by Vinted,
-              who process your data under their own privacy policy.
+              When you order, we collect the contact and delivery details needed to fulfil your
+              purchase. Payments are processed securely by Stripe and order records are stored
+              in Supabase. We never see or store your full card number.
             </p>
             <p>
               If you contact us via email or Instagram, your contact details will only be used
@@ -108,9 +108,9 @@ export default function LegalPage() {
 
           <Section title="Cookies">
             <p>
-              This website may use essential cookies to function correctly. No tracking or
-              advertising cookies are set by us. Third-party embeds or services may set their
-              own cookies, subject to their own policies.
+              Google Analytics cookies are only loaded after you accept them in the cookie
+              banner. Stripe may use essential cookies when you choose to enter its secure
+              checkout. See our full Privacy Policy for details.
             </p>
           </Section>
 

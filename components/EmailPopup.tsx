@@ -74,7 +74,7 @@ export default function EmailPopup() {
                 10% Off Your First Order
               </h2>
               <p className="text-[#aaa] text-xs leading-relaxed mb-5">
-                Sign up and we'll send your discount code straight away. Be first to hear about new drops and archive pieces.
+                Sign up and we&apos;ll send your discount code straight away. Be first to hear about new drops and archive pieces.
               </p>
 
               <form onSubmit={handleSubmit} className="space-y-3">
@@ -114,7 +114,7 @@ export default function EmailPopup() {
                   className="text-white text-xl font-black tracking-wide mb-3"
                   style={{ fontFamily: "var(--font-playfair-display), serif" }}
                 >
-                  You're In
+                  You&apos;re In
                 </h2>
 
                 {/* Voucher code box */}
@@ -127,14 +127,14 @@ export default function EmailPopup() {
                   <p className="text-white text-[10px] font-bold tracking-wider uppercase">How to use it</p>
                   <ol className="text-[#aaa] text-[10px] leading-relaxed space-y-1 list-decimal list-inside">
                     <li>Find an item you love and click it</li>
-                    <li>Choose <span className="text-white font-medium">"Checkout with Card"</span></li>
+                    <li>Choose <span className="text-white font-medium">&ldquo;Checkout with Card&rdquo;</span></li>
                     <li>Enter <span className="text-[#E8500A] font-black">{VOUCHER_CODE}</span> in the discount code field at checkout</li>
                     <li>10% comes off your total automatically</li>
                   </ol>
                 </div>
 
                 <p className="text-[#444] text-[9px] leading-relaxed">
-                  Check your inbox — we've also emailed it to you so you don't lose it.
+                  Check your inbox — we&apos;ve also emailed it to you so you don&apos;t lose it.
                 </p>
               </div>
 
