@@ -509,14 +509,16 @@ export default function Home() {
               <div className="mt-10 text-center border border-white/8 py-8 px-4">
                 <p className="text-[#aaa] text-sm mb-1">See everything</p>
                 <p className="text-white font-bold mb-5">Full collection with all filters</p>
-                <button onClick={() => router.push("/shop")}
-                  className="inline-flex items-center gap-2 bg-[#E8500A] text-white font-black text-xs tracking-[0.2em] uppercase px-8 py-3.5 hover:bg-[#c94009] transition-colors mr-3">
-                  BROWSE ALL ITEMS
-                </button>
-                <a href="https://www.vinted.co.uk/member/59714764-stackedracks" target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 border border-[#F5C300] text-[#F5C300] font-black text-xs tracking-[0.2em] uppercase px-8 py-3.5 hover:bg-[#F5C300]/10 transition-colors">
-                  VIEW ON VINTED →
-                </a>
+                <div className="flex flex-col sm:flex-row justify-center gap-3 max-w-xl mx-auto">
+                  <button onClick={() => router.push("/shop")}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#E8500A] text-white font-black text-xs tracking-[0.2em] uppercase px-8 py-3.5 hover:bg-[#c94009] transition-colors">
+                    BROWSE ALL ITEMS
+                  </button>
+                  <a href="https://www.vinted.co.uk/member/59714764-stackedracks" target="_blank" rel="noopener noreferrer"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 border border-[#F5C300] text-[#F5C300] font-black text-xs tracking-[0.2em] uppercase px-8 py-3.5 hover:bg-[#F5C300]/10 transition-colors">
+                    VIEW ON VINTED →
+                  </a>
+                </div>
               </div>
             </div>
           </div>

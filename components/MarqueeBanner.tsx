@@ -25,9 +25,9 @@ function MarqueeRow() {
 export default function MarqueeBanner() {
   return (
     <div className="bg-[#E8500A] overflow-hidden py-3.5 select-none">
-      <div style={{ animation: "marquee-scroll 50s linear infinite" }} className="flex whitespace-nowrap shrink-0">
+      <div className="animate-info-ticker flex w-max whitespace-nowrap shrink-0">
         <MarqueeRow />
-        <MarqueeRow />
+        <span aria-hidden="true" className="contents"><MarqueeRow /></span>
       </div>
     </div>
   );

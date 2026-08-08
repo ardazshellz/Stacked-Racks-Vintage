@@ -43,6 +43,24 @@ body {
   backface-visibility: hidden;
 }
 
+/* Mobile-first ticker speeds: quick enough to read as moving without rushing. */
+.animate-sales-ticker {
+  animation: marquee-scroll 34s linear infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.animate-info-ticker {
+  animation: marquee-scroll 24s linear infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+@media (min-width: 640px) {
+  .animate-sales-ticker { animation-duration: 60s; }
+  .animate-info-ticker { animation-duration: 40s; }
+}
+
 @keyframes fade-in-up {
   from {
     opacity: 0;

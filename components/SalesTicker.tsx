@@ -21,15 +21,10 @@ export default function SalesTicker() {
       onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") openEmailPopup(); }}
     >
       <div
-        className="flex whitespace-nowrap shrink-0 text-[10px] text-white font-black tracking-[0.3em] pointer-events-none"
-        style={{
-          animation: "marquee-scroll 90s linear infinite",
-          willChange: "transform",
-          backfaceVisibility: "hidden",
-        }}
+        className="animate-sales-ticker flex w-max whitespace-nowrap shrink-0 text-[10px] text-white font-black tracking-[0.3em] pointer-events-none"
       >
         <span>{COPY}</span>
-        <span>{COPY}</span>
+        <span aria-hidden="true">{COPY}</span>
       </div>
     </div>
   );
