@@ -28,24 +28,24 @@ function buildNavItems(inStockBrands: string[]): NavItem[] {
   return [
     {
       label: "New In",
-      href: "/shop",
+      href: "/shop?new=true",
       groups: [
         {
           heading: "Gender",
           items: [
-            { label: "Mens", href: "/shop?gender=Mens" },
-            { label: "Womens", href: "/shop?gender=Womens" },
+            { label: "Mens", href: "/shop?new=true&gender=Mens" },
+            { label: "Womens", href: "/shop?new=true&gender=Womens" },
           ],
         },
         {
           heading: "Size",
           items: ["XS", "S", "M", "L", "XL", "XXL"].map((s) => ({
             label: s,
-            href: `/shop?size=${s}`,
+            href: `/shop?new=true&size=${s}`,
           })),
         },
         ...(inStockBrands.length
-          ? [{ heading: "Brand", items: inStockBrands.map((b) => ({ label: b, href: `/shop?brand=${encodeURIComponent(b)}` })) }]
+          ? [{ heading: "Brand", items: inStockBrands.map((b) => ({ label: b, href: `/shop?new=true&brand=${encodeURIComponent(b)}` })) }]
           : []),
       ],
     },
@@ -96,18 +96,16 @@ function buildNavItems(inStockBrands: string[]): NavItem[] {
       href: "/shop?rare=true",
       groups: [
         {
-          heading: "Type",
+          heading: "Browse",
           items: [
-            { label: "Archive", href: "/shop?rare=true&type=ARCHIVE" },
-            { label: "1 of 1", href: "/shop?rare=true&type=1+OF+1" },
-            { label: "Grail", href: "/shop?rare=true&type=GRAIL" },
-            { label: "Era Piece", href: "/shop?rare=true&type=ERA+PIECE" },
-            { label: "Football Shirts", href: "/shop?category=Jerseys" },
+            { label: "All Marquee", href: "/shop?rare=true" },
+            { label: "Mens", href: "/shop?rare=true&gender=Mens" },
+            { label: "Womens", href: "/shop?rare=true&gender=Womens" },
           ],
         },
         {
           heading: "Era",
-          items: ["80s", "90s", "00s", "10s", "20s"].map((e) => ({
+          items: ["80s", "90s", "00s", "2010s", "2020s"].map((e) => ({
             label: e,
             href: `/shop?era=${e}`,
           })),

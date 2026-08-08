@@ -16,6 +16,11 @@ const OUTPUT_FIELDS = [
   "suggestedCategory",
   "suggestedEra",
   "suggestedCondition",
+  "suggestedSize",
+  "suggestedGender",
+  "suggestedFit",
+  "suggestedMarquee",
+  "photoFindings",
 ] as const;
 
 const LISTING_SCHEMA = {
@@ -68,7 +73,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "The free AI listing key has not been connected yet" }, { status: 503 });
   }
 
-  const { brand, category, era, condition, size, fit, gender, badge, notes, imageUrls } = await req.json();
+  const { brand, category, era, condition, size, fit, gender, badge, notes, imageUrls, mode } = await req.json();
+  const photoMode = mode === "photos";
 
   const prompt = `You create accurate resale listings for Stacked Racks Vintage, a UK vintage clothing shop.
 
@@ -80,25 +86,42 @@ Condition: ${condition || "Unknown"}
 Size label: ${size || "Unknown"}
 Fit: ${fit || "Unknown"}
 Department: ${gender || "Unknown"}
-Rarity: ${badge === "RARE" ? "Rare / collector piece" : "Standard listing"}
+Marquee selection: ${badge === "RARE" ? "Yes" : "No"}
 Seller notes: ${notes || "None"}
 
-Study the supplied photos when present. Never claim an item is authentic, a precise fabric, or an exact year unless the supplied details prove it. Mention visible wear honestly. Return ONLY valid JSON:
+${photoMode ? `PHOTO ANALYSIS TASK:
+Study every supplied photo closely. Read visible brand labels, size labels, care labels, model codes and embroidered or printed details. Identify colour, pattern, garment type, likely era cues, fit, condition and visible flaws. If the visible evidence strongly resembles a known product or model, describe it as a possible match in photoFindings and explain the evidence. Never present an unverified match, authenticity, fabric composition or exact year as fact. Populate as many fields as the evidence supports.` : `LISTING TASK:
+Combine the known details, seller notes, any previous photo findings and the supplied photos into a polished listing. Treat seller-provided facts as authoritative. Never claim authenticity, precise fabric or an exact year unless the evidence supports it.`}
+
+Writing style:
+- websiteDescription: detailed, useful and engaging; 4-6 sentences covering design details, era, condition, fit, styling and collectability where supported.
+- vintedDescription: short and easy to scan; 1-2 sentences and no more than 240 characters, containing only the key facts and visible flaws.
+- Titles must be factual, search-friendly and free from unsupported claims.
+
+Return ONLY valid JSON:
 {
-  "websiteTitle": "max 7 words",
-  "websiteDescription": "2-3 concise sentences",
+  "websiteTitle": "max 8 words",
+  "websiteDescription": "detailed 4-6 sentence website description",
   "vintedTitle": "search-friendly title, max 80 characters",
-  "vintedDescription": "clear Vinted-ready description with item, colour, labelled size, fit, condition and visible flaws; no hashtags",
+  "vintedDescription": "short Vinted description, 1-2 sentences, max 240 characters, no hashtags",
   "suggestedBrand": "brand or Vintage",
   "suggestedCategory": "best matching category",
   "suggestedEra": "one of 60s,70s,80s,90s,00s,2010s,2020s",
-  "suggestedCondition": "one of Excellent,Good,Fair"
+  "suggestedCondition": "one of Excellent,Good,Fair",
+  "suggestedSize": "one of XS,S,M,L,XL,XXL; use current value if unreadable",
+  "suggestedGender": "one of Mens,Womens",
+  "suggestedFit": "one of Regular,Fitted,Baggy,Oversized",
+  "suggestedMarquee": "Yes only for an especially distinctive featured piece, otherwise No",
+  "photoFindings": "2-4 sentences summarising visible evidence, label details and any cautious possible model match"
 }`;
 
   const safeImageUrls = (Array.isArray(imageUrls) ? imageUrls : [])
     .filter(isProductImageUrl)
     .slice(0, 4);
   const loadedImages = await Promise.all(safeImageUrls.map(imageToGeminiPart));
+  if (photoMode && !loadedImages.some(Boolean)) {
+    return NextResponse.json({ error: "Upload at least one supported photo before analysing" }, { status: 400 });
+  }
   const parts: GeminiPart[] = [
     ...loadedImages.filter((part): part is GeminiPart => part !== null),
     { text: prompt },
@@ -117,7 +140,7 @@ Study the supplied photos when present. Never claim an item is authentic, a prec
         body: JSON.stringify({
           contents: [{ role: "user", parts }],
           generationConfig: {
-            maxOutputTokens: 2_000,
+            maxOutputTokens: 2_500,
             thinkingConfig: {
               thinkingLevel: "minimal",
             },

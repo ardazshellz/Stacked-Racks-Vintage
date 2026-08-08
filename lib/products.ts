@@ -48,12 +48,12 @@ export const ALL_BRANDS = [
   "Nike", "Adidas", "Burberry", "Coogi", "Champion", "Fila", "Vintage",
 ] as const;
 
-/** NEW badge is shown for 14 days from listedDate. */
+/** Every product is included in New In for 14 days from listedDate. */
 export function isNew(p: Product): boolean {
-  if (p.badge !== "NEW") return false;
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 14);
-  return new Date(p.listedDate) >= cutoff;
+  const listedAt = new Date(`${p.listedDate}T00:00:00`).getTime();
+  if (!Number.isFinite(listedAt)) return false;
+  const age = Date.now() - listedAt;
+  return age >= 0 && age < 14 * 24 * 60 * 60 * 1000;
 }
 
 /**

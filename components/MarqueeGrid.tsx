@@ -13,13 +13,6 @@ const ICONS: Record<string, string> = {
   Hats: "🧢",
 };
 
-const BADGE_COLOURS: Record<string, string> = {
-  "ARCHIVE":   "bg-[#1a0a00] border border-[#E8500A]/50 text-[#E8500A]",
-  "1 OF 1":    "bg-[#E8500A] text-white",
-  "GRAIL":     "bg-[#F5C300] text-black",
-  "ERA PIECE": "bg-[#111] border border-[#F5C300]/60 text-[#F5C300]",
-};
-
 interface Props {
   products: Product[];
   compact?: boolean;
@@ -35,7 +28,7 @@ export default function MarqueeGrid({ products, compact }: Props) {
         <div className="bg-[#080808] pt-14 pb-8 px-4 sm:px-6 lg:px-8 border-b border-white/5">
           <div className="max-w-7xl mx-auto text-center">
             <p className="text-[#E8500A] text-[9px] font-black tracking-[0.4em] uppercase mb-4">
-              ✦ The Archive ✦
+              ✦ Featured Selection ✦
             </p>
             <h2
               className="text-white text-3xl sm:text-4xl font-bold tracking-tight mb-3"
@@ -44,7 +37,7 @@ export default function MarqueeGrid({ products, compact }: Props) {
               Marquee Pieces
             </h2>
             <p className="text-[#444] text-sm tracking-widest uppercase">
-              Investment-grade vintage · Not replaceable
+              Standout vintage selected by Stacked Racks
             </p>
           </div>
         </div>
@@ -56,8 +49,6 @@ export default function MarqueeGrid({ products, compact }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-4">
             {products.map((product) => {
               const icon = ICONS[product.category] ?? "👕";
-              const badge = product.rareBadge ?? "RARE";
-              const badgeCls = BADGE_COLOURS[badge] ?? "bg-[#E8500A] text-white";
               const isSoldOut = product.stock === 0;
 
               return (
@@ -81,8 +72,8 @@ export default function MarqueeGrid({ products, compact }: Props) {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
 
                     {/* Badge */}
-                    <div className={`absolute top-4 left-4 text-[9px] font-black tracking-[0.2em] px-3 py-1.5 ${badgeCls}`}>
-                      {badge}
+                    <div className="absolute top-4 left-4 bg-[#E8500A] text-white text-[9px] font-black tracking-[0.2em] px-3 py-1.5">
+                      MARQUEE
                     </div>
 
                     {/* Sold overlay */}

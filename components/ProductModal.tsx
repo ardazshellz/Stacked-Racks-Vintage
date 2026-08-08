@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import { Product } from "@/lib/products";
+import { Product, isNew } from "@/lib/products";
 
 interface Props {
   product: Product;
@@ -24,25 +24,13 @@ const ICONS: Record<string, string> = {
   "Shoes": "👟",
 };
 
-const RARE_BADGE_CLS: Record<string, string> = {
-  "ARCHIVE":   "bg-[#1a0a00] border border-[#E8500A]/50 text-[#E8500A]",
-  "1 OF 1":    "bg-[#E8500A] text-white",
-  "GRAIL":     "bg-[#F5C300] text-black",
-  "ERA PIECE": "bg-[#111] border border-[#F5C300]/60 text-[#F5C300]",
-};
-
 export default function ProductModal({ product, onClose }: Props) {
   const icon = ICONS[product.category] ?? "👕";
   const handleClose = useCallback(() => onClose(), [onClose]);
 
-  const displayRareBadge = product.rareBadge === "1 OF 1" ? undefined : product.rareBadge;
-  const badgeLabel = product.badge === "RARE" && displayRareBadge ? displayRareBadge : product.badge;
-  const badgeCls =
-    product.badge === "RARE" && product.rareBadge
-      ? RARE_BADGE_CLS[product.rareBadge] ?? "bg-[#E8500A] text-white"
-      : product.badge === "NEW"
-      ? "bg-[#F5C300] text-black"
-      : "bg-[#E8500A] text-white";
+  const showBadge = product.badge === "RARE" || isNew(product);
+  const badgeLabel = product.badge === "RARE" ? "MARQUEE" : "NEW";
+  const badgeCls = product.badge === "RARE" ? "bg-[#E8500A] text-white" : "bg-[#F5C300] text-black";
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
@@ -85,9 +73,9 @@ export default function ProductModal({ product, onClose }: Props) {
           /* desktop */ sm:flex sm:w-[44%] shrink-0 bg-[#161616] items-center justify-center relative">
 
           {/* Badge */}
-          <div className={`absolute top-4 left-4 text-[10px] font-black tracking-[0.15em] px-2.5 py-1 ${badgeCls}`}>
+          {showBadge && <div className={`absolute top-4 left-4 text-[10px] font-black tracking-[0.15em] px-2.5 py-1 ${badgeCls}`}>
             {badgeLabel}
-          </div>
+          </div>}
 
           {product.imageUrls?.[0] ? (
             <img src={product.imageUrls[0]} alt={product.name} className="absolute inset-0 w-full h-full object-cover" />
@@ -107,9 +95,9 @@ export default function ProductModal({ product, onClose }: Props) {
           {/* Mobile-only top bar */}
           <div className="sm:hidden flex items-center justify-between px-5 py-4 border-b border-white/10 sticky top-0 bg-[#111] z-10">
             <div className="flex items-center gap-3">
-              <span className={`text-[10px] font-black tracking-[0.15em] px-2.5 py-1 ${badgeCls}`}>
+              {showBadge && <span className={`text-[10px] font-black tracking-[0.15em] px-2.5 py-1 ${badgeCls}`}>
                 {badgeLabel}
-              </span>
+              </span>}
               <span className="text-[#aaa] text-xs tracking-wider uppercase">
                 {product.gender} · {product.category}
               </span>

@@ -11,7 +11,6 @@ import {
   type Era,
   type Fit,
   type Product,
-  type RareBadge,
 } from "@/lib/products";
 
 type Tab = "orders" | "listings";
@@ -147,10 +146,10 @@ function parseQuickListing(details: string, current: Omit<Product, "id">): Parti
   else if (/\bfitted\b/.test(text)) parsed.fit = "Fitted";
   else if (/\bregular\b/.test(text)) parsed.fit = "Regular";
   if (priceMatch) parsed.price = Number(priceMatch[1]);
-  if (/\b(?:rare|archive|grail|one of one|1 of 1)\b/.test(text)) parsed.badge = "RARE";
-  if (/\bgrail\b/.test(text)) parsed.rareBadge = "GRAIL";
-  else if (/\bera piece\b/.test(text)) parsed.rareBadge = "ERA PIECE";
-  else if (/\b(?:archive|rare)\b/.test(text)) parsed.rareBadge = "ARCHIVE";
+  if (/\b(?:marquee|rare|archive|grail|one of one|1 of 1)\b/.test(text)) {
+    parsed.badge = "RARE";
+    parsed.rareBadge = "ARCHIVE";
+  }
 
   const titleParts = [brand ?? current.brand, parsed.era ?? current.era, categoryMatch?.item].filter(Boolean);
   if (titleParts.length >= 2) {
@@ -210,6 +209,7 @@ export default function AdminPage() {
   const [form, setForm] = useState<Omit<Product, "id">>(EMPTY_PRODUCT);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [quickDetails, setQuickDetails] = useState("");
+  const [photoAnalysis, setPhotoAnalysis] = useState("");
   const [sellerNotes, setSellerNotes] = useState("");
   const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -322,25 +322,30 @@ export default function AdminPage() {
     }
   };
 
-  const generateListing = async (overrides: Partial<Omit<Product, "id">> = {}, notesOverride?: string) => {
+  const generateListing = async (overrides: Partial<Omit<Product, "id">> = {}, notesOverride?: string, mode: "listing" | "photos" = "listing") => {
     setGenerating(true);
     setListingMessage("");
     const listingForm = { ...form, ...overrides };
+    const combinedNotes = [
+      mode === "listing" && photoAnalysis ? `Previous photo analysis: ${photoAnalysis}` : "",
+      notesOverride ?? sellerNotes,
+    ].filter(Boolean).join("\n\n");
     try {
       const response = await fetch("/api/generate-product", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          brand: listingForm.brand,
-          category: listingForm.category,
-          era: listingForm.era,
-          condition: listingForm.condition,
-          size: listingForm.size,
-          fit: listingForm.fit,
-          gender: listingForm.gender,
-          badge: listingForm.badge,
-          notes: notesOverride ?? sellerNotes,
+          brand: mode === "photos" ? "" : listingForm.brand,
+          category: mode === "photos" ? "" : listingForm.category,
+          era: mode === "photos" ? "" : listingForm.era,
+          condition: mode === "photos" ? "" : listingForm.condition,
+          size: mode === "photos" ? "" : listingForm.size,
+          fit: mode === "photos" ? "" : listingForm.fit,
+          gender: mode === "photos" ? "" : listingForm.gender,
+          badge: mode === "photos" ? "NEW" : listingForm.badge,
+          notes: combinedNotes,
           imageUrls: listingForm.imageUrls,
+          mode,
         }),
       });
       const data = await response.json();
@@ -356,8 +361,14 @@ export default function AdminPage() {
         category: CATEGORIES.includes(data.suggestedCategory) ? data.suggestedCategory : overrides.category || current.category,
         era: ERAS.includes(data.suggestedEra) ? data.suggestedEra : overrides.era || current.era,
         condition: (["Excellent", "Good", "Fair"] as const).includes(data.suggestedCondition) ? data.suggestedCondition : overrides.condition || current.condition,
+        size: SIZES.includes(data.suggestedSize) ? data.suggestedSize : overrides.size || current.size,
+        gender: (["Mens", "Womens"] as const).includes(data.suggestedGender) ? data.suggestedGender : overrides.gender || current.gender,
+        fit: FITS.includes(data.suggestedFit) ? data.suggestedFit : overrides.fit || current.fit,
+        badge: mode === "photos" ? (String(data.suggestedMarquee).toLowerCase() === "yes" ? "RARE" : "NEW") : overrides.badge || current.badge,
+        rareBadge: mode === "photos" ? (String(data.suggestedMarquee).toLowerCase() === "yes" ? "ARCHIVE" : undefined) : overrides.rareBadge ?? current.rareBadge,
       }));
-      setListingMessage("Draft generated — check the details before publishing");
+      if (mode === "photos") setPhotoAnalysis(data.photoFindings || "Photos analysed successfully.");
+      setListingMessage(mode === "photos" ? "Pictures analysed and fields populated — add any extra details above, then merge with AI" : "Draft generated — check the details before publishing");
     } catch (error) {
       setListingMessage(error instanceof Error ? error.message : "AI generation failed");
     } finally {
@@ -372,20 +383,30 @@ export default function AdminPage() {
     await generateListing(parsed, quickDetails);
   };
 
+  const analysePhotos = async () => {
+    await generateListing({}, quickDetails || sellerNotes, "photos");
+  };
+
   const saveProduct = async () => {
     setSaving(true);
     setListingMessage("");
     try {
+      const productForSave = {
+        ...form,
+        listedDate: editingId ? form.listedDate : new Date().toISOString().slice(0, 10),
+      };
       const response = await fetch("/api/products", {
         method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editingId ? { id: editingId, product: form } : form),
+        body: JSON.stringify(editingId ? { id: editingId, product: productForSave } : productForSave),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Could not save product");
       setListingMessage(editingId ? "Product updated" : "Product published to the website");
       setEditingId(null);
       setForm({ ...EMPTY_PRODUCT, listedDate: new Date().toISOString().slice(0, 10) });
+      setQuickDetails("");
+      setPhotoAnalysis("");
       setSellerNotes("");
       await loadDashboard();
       window.dispatchEvent(new CustomEvent("sr:products-updated"));
@@ -400,6 +421,9 @@ export default function AdminPage() {
     const { id, ...details } = product;
     setEditingId(String(id));
     setForm({ ...EMPTY_PRODUCT, ...details, imageUrls: details.imageUrls ?? [] });
+    setQuickDetails("");
+    setPhotoAnalysis("");
+    setSellerNotes("");
     setTab("listings");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -482,14 +506,16 @@ export default function AdminPage() {
           <section className="grid xl:grid-cols-[1fr_380px] gap-6 items-start">
             <div className="space-y-5">
               <div className="bg-[#111] border border-white/8 p-5 sm:p-6">
-                <div className="flex items-start justify-between gap-4 mb-5"><div><p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">Photo-first listing</p><h2 className="text-xl font-black">{editingId ? "Edit product" : "Create a product"}</h2><p className="text-[#666] text-xs mt-1">Upload up to six photos, add what you know, then generate the copy.</p></div>{editingId && <button onClick={() => { setEditingId(null); setForm(EMPTY_PRODUCT); }} className="text-[#777] text-xs">Cancel edit</button>}</div>
-                <div className="mb-5 border border-[#F5C300]/25 bg-[#F5C300]/[0.04] p-4">
-                  <label className="block text-[#F5C300] text-[10px] font-black tracking-[0.2em] uppercase mb-2">Quick listing — describe it once</label>
-                  <AutocompleteControl label="Quick listing details" value={quickDetails} onChange={setQuickDetails} rows={3} multiline placeholder="Example: Nike, jacket, medium, mens, 90s, black, good condition, £65" suggestions={LISTING_WORDS} />
-                  <div className="mt-3 flex flex-wrap items-center gap-3"><button onClick={() => void generateQuickListing()} disabled={generating || quickDetails.trim().length < 3} className="bg-[#F5C300] disabled:opacity-40 text-black font-black text-xs tracking-[0.14em] uppercase px-5 py-3">{generating ? "Filling every box…" : "Fill every box with AI"}</button><span className="text-[#777] text-[10px]">Include the price with £ if you want that filled too.</span></div>
-                </div>
+                <div className="flex items-start justify-between gap-4 mb-5"><div><p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">Photo-first listing</p><h2 className="text-xl font-black">{editingId ? "Edit product" : "Create a product"}</h2><p className="text-[#666] text-xs mt-1">Upload the photos, let AI read them, then add anything it could not see.</p></div>{editingId && <button onClick={() => { setEditingId(null); setForm(EMPTY_PRODUCT); setQuickDetails(""); setPhotoAnalysis(""); setSellerNotes(""); }} className="text-[#777] text-xs">Cancel edit</button>}</div>
                 <label className="block border-2 border-dashed border-white/10 hover:border-[#E8500A]/50 p-7 text-center cursor-pointer mb-4"><input type="file" accept="image/jpeg,image/png,image/webp,image/heic" multiple className="hidden" onChange={(event) => void uploadPhotos(event.target.files)} disabled={uploading} /><span className="text-sm font-bold">{uploading ? "Uploading photos…" : "Choose product photos"}</span><span className="block text-[#555] text-[10px] mt-1">JPG, PNG, WEBP or HEIC · 4MB each</span></label>
                 {!!form.imageUrls?.length && <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">{form.imageUrls.map((url, index) => <div key={url} className="relative aspect-[3/4] bg-[#1a1a1a]"><img src={url} alt={`Product photo ${index + 1}`} className="w-full h-full object-cover" /><button onClick={() => setForm({ ...form, imageUrls: form.imageUrls?.filter((item) => item !== url) })} className="absolute top-1 right-1 bg-black/80 w-6 h-6 text-xs">×</button></div>)}</div>}
+                <div className="mb-5 flex flex-wrap items-center gap-3"><button onClick={() => void analysePhotos()} disabled={generating || !form.imageUrls?.length} className="bg-[#E8500A] disabled:opacity-40 text-white font-black text-xs tracking-[0.16em] uppercase px-5 py-3">{generating ? "Reading pictures…" : "Analyse pictures"}</button><span className="text-[#666] text-[10px]">Reads labels, logos, colours, item details and visible condition. Paid web search stays off.</span></div>
+                {photoAnalysis && <div className="mb-5 border border-[#E8500A]/25 bg-[#E8500A]/[0.05] p-4"><p className="text-[#E8500A] text-[9px] font-black tracking-[0.18em] uppercase mb-2">What the pictures show</p><p className="text-[#bbb] text-xs leading-relaxed">{photoAnalysis}</p></div>}
+                <div className="mb-5 border border-[#F5C300]/25 bg-[#F5C300]/[0.04] p-4">
+                  <label className="block text-[#F5C300] text-[10px] font-black tracking-[0.2em] uppercase mb-2">Quick listing — add what the photos cannot show</label>
+                  <AutocompleteControl label="Quick listing details" value={quickDetails} onChange={setQuickDetails} rows={3} multiline placeholder="Example: Nike, jacket, medium, mens, 90s, black, good condition, £65" suggestions={LISTING_WORDS} />
+                  <div className="mt-3 flex flex-wrap items-center gap-3"><button onClick={() => void generateQuickListing()} disabled={generating || quickDetails.trim().length < 3} className="bg-[#F5C300] disabled:opacity-40 text-black font-black text-xs tracking-[0.14em] uppercase px-5 py-3">{generating ? "Building listing…" : photoAnalysis ? "Merge details with photo analysis" : "Fill every box with AI"}</button><span className="text-[#777] text-[10px]">Include the price with £ if you want that filled too.</span></div>
+                </div>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <Field label="Brand" value={form.brand} onChange={(value) => setForm({ ...form, brand: value })} placeholder="Nike, Adidas, Vintage…" suggestions={ALL_BRANDS} />
                   <Select label="Category" value={form.category} options={CATEGORIES} onChange={(value) => setForm({ ...form, category: value })} />
@@ -500,10 +526,13 @@ export default function AdminPage() {
                   <Select label="Condition" value={form.condition} options={["Excellent", "Good", "Fair"]} onChange={(value) => setForm({ ...form, condition: value as Condition })} />
                   <Select label="Fit" value={form.fit} options={FITS} onChange={(value) => setForm({ ...form, fit: value as Fit })} />
                 </div>
-                <div className="grid sm:grid-cols-2 gap-4 mt-4"><Select label="Badge" value={form.badge} options={["NEW", "RARE"]} onChange={(value) => setForm({ ...form, badge: value as Product["badge"] })} />{form.badge === "RARE" && <Select label="Rare label" value={form.rareBadge ?? "ARCHIVE"} options={["ARCHIVE", "GRAIL", "ERA PIECE"]} onChange={(value) => setForm({ ...form, rareBadge: value as RareBadge })} />}</div>
+                <div className="mt-4 grid sm:grid-cols-2 gap-4">
+                  <label className="flex items-start gap-3 border border-white/10 bg-[#171717] p-4 cursor-pointer"><input type="checkbox" checked={form.badge === "RARE"} onChange={(event) => setForm({ ...form, badge: event.target.checked ? "RARE" : "NEW", rareBadge: event.target.checked ? "ARCHIVE" : undefined })} className="mt-0.5 accent-[#E8500A]" /><span><span className="block text-sm font-bold">Show in Marquee</span><span className="block text-[#666] text-[10px] mt-1">Use this for a featured standout piece.</span></span></label>
+                  <div className="border border-[#F5C300]/20 bg-[#F5C300]/[0.04] p-4"><p className="text-[#F5C300] text-[9px] font-black tracking-[0.16em] uppercase mb-1">New In — automatic</p><p className="text-[#777] text-[10px] leading-relaxed">Every newly published item stays in New In for 14 days. It then leaves New In automatically but remains in the full shop.</p></div>
+                </div>
                 <div className="mt-4"><label className={LABEL}>Notes for the AI</label><AutocompleteControl label="Notes for the AI" value={sellerNotes} onChange={setSellerNotes} rows={3} multiline placeholder="Colour, measurements, flaws, label details, fabric if known…" suggestions={LISTING_WORDS} /></div>
                 <p className="text-[#555] text-[10px] mt-2">Typing help: enter two letters, then press Tab or → to complete the suggested word.</p>
-                <button onClick={() => void generateListing()} disabled={generating || (!form.imageUrls?.length && !form.brand)} className="mt-4 bg-[#F5C300] disabled:opacity-40 text-black font-black text-xs tracking-[0.16em] uppercase px-5 py-3">{generating ? "Analysing photos…" : "Generate website + Vinted copy"}</button>
+                <button onClick={() => void generateListing()} disabled={generating || (!form.imageUrls?.length && !form.brand)} className="mt-4 border border-[#F5C300]/40 text-[#F5C300] disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-5 py-3">{generating ? "Writing copy…" : "Regenerate copy from current details"}</button>
               </div>
 
               <div className="bg-[#111] border border-white/8 p-5 sm:p-6 space-y-4">

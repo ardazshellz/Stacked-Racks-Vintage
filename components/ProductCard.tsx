@@ -30,12 +30,10 @@ export default function ProductCard({ product, onClick }: Props) {
   const icon = ICONS[product.category] ?? "👕";
 
   const isSoldOut = product.stock === 0;
-  const showRareBadge = product.badge === "RARE";
-  const showNewBadge = !showRareBadge && isNew(product);
-  // "1 OF 1" removed from labels — show as RARE
-  const rareBadgeLabel = product.rareBadge === "1 OF 1" ? undefined : product.rareBadge;
-  const badgeLabel = showRareBadge && rareBadgeLabel ? rareBadgeLabel : showRareBadge ? "RARE" : "NEW";
-  const badgeCls = showRareBadge
+  const showMarqueeBadge = product.badge === "RARE";
+  const showNewBadge = !showMarqueeBadge && isNew(product);
+  const badgeLabel = showMarqueeBadge ? "MARQUEE" : "NEW";
+  const badgeCls = showMarqueeBadge
     ? "bg-[#E8500A] text-white shadow-[0_0_10px_rgba(232,80,10,0.4)]"
     : "bg-[#F5C300] text-black";
 
@@ -74,7 +72,7 @@ export default function ProductCard({ product, onClick }: Props) {
           </div>}
 
           {/* Badge */}
-          {(showRareBadge || showNewBadge) && (
+          {(showMarqueeBadge || showNewBadge) && (
             <div className={`absolute top-2.5 left-2.5 text-[9px] sm:text-[10px] font-black tracking-[0.15em] px-2 py-1 ${badgeCls}`}>
               {badgeLabel}
             </div>

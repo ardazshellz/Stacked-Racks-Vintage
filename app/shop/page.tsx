@@ -2,7 +2,7 @@
 
 import { useState, Suspense, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Product, SIZES, FITS, CATEGORIES, getBrandsInStock } from "@/lib/products";
+import { Product, SIZES, FITS, CATEGORIES, getBrandsInStock, isNew } from "@/lib/products";
 import { useProducts } from "@/hooks/useProducts";
 import Navbar from "@/components/Navbar";
 import ProductCard from "@/components/ProductCard";
@@ -195,6 +195,7 @@ function ShopContent() {
   const paramSize = searchParams.get("size");
   const paramCategory = searchParams.get("category");
   const paramItem = searchParams.get("item");
+  const paramNew = searchParams.get("new") === "true";
   const paramRare = searchParams.get("rare") === "true";
   const paramType = searchParams.get("type");
   const paramEra = searchParams.get("era");
@@ -217,6 +218,7 @@ function ShopContent() {
   const [selectedFits, setSelectedFits] = useState<string[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [newOnly] = useState(paramNew);
   const [rareOnly] = useState(paramRare);
   const [typeFilter] = useState(paramType ?? "");
   const [eraFilter] = useState(paramEra ?? "");
@@ -236,6 +238,7 @@ function ShopContent() {
     arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
 
   const filtered = products.filter((p) => {
+    if (newOnly && !isNew(p)) return false;
     if (rareOnly && p.badge !== "RARE") return false;
     if (typeFilter && p.rareBadge !== typeFilter) return false;
     if (eraFilter && p.era !== eraFilter) return false;
@@ -307,7 +310,9 @@ function ShopContent() {
                 className="text-white text-2xl sm:text-3xl font-black tracking-wider"
                 style={{ fontFamily: "var(--font-playfair-display), serif" }}
               >
-                {rareOnly ? (
+                {newOnly ? (
+                  <><span className="text-[#F5C300]">New In</span> — Last 14 Days</>
+                ) : rareOnly ? (
                   <><span className="text-[#E8500A]">Marquee</span> Pieces</>
                 ) : selectedGender !== "All" ? (
                   <><span className="text-[#E8500A]">{selectedGender}</span> Items</>
