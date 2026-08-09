@@ -11,6 +11,9 @@ const playfairDisplay = Playfair_Display({
 });
 
 export const metadata: Metadata = {
+  verification: {
+    google: "IfOF6NorcA8jbpgWlHLhPSAYjb4dUEQPhODOXSRwLSE",
+  },
   title: {
     default: "Stacked Racks Vintage | 80s 90s 00s Vintage Clothing · London",
     template: "%s | Stacked Racks Vintage",
