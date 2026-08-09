@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Product, isNew } from "@/lib/products";
+import { displayGender, Product, isNew } from "@/lib/products";
 import { trackEvent } from "@/lib/analytics";
 import { productPath } from "@/lib/product-url";
 import { FREE_SHIPPING_THRESHOLD, qualifiesForFreeShipping } from "@/lib/shipping";
@@ -111,13 +111,13 @@ export default function ProductModal({ product, onClose }: Props) {
         {renderGallery()}
         <div className="sm:flex-1 sm:overflow-y-auto flex flex-col">
           <button ref={mobileCloseButtonRef} type="button" onClick={handleClose} className="sm:hidden w-full flex items-center justify-between gap-4 px-5 py-4 border-b border-white/10 sticky top-0 bg-[#111] z-30 min-h-16 text-left" aria-label="Close product details">
-            <span className="text-[#bbb] text-xs tracking-wider uppercase">{product.gender} · {product.category}</span>
+            <span className="text-[#bbb] text-xs tracking-wider uppercase">{displayGender(product.gender)} · {product.category}</span>
             <span aria-hidden="true" className="w-8 h-8 shrink-0 rounded-full border border-white/20 bg-black/35 text-white text-xl leading-none flex items-center justify-center">×</span>
           </button>
           {renderGallery(true)}
 
           <div className="p-5 sm:p-7 flex flex-col flex-1">
-            <p className="hidden sm:block text-[#777] text-[11px] tracking-[0.22em] uppercase mb-3">{product.gender} · {product.category}</p>
+            <p className="hidden sm:block text-[#777] text-[11px] tracking-[0.22em] uppercase mb-3">{displayGender(product.gender)} · {product.category}</p>
             <h2 className="text-white text-xl sm:text-2xl font-black mb-1 leading-tight" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h2>
             <p className="text-[#bbb] text-sm mb-5"><span className="font-medium">{product.brand}</span><span className="text-[#555] mx-2">·</span>Tagged size {product.size}</p>
 

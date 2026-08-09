@@ -8,6 +8,7 @@ import {
   ERAS,
   FITS,
   SIZES,
+  displayGender,
   type Condition,
   type Era,
   type Fit,
@@ -601,14 +602,14 @@ export default function AdminPage() {
                 {photoAnalysis && <div className="mb-5 border border-[#E8500A]/25 bg-[#E8500A]/[0.05] p-4"><p className="text-[#E8500A] text-[9px] font-black tracking-[0.18em] uppercase mb-2">What the pictures show</p><p className="text-[#bbb] text-xs leading-relaxed">{photoAnalysis}</p><a href={`https://www.google.com/search?q=${encodeURIComponent([form.brand, form.name, form.era, form.garmentDetails?.colour].filter(Boolean).join(" "))}`} target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-[#F5C300] text-[10px] font-black uppercase tracking-wider">Search the web for a matching item ↗</a></div>}
                 <div className="mb-5 border border-[#F5C300]/25 bg-[#F5C300]/[0.04] p-4">
                   <label className="block text-[#F5C300] text-[10px] font-black tracking-[0.2em] uppercase mb-2">Quick listing — add what the photos cannot show</label>
-                  <AutocompleteControl label="Quick listing details" value={quickDetails} onChange={setQuickDetails} rows={3} multiline placeholder="Example: Nike, jacket, medium, mens, 90s, black, good condition, £65" suggestions={LISTING_WORDS} />
+                  <AutocompleteControl label="Quick listing details" value={quickDetails} onChange={setQuickDetails} rows={3} multiline placeholder="Example: Nike, jacket, medium, men's, 90s, black, good condition, £65" suggestions={LISTING_WORDS} />
                   <div className="mt-3 flex flex-wrap items-center gap-3"><button onClick={() => void generateQuickListing()} disabled={generating || quickDetails.trim().length < 3} className="bg-[#F5C300] disabled:opacity-40 text-black font-black text-xs tracking-[0.14em] uppercase px-5 py-3">{generating ? "Building listing…" : photoAnalysis ? "Merge details with photo analysis" : "Fill every box with AI"}</button><span className="text-[#777] text-[10px]">Include the price with £ if you want that filled too.</span></div>
                 </div>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <Field label="Brand" value={form.brand} onChange={(value) => setForm({ ...form, brand: value })} placeholder="Nike, Adidas, Vintage…" suggestions={ALL_BRANDS} />
                   <Select label="Category" value={form.category} options={CATEGORIES} onChange={(value) => setForm({ ...form, category: value })} />
                   <Select label="Size" value={form.size} options={SIZES} onChange={(value) => setForm({ ...form, size: value })} />
-                  <Select label="Department" value={form.gender} options={["Mens", "Womens"]} onChange={(value) => setForm({ ...form, gender: value as Product["gender"] })} />
+                  <Select label="Department" value={form.gender} options={["Mens", "Womens"]} optionLabel={displayGender} onChange={(value) => setForm({ ...form, gender: value as Product["gender"] })} />
                   <Field label="Price (£)" value={form.price || ""} type="number" onChange={(value) => setForm({ ...form, price: Number(value) })} />
                   <Select label="Era" value={form.era} options={ERAS} onChange={(value) => setForm({ ...form, era: value as Era })} />
                   <Select label="Condition" value={form.condition} options={["Excellent", "Good", "Fair"]} onChange={(value) => setForm({ ...form, condition: value as Condition })} />
@@ -675,8 +676,8 @@ function Field({ label, value, onChange, type = "text", placeholder = "", sugges
   return <label><span className={LABEL}>{label}</span>{type === "text" && suggestions ? <AutocompleteControl label={label} value={String(value)} onChange={onChange} placeholder={placeholder} suggestions={suggestions} /> : <input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} step={type === "number" ? "0.01" : undefined} className={INPUT} />}</label>;
 }
 
-function Select({ label, value, options, onChange }: { label: string; value: string; options: readonly string[]; onChange: (value: string) => void }) {
-  return <label><span className={LABEL}>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className={INPUT}>{options.map((option) => <option key={option}>{option}</option>)}</select></label>;
+function Select({ label, value, options, onChange, optionLabel = (option) => option }: { label: string; value: string; options: readonly string[]; onChange: (value: string) => void; optionLabel?: (option: string) => string }) {
+  return <label><span className={LABEL}>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className={INPUT}>{options.map((option) => <option key={option} value={option}>{optionLabel(option)}</option>)}</select></label>;
 }
 
 function TextArea({ label, value, onChange, suggestions }: { label: string; value: string; onChange: (value: string) => void; suggestions?: readonly string[] }) {

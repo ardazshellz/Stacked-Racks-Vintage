@@ -2,7 +2,7 @@
 
 import { useState, Suspense, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Product, SIZES, FITS, CATEGORIES, getBrandsInStock, isNew } from "@/lib/products";
+import { Product, SIZES, FITS, CATEGORIES, displayGender, getBrandsInStock, isNew } from "@/lib/products";
 import { useProducts } from "@/hooks/useProducts";
 import Navbar from "@/components/Navbar";
 import ProductCard from "@/components/ProductCard";
@@ -123,7 +123,7 @@ function Sidebar(props: SidebarProps) {
                     : "border-white/15 text-[#aaa] hover:border-white/40 hover:text-white"
                 }`}
               >
-                {g}
+                {displayGender(g)}
               </button>
             ))}
           </div>
@@ -341,7 +341,7 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
                 ) : rareOnly ? (
                   <><span className="text-[#E8500A]">Marquee</span> Pieces</>
                 ) : selectedGender !== "All" ? (
-                  <><span className="text-[#E8500A]">{selectedGender}</span> Items</>
+                  <><span className="text-[#E8500A]">{displayGender(selectedGender)}</span> Items</>
                 ) : (
                   <><span className="text-[#E8500A]">Browse</span> All Items</>
                 )}
@@ -370,14 +370,14 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
           </div>
 
           <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 mt-5 max-w-2xl">
-            <label className="relative">
+            <label className="relative" htmlFor="shop-search">
               <span className="sr-only">Search products</span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666] pointer-events-none"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.2-5.2m0 0A7.5 7.5 0 105.2 5.2a7.5 7.5 0 0010.6 10.6z" /></svg>
-              <input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search name, brand, size…" className="w-full bg-[#151515] border border-white/20 text-white text-sm pl-10 pr-3 py-3 outline-none focus:border-[#E8500A] placeholder:text-white/40" />
+              <input id="shop-search" type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search name, brand, size…" className="w-full bg-[#151515] border border-white/20 text-white text-sm pl-10 pr-3 py-3 outline-none focus:border-[#E8500A] placeholder:text-white/40" />
             </label>
-            <label>
+            <label htmlFor="shop-sort">
               <span className="sr-only">Sort products</span>
-              <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-full bg-[#151515] border border-white/20 text-white text-xs uppercase tracking-wider px-3 outline-none focus:border-[#E8500A]">
+              <select id="shop-sort" value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="h-full bg-[#151515] border border-white/20 text-white text-xs uppercase tracking-wider px-3 outline-none focus:border-[#E8500A]">
                 <option value="newest">Newest</option>
                 <option value="price-low">Price: low</option>
                 <option value="price-high">Price: high</option>
@@ -393,7 +393,7 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
                   key={chip}
                   className="inline-flex items-center gap-1.5 bg-[#E8500A]/15 border border-[#E8500A]/40 text-[#E8500A] text-[10px] font-bold tracking-wider uppercase px-3 py-1"
                 >
-                  {chip}
+                  {displayGender(chip)}
                   <button
                     onClick={() => {
                       if (chip === "Mens" || chip === "Womens") setSelectedGender("All");
@@ -402,7 +402,7 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
                       else setSelectedCategories((p) => p.filter((c) => c !== chip));
                     }}
                     className="opacity-60 hover:opacity-100 transition-opacity ml-0.5"
-                    aria-label={`Remove ${chip}`}
+                    aria-label={`Remove ${displayGender(chip)}`}
                   >
                     ✕
                   </button>

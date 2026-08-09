@@ -35,7 +35,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "How long does shipping take?",
-    a: "We ship via Royal Mail within 24–48 hours of payment. UK delivery typically takes 2–3 working days. You'll receive tracking information once your order has been dispatched.",
+    a: "We ship via Royal Mail within 24–48 hours of payment. UK delivery typically takes 2–4 working days. You'll receive tracking information once your order has been dispatched.",
   },
   {
     q: "Do you ship internationally?",
@@ -197,14 +197,14 @@ export default function HomePageClient({ initialProducts }: { initialProducts: P
       },
       {
         key: "mens",
-        label: "Mens",
+        label: "Men's",
         count: sectionCounts.mens,
         active: selectedGender === "Mens" && !showNew && !showMarquee,
         onClick: () => { setSelectedGender(selectedGender === "Mens" ? "All" : "Mens"); setShowNew(false); setShowMarquee(false); },
       },
       {
         key: "womens",
-        label: "Womens",
+        label: "Women's",
         count: sectionCounts.womens,
         active: selectedGender === "Womens" && !showNew && !showMarquee,
         onClick: () => { setSelectedGender(selectedGender === "Womens" ? "All" : "Womens"); setShowNew(false); setShowMarquee(false); },

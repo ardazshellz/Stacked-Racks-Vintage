@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Contact",
+  description: "Contact Stacked Racks Vintage about products, sizing, delivery or an existing order.",
+  alternates: { canonical: "/contact" },
 };
 
 export default function ContactPage() {

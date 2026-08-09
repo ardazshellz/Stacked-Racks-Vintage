@@ -25,7 +25,7 @@ export default function Footer() {
             <span className="text-white ml-2">VINTAGE</span>
           </h2>
           <p className="text-[#888] text-[10px] mt-2 tracking-[0.25em] uppercase">
-            Vintage & Rare Clothing Since Day One
+            Rare Vintage Clothing · London
           </p>
         </div>
 
@@ -56,8 +56,8 @@ export default function Footer() {
           {[
             { stat: "5,000+", label: "Sales" },
             { stat: "2,500+", label: "5★ Reviews" },
-            { stat: "2,469",  label: "Followers" },
-            { stat: "Ltd Co.", label: "London" },
+            { stat: "2.5K",  label: "Followers" },
+            { stat: "London-based", label: "Ltd" },
           ].map(({ stat, label }, i, arr) => (
             <span key={stat} className="flex items-center gap-3">
               <span className="text-white font-black text-sm">{stat} <span className="text-[#444] font-normal text-[10px] tracking-widest uppercase">{label}</span></span>

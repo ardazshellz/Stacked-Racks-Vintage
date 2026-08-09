@@ -56,7 +56,7 @@ export default function TermsPage() {
 
           <Section title="4. Shipping">
             <p>Orders are dispatched within 24–48 hours of confirmed payment, excluding weekends and UK public holidays.</p>
-            <p>Standard UK delivery via Royal Mail is 2–3 working days. Tracking information will be sent by email once dispatched.</p>
+            <p>Standard UK delivery via Royal Mail is typically 2–4 working days. Tracking information will be sent by email once dispatched.</p>
             <p>Please contact us if a parcel is delayed or lost. Where we arrange delivery, the item remains our responsibility until it is delivered to you or your nominated recipient.</p>
           </Section>
 

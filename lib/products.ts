@@ -40,6 +40,12 @@ export interface Product {
   source?: string;
 }
 
+export function displayGender(gender: string) {
+  if (gender === "Mens") return "Men's";
+  if (gender === "Womens") return "Women's";
+  return gender;
+}
+
 export const SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
 export const FITS = ["Regular", "Fitted", "Baggy", "Oversized"] as const;
 export const CATEGORIES = [

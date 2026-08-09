@@ -1,7 +1,7 @@
 const boxes = [
   { id: "new-in",  label: "New In",  sub: "Latest 14-day drops", href: "/shop?new=true",     image: "/section-new-in.jpg"  },
-  { id: "mens",    label: "Mens",    sub: "All menswear",       href: "/shop?gender=Mens",  image: "/section-mens.jpg"    },
-  { id: "womens",  label: "Womens",  sub: "All womenswear",     href: "/shop?gender=Womens",image: "/section-womens.jpg"  },
+  { id: "mens",    label: "Men's",   sub: "All menswear",       href: "/shop?gender=Mens",  image: "/section-mens.jpg"    },
+  { id: "womens",  label: "Women's", sub: "All womenswear",     href: "/shop?gender=Womens",image: "/section-womens.jpg"  },
   { id: "marquee", label: "Marquee", sub: "Featured standout pieces", href: "/shop?rare=true",image: "/section-marquee.jpg" },
 ] as const;
 

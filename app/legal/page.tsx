@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Legal",
+  description: "Legal information, returns and policies for Stacked Racks Vintage Ltd.",
+  alternates: { canonical: "/legal" },
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -34,17 +37,18 @@ export default function LegalPage() {
           >
             Terms & Policies
           </h1>
-          <p className="text-[#555] text-sm">Last updated: May 2026</p>
+          <p className="text-[#555] text-sm">Last updated: 9 August 2026</p>
         </div>
 
         <div className="border-t border-white/5 pt-12">
 
           <Section title="Company Information">
             <p>Stacked Racks Vintage Ltd is a company registered in England and Wales.</p>
-            <p>Registered address: London, United Kingdom.</p>
+            <p>Registered office: 114 Durnsford Road, London, England, SW19 8HQ.</p>
             <p>
-              We sell authentic second-hand and vintage clothing. All purchases are processed
-              through Vinted, which has its own buyer protection and checkout system.
+              We sell authentic second-hand and vintage clothing. Website purchases are
+              processed securely by Stripe; selected items may also be available through our
+              separate Vinted shop.
             </p>
           </Section>
 
@@ -74,7 +78,7 @@ export default function LegalPage() {
               receiving them, without giving a reason.
             </p>
             <p>
-              To initiate a return, please contact us via Instagram DM or the contact form.
+              To initiate a return, please contact us by email or Instagram DM.
               Items must be returned in the same condition as received, unworn and with original
               packaging where applicable.
             </p>
@@ -96,8 +100,9 @@ export default function LegalPage() {
               in Supabase. We never see or store your full card number.
             </p>
             <p>
-              If you contact us via email or Instagram, your contact details will only be used
-              to respond to your query. We will not sell or share your data with third parties.
+              If you contact us via email or Instagram, your contact details will be used to
+              respond to your query and processed only by the services required to operate the
+              website. We never sell your personal data.
             </p>
             <p>
               Under UK GDPR you have the right to request access to, correction of, or deletion

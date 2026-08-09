@@ -35,8 +35,8 @@ function buildNavItems(inStockBrands: string[]): NavItem[] {
         {
           heading: "Gender",
           items: [
-            { label: "Mens", href: "/shop?new=true&gender=Mens" },
-            { label: "Womens", href: "/shop?new=true&gender=Womens" },
+            { label: "Men's", href: "/shop?new=true&gender=Mens" },
+            { label: "Women's", href: "/shop?new=true&gender=Womens" },
           ],
         },
         {
@@ -52,7 +52,7 @@ function buildNavItems(inStockBrands: string[]): NavItem[] {
       ],
     },
     {
-      label: "Mens",
+      label: "Men's",
       href: "/shop?gender=Mens",
       groups: [
         {
@@ -73,7 +73,7 @@ function buildNavItems(inStockBrands: string[]): NavItem[] {
       ],
     },
     {
-      label: "Womens",
+      label: "Women's",
       href: "/shop?gender=Womens",
       groups: [
         {
@@ -101,8 +101,8 @@ function buildNavItems(inStockBrands: string[]): NavItem[] {
           heading: "Browse",
           items: [
             { label: "All Marquee", href: "/shop?rare=true" },
-            { label: "Mens", href: "/shop?rare=true&gender=Mens" },
-            { label: "Womens", href: "/shop?rare=true&gender=Womens" },
+            { label: "Men's", href: "/shop?rare=true&gender=Mens" },
+            { label: "Women's", href: "/shop?rare=true&gender=Womens" },
           ],
         },
         {

@@ -7,6 +7,7 @@ import Navbar from "@/components/Navbar";
 import ProductGallery from "@/components/ProductGallery";
 import { getPublicProduct, getPublicProducts } from "@/lib/server/catalog";
 import { productPath, productSlug } from "@/lib/product-url";
+import { displayGender } from "@/lib/products";
 
 export const dynamic = "force-dynamic";
 
@@ -72,7 +73,7 @@ export default async function ProductPage({ params }: Props) {
       <div className="grid min-w-0 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
         <ProductGallery images={product.imageUrls ?? []} name={product.name} productId={String(product.id)} price={product.price} />
         <section className="min-w-0 max-w-full lg:sticky lg:top-28">
-          <p className="text-[#E8500A] text-xs font-black tracking-[0.2em] uppercase mb-3">{product.gender} · {product.category}</p>
+          <p className="text-[#E8500A] text-xs font-black tracking-[0.2em] uppercase mb-3">{displayGender(product.gender)} · {product.category}</p>
           <h1 className="text-white text-3xl sm:text-4xl font-black leading-tight mb-3" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h1>
           <p className="text-[#bbb] mb-6">{product.brand} · Tagged size {product.size}</p>
           <div className="space-y-3 text-[#ccc] text-sm leading-relaxed mb-6">{product.description.split("\n").filter(Boolean).map((line) => <p key={line}>{line}</p>)}</div>
