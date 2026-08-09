@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import {
   ALL_BRANDS,
   CATEGORIES,
   ERAS,
   FITS,
   SIZES,
-  products as staticProducts,
   type Condition,
   type Era,
   type Fit,
@@ -31,6 +31,11 @@ interface OrderRow {
   payment_status: string;
   notes: string;
   date_of_sale: string;
+  fulfilment_status?: string;
+  tracking_number?: string;
+  dispatched_at?: string;
+  refunded_amount?: number | string;
+  stripe_fee?: number | string;
 }
 
 const EMPTY_PRODUCT: Omit<Product, "id"> = {
@@ -51,6 +56,10 @@ const EMPTY_PRODUCT: Omit<Product, "id"> = {
   vintedTitle: "",
   vintedDescription: "",
   garmentDetails: {},
+  sku: "",
+  costPrice: 0,
+  storageLocation: "",
+  source: "",
 };
 
 const INPUT = "w-full bg-[#171717] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-[#E8500A]/70 placeholder:text-[#444]";
@@ -206,6 +215,8 @@ export default function AdminPage() {
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState("");
   const [search, setSearch] = useState("");
+  const [exportFrom, setExportFrom] = useState("");
+  const [exportTo, setExportTo] = useState("");
   const [showManualSale, setShowManualSale] = useState(false);
   const [thirtyDaysAgo] = useState(() => Date.now() - 30 * 24 * 60 * 60 * 1000);
   const [manualSale, setManualSale] = useState({ customer_name: "", item_name: "", brand: "", price: 0, postage: 0, total: 0, notes: "Vinted sale" });
@@ -237,11 +248,7 @@ export default function AdminPage() {
       if (!ordersResponse.ok) throw new Error(ordersData.error ?? "Could not load orders");
       setOrders(ordersData.orders ?? []);
       const deletedIds = new Set<string>(productsData.deletedProductIds ?? []);
-      const combined = [...(productsData.products ?? []), ...staticProducts].filter((product, index, all) => {
-        const id = String(product.id);
-        return !deletedIds.has(id) && all.findIndex((item) => String(item.id) === id) === index;
-      });
-      setProducts(combined);
+      setProducts((productsData.products ?? []).filter((product: Product) => !deletedIds.has(String(product.id))));
       setHiddenProductIds(productsData.hiddenProductIds ?? []);
     } catch (error) {
       setDataError(error instanceof Error ? error.message : "Could not load dashboard data");
@@ -294,6 +301,15 @@ export default function AdminPage() {
   const recentRevenue = paidOrders
     .filter((order) => new Date(order.date_of_sale).getTime() >= thirtyDaysAgo)
     .reduce((sum, order) => sum + Number(order.total), 0);
+  const pendingFulfilment = orders.filter((order) => order.payment_status === "paid" && !["dispatched", "delivered"].includes(order.fulfilment_status ?? "paid")).length;
+  const averageOrder = paidOrders.length ? revenue / paidOrders.length : 0;
+  const inventoryCost = products.filter((product) => product.stock > 0).reduce((sum, product) => sum + (Number(product.costPrice) || 0) * product.stock, 0);
+  const exportableOrders = orders.filter((order) => {
+    const orderDate = new Date(order.date_of_sale).getTime();
+    const afterStart = !exportFrom || orderDate >= new Date(`${exportFrom}T00:00:00`).getTime();
+    const beforeEnd = !exportTo || orderDate <= new Date(`${exportTo}T23:59:59`).getTime();
+    return afterStart && beforeEnd;
+  });
   const managedProducts = useMemo(() => {
     const query = productSearch.trim().toLowerCase();
     const sorted = [...products].sort((a, b) =>
@@ -315,6 +331,34 @@ export default function AdminPage() {
     setShowManualSale(false);
     setManualSale({ customer_name: "", item_name: "", brand: "", price: 0, postage: 0, total: 0, notes: "Vinted sale" });
     await loadDashboard();
+  };
+
+  const updateOrder = async (order: OrderRow, fulfilmentStatus: string) => {
+    let trackingNumber = order.tracking_number ?? "";
+    if (fulfilmentStatus === "dispatched") {
+      trackingNumber = window.prompt("Royal Mail tracking number (leave blank if none)", trackingNumber) ?? trackingNumber;
+    }
+    const response = await fetch("/api/admin-orders", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: order.id, fulfilment_status: fulfilmentStatus, tracking_number: trackingNumber }),
+    });
+    const data = await response.json();
+    if (!response.ok) return setDataError(data.error ?? "Could not update order");
+    await loadDashboard();
+  };
+
+  const movePhoto = (index: number, direction: -1 | 1) => {
+    const urls = [...(form.imageUrls ?? [])];
+    const next = index + direction;
+    if (next < 0 || next >= urls.length) return;
+    [urls[index], urls[next]] = [urls[next], urls[index]];
+    setForm({ ...form, imageUrls: urls });
+  };
+
+  const removePhoto = async (url: string) => {
+    setForm((current) => ({ ...current, imageUrls: current.imageUrls?.filter((item) => item !== url) }));
+    await fetch("/api/admin/upload", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
   };
 
   const uploadPhotos = async (files: FileList | null) => {
@@ -525,19 +569,21 @@ export default function AdminPage() {
 
         {tab === "orders" && (
           <section>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-7">
-              {[{ label: "Paid orders", value: paidOrders.length }, { label: "All-time revenue", value: money(revenue) }, { label: "Last 30 days", value: money(recentRevenue) }, { label: "Live products", value: products.filter((product) => product.stock > 0 && !hiddenProductIds.includes(String(product.id))).length }].map((stat) => <div key={stat.label} className="bg-[#111] border border-white/8 p-5"><p className="text-[#555] text-[9px] uppercase tracking-[0.2em] mb-2">{stat.label}</p><p className="text-2xl font-black">{stat.value}</p></div>)}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-7">
+              {[{ label: "Paid orders", value: paidOrders.length }, { label: "All-time revenue", value: money(revenue) }, { label: "Last 30 days", value: money(recentRevenue) }, { label: "Average order", value: money(averageOrder) }, { label: "Needs packing", value: pendingFulfilment }, { label: "Stock cost", value: money(inventoryCost) }].map((stat) => <div key={stat.label} className="bg-[#111] border border-white/8 p-5"><p className="text-[#888] text-[9px] uppercase tracking-[0.2em] mb-2">{stat.label}</p><p className="text-2xl font-black">{stat.value}</p></div>)}
             </div>
             <div className="flex flex-wrap gap-3 items-center mb-4">
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customer, item or order…" className={`${INPUT} sm:max-w-xs`} />
               <button onClick={() => setShowManualSale(true)} className="bg-[#E8500A] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Record Vinted sale</button>
-              <button onClick={() => downloadHmrcCsv(orders)} className="border border-[#F5C300]/40 text-[#F5C300] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Export HMRC CSV</button>
+              <label className="text-[#aaa] text-[9px] uppercase tracking-wider">From <input type="date" value={exportFrom} onChange={(event) => setExportFrom(event.target.value)} className="ml-1 bg-[#171717] border border-white/10 px-2 py-2 text-white" /></label>
+              <label className="text-[#aaa] text-[9px] uppercase tracking-wider">To <input type="date" value={exportTo} onChange={(event) => setExportTo(event.target.value)} className="ml-1 bg-[#171717] border border-white/10 px-2 py-2 text-white" /></label>
+              <button onClick={() => downloadHmrcCsv(exportableOrders)} className="border border-[#F5C300]/40 text-[#F5C300] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Export {exportableOrders.length} to HMRC CSV</button>
               <button onClick={loadDashboard} className="border border-white/10 text-[#888] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Refresh</button>
             </div>
             <div className="bg-[#111] border border-white/8 overflow-x-auto">
-              <table className="w-full min-w-[940px] text-left">
-                <thead><tr className="border-b border-white/10">{["Date", "Order", "Customer", "Item", "Source", "Status", "Total"].map((heading) => <th key={heading} className="px-4 py-3 text-[#555] text-[9px] tracking-[0.18em] uppercase">{heading}</th>)}</tr></thead>
-                <tbody>{filteredOrders.map((order) => <tr key={order.id} className="border-b border-white/5 hover:bg-white/[0.02]"><td className="px-4 py-3 text-[#777] text-xs">{new Date(order.date_of_sale).toLocaleDateString("en-GB")}</td><td className="px-4 py-3 text-[#E8500A] text-xs font-bold">{order.id}</td><td className="px-4 py-3"><p className="text-sm font-semibold">{order.customer_name}</p><p className="text-[#555] text-[10px]">{order.customer_email}</p></td><td className="px-4 py-3"><p className="text-sm">{order.item_name}</p><p className="text-[#555] text-[10px]">{order.brand}</p></td><td className="px-4 py-3 text-[#777] text-xs uppercase">{order.source}</td><td className="px-4 py-3"><span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[9px] uppercase">{order.payment_status}</span></td><td className="px-4 py-3 font-black">{money(order.total)}</td></tr>)}</tbody>
+              <table className="w-full min-w-[1120px] text-left">
+                <thead><tr className="border-b border-white/10">{["Date", "Order", "Customer", "Item", "Source", "Payment", "Fulfilment", "Total"].map((heading) => <th key={heading} className="px-4 py-3 text-[#888] text-[9px] tracking-[0.18em] uppercase">{heading}</th>)}</tr></thead>
+                <tbody>{filteredOrders.map((order) => <tr key={order.id} className="border-b border-white/5 hover:bg-white/[0.02]"><td className="px-4 py-3 text-[#999] text-xs">{new Date(order.date_of_sale).toLocaleDateString("en-GB")}</td><td className="px-4 py-3 text-[#E8500A] text-xs font-bold">{order.id}</td><td className="px-4 py-3"><p className="text-sm font-semibold">{order.customer_name}</p><p className="text-[#888] text-[10px]">{order.customer_email}</p></td><td className="px-4 py-3"><p className="text-sm">{order.item_name}</p><p className="text-[#888] text-[10px]">{order.brand}</p></td><td className="px-4 py-3 text-[#999] text-xs uppercase">{order.source}</td><td className="px-4 py-3"><span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[9px] uppercase">{order.payment_status}</span></td><td className="px-4 py-3"><select aria-label={`Fulfilment status for ${order.id}`} value={order.fulfilment_status ?? (order.payment_status === "paid" ? "paid" : order.payment_status)} onChange={(event) => void updateOrder(order, event.target.value)} className="bg-[#171717] border border-white/10 text-white text-[10px] uppercase px-2 py-2"><option value="paid">Paid</option><option value="packing">Packing</option><option value="dispatched">Dispatched</option><option value="delivered">Delivered</option><option value="returned">Returned</option><option value="refunded">Refunded</option></select>{order.tracking_number && <p className="text-[#F5C300] text-[9px] mt-1 max-w-32 truncate" title={order.tracking_number}>{order.tracking_number}</p>}</td><td className="px-4 py-3 font-black">{money(order.total)}</td></tr>)}</tbody>
               </table>
               {!filteredOrders.length && <p className="text-[#555] text-center py-14">No sales recorded yet.</p>}
             </div>
@@ -550,9 +596,9 @@ export default function AdminPage() {
               <div className="bg-[#111] border border-white/8 p-5 sm:p-6">
                 <div className="flex items-start justify-between gap-4 mb-5"><div><p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">Photo-first listing</p><h2 className="text-xl font-black">{editingId ? "Edit product" : "Create a product"}</h2><p className="text-[#666] text-xs mt-1">Upload the photos, let AI read them, then add anything it could not see.</p></div>{editingId && <button onClick={() => { setEditingId(null); setForm(EMPTY_PRODUCT); setQuickDetails(""); setPhotoAnalysis(""); setSellerNotes(""); }} className="text-[#777] text-xs">Cancel edit</button>}</div>
                 <label className="block border-2 border-dashed border-white/10 hover:border-[#E8500A]/50 p-7 text-center cursor-pointer mb-4"><input type="file" accept="image/jpeg,image/png,image/webp,image/heic" multiple className="hidden" onChange={(event) => void uploadPhotos(event.target.files)} disabled={uploading} /><span className="text-sm font-bold">{uploading ? "Uploading photos…" : "Choose product photos"}</span><span className="block text-[#555] text-[10px] mt-1">JPG, PNG, WEBP or HEIC · 4MB each</span></label>
-                {!!form.imageUrls?.length && <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">{form.imageUrls.map((url, index) => <div key={url} className="relative aspect-[3/4] bg-[#1a1a1a]"><img src={url} alt={`Product photo ${index + 1}`} className="w-full h-full object-cover" /><button onClick={() => setForm({ ...form, imageUrls: form.imageUrls?.filter((item) => item !== url) })} className="absolute top-1 right-1 bg-black/80 w-6 h-6 text-xs">×</button></div>)}</div>}
+                {!!form.imageUrls?.length && <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">{form.imageUrls.map((url, index) => <div key={url} className="relative aspect-[3/4] bg-[#1a1a1a] group"><Image src={url} alt={`Product photo ${index + 1}`} fill sizes="(max-width: 640px) 33vw, 150px" className="object-cover" /><span className="absolute top-1 left-1 bg-black/80 px-1.5 py-1 text-[8px] font-black">{index === 0 ? "COVER" : index + 1}</span><button aria-label={`Remove photo ${index + 1}`} onClick={() => void removePhoto(url)} className="absolute top-1 right-1 bg-black/80 w-7 h-7 text-xs">×</button><div className="absolute bottom-1 left-1 right-1 flex justify-between"><button aria-label="Move photo left" disabled={index === 0} onClick={() => movePhoto(index, -1)} className="bg-black/80 disabled:opacity-30 w-7 h-7">←</button>{index > 0 && <button onClick={() => { const urls = [...(form.imageUrls ?? [])]; urls.splice(index, 1); urls.unshift(url); setForm({ ...form, imageUrls: urls }); }} className="bg-black/80 px-1 text-[8px]">Cover</button>}<button aria-label="Move photo right" disabled={index === (form.imageUrls?.length ?? 0) - 1} onClick={() => movePhoto(index, 1)} className="bg-black/80 disabled:opacity-30 w-7 h-7">→</button></div></div>)}</div>}
                 <div className="mb-5 flex flex-wrap items-center gap-3"><button onClick={() => void analysePhotos()} disabled={generating || !form.imageUrls?.length} className="bg-[#E8500A] disabled:opacity-40 text-white font-black text-xs tracking-[0.16em] uppercase px-5 py-3">{generating ? "Reading pictures…" : "Analyse pictures"}</button><span className="text-[#666] text-[10px]">Reads labels, logos, colours, item details and visible condition. Paid web search stays off.</span></div>
-                {photoAnalysis && <div className="mb-5 border border-[#E8500A]/25 bg-[#E8500A]/[0.05] p-4"><p className="text-[#E8500A] text-[9px] font-black tracking-[0.18em] uppercase mb-2">What the pictures show</p><p className="text-[#bbb] text-xs leading-relaxed">{photoAnalysis}</p></div>}
+                {photoAnalysis && <div className="mb-5 border border-[#E8500A]/25 bg-[#E8500A]/[0.05] p-4"><p className="text-[#E8500A] text-[9px] font-black tracking-[0.18em] uppercase mb-2">What the pictures show</p><p className="text-[#bbb] text-xs leading-relaxed">{photoAnalysis}</p><a href={`https://www.google.com/search?q=${encodeURIComponent([form.brand, form.name, form.era, form.garmentDetails?.colour].filter(Boolean).join(" "))}`} target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-[#F5C300] text-[10px] font-black uppercase tracking-wider">Search the web for a matching item ↗</a></div>}
                 <div className="mb-5 border border-[#F5C300]/25 bg-[#F5C300]/[0.04] p-4">
                   <label className="block text-[#F5C300] text-[10px] font-black tracking-[0.2em] uppercase mb-2">Quick listing — add what the photos cannot show</label>
                   <AutocompleteControl label="Quick listing details" value={quickDetails} onChange={setQuickDetails} rows={3} multiline placeholder="Example: Nike, jacket, medium, mens, 90s, black, good condition, £65" suggestions={LISTING_WORDS} />
@@ -591,6 +637,11 @@ export default function AdminPage() {
                   </div>
                   <p className="text-[#777] text-[11px] mt-3">Measure garments flat. These details appear beside the item and help reduce sizing questions and returns.</p>
                 </div>
+                <div className="border border-white/8 bg-[#161616] p-4">
+                  <p className="text-[#F5C300] text-[10px] font-black tracking-[0.18em] uppercase mb-3">Private inventory details</p>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"><Field label="SKU" value={form.sku ?? ""} onChange={(value) => setForm({ ...form, sku: value })} placeholder="SR-0001" /><Field label="Cost price (£)" value={form.costPrice || ""} type="number" onChange={(value) => setForm({ ...form, costPrice: Number(value) })} /><Field label="Storage location" value={form.storageLocation ?? ""} onChange={(value) => setForm({ ...form, storageLocation: value })} placeholder="Rail A / Box 3" /><Field label="Source" value={form.source ?? ""} onChange={(value) => setForm({ ...form, source: value })} placeholder="Wholesaler / kilo sale" /></div>
+                  <p className="text-[#888] text-[10px] mt-3">Only visible in admin. Cost price powers the stock-value figure.</p>
+                </div>
                 <Field label="Website title" value={form.name} onChange={(value) => setForm({ ...form, name: value })} suggestions={LISTING_WORDS} />
                 <TextArea label="Website description" value={form.description} onChange={(value) => setForm({ ...form, description: value })} suggestions={LISTING_WORDS} />
                 <CopyField label="Vinted title" value={form.vintedTitle ?? ""} onChange={(value) => setForm({ ...form, vintedTitle: value })} suggestions={LISTING_WORDS} />
@@ -607,7 +658,7 @@ export default function AdminPage() {
                 const id = String(product.id);
                 const hidden = hiddenProductIds.includes(id);
                 const databaseProduct = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id);
-                return <div key={product.id} className={`border p-3 flex gap-3 ${hidden ? "border-amber-500/25 bg-amber-500/[0.03]" : "border-white/8"}`}><div className="w-16 h-20 bg-[#1a1a1a] shrink-0 overflow-hidden">{product.imageUrls?.[0] && <img src={product.imageUrls[0]} alt="" className="w-full h-full object-cover" />}</div><div className="min-w-0 flex-1"><p className="text-sm font-bold truncate">{product.name}</p><p className="text-[#666] text-[10px]">{product.brand} · {money(product.price)}</p><p className={`text-[9px] mt-1 ${hidden ? "text-amber-300" : product.stock > 0 ? "text-emerald-400" : "text-red-400"}`}>{hidden ? "HIDDEN FROM PUBLIC" : product.stock > 0 ? "LIVE" : "SOLD"}</p><div className="flex flex-wrap gap-x-3 gap-y-2 mt-2">{databaseProduct && <button onClick={() => editProduct(product)} className="text-[#E8500A] text-[10px]">Edit</button>}{databaseProduct && <button onClick={() => void updateStock(product)} className="text-[#aaa] text-[10px]">{product.stock > 0 ? "Mark sold" : "Relist"}</button>}<button onClick={() => void toggleProductVisibility(product)} className="text-amber-300 text-[10px]">{hidden ? "Show publicly" : "Hide from public"}</button><button onClick={() => void removeProduct(product)} className="text-red-400 text-[10px]">Delete</button></div></div></div>;
+                return <div key={product.id} className={`border p-3 flex gap-3 ${hidden ? "border-amber-500/25 bg-amber-500/[0.03]" : "border-white/8"}`}><div className="w-16 h-20 bg-[#1a1a1a] shrink-0 overflow-hidden">{product.imageUrls?.[0] && <Image src={product.imageUrls[0]} alt="" width={64} height={80} className="w-full h-full object-cover" />}</div><div className="min-w-0 flex-1"><p className="text-sm font-bold truncate">{product.name}</p><p className="text-[#666] text-[10px]">{product.brand} · {money(product.price)}</p><p className={`text-[9px] mt-1 ${hidden ? "text-amber-300" : product.stock > 0 ? "text-emerald-400" : "text-red-400"}`}>{hidden ? "HIDDEN FROM PUBLIC" : product.stock > 0 ? "LIVE" : "SOLD"}</p><div className="flex flex-wrap gap-x-3 gap-y-2 mt-2">{databaseProduct && <button onClick={() => editProduct(product)} className="text-[#E8500A] text-[10px]">Edit</button>}{databaseProduct && <button onClick={() => void updateStock(product)} className="text-[#aaa] text-[10px]">{product.stock > 0 ? "Mark sold" : "Relist"}</button>}<button onClick={() => void toggleProductVisibility(product)} className="text-amber-300 text-[10px]">{hidden ? "Show publicly" : "Hide from public"}</button><button onClick={() => void removeProduct(product)} className="text-red-400 text-[10px]">Delete</button></div></div></div>;
               })}</div>
               {!managedProducts.length && <p className="text-[#555] text-xs py-8 text-center">No matching products.</p>}
             </aside>

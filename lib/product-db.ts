@@ -10,10 +10,18 @@ function parseEditorialMeta(value: string | null) {
     const meta = JSON.parse(value.slice(PRODUCT_META_PREFIX.length)) as {
       editorialStory?: string;
       garmentDetails?: Product["garmentDetails"];
+      sku?: string;
+      costPrice?: number;
+      storageLocation?: string;
+      source?: string;
     };
     return {
       editorialStory: meta.editorialStory || undefined,
       garmentDetails: meta.garmentDetails,
+      sku: meta.sku,
+      costPrice: meta.costPrice,
+      storageLocation: meta.storageLocation,
+      source: meta.source,
     };
   } catch {
     return { editorialStory: undefined, garmentDetails: undefined };
@@ -23,10 +31,15 @@ function parseEditorialMeta(value: string | null) {
 function editorialMeta(product: Omit<Product, "id">) {
   const details = product.garmentDetails;
   const hasDetails = details && Object.values(details).some((value) => value?.trim());
-  if (!hasDetails) return product.editorialStory?.trim() || null;
+  const hasInventoryMeta = Boolean(product.sku || product.costPrice || product.storageLocation || product.source);
+  if (!hasDetails && !hasInventoryMeta) return product.editorialStory?.trim() || null;
   return `${PRODUCT_META_PREFIX}${JSON.stringify({
     editorialStory: product.editorialStory?.trim() || undefined,
     garmentDetails: details,
+    sku: product.sku?.trim() || undefined,
+    costPrice: Number(product.costPrice) || undefined,
+    storageLocation: product.storageLocation?.trim() || undefined,
+    source: product.source?.trim() || undefined,
   })}`;
 }
 
@@ -50,6 +63,8 @@ export interface ProductRow {
   image_urls: string[] | null;
   vinted_title: string | null;
   vinted_description: string | null;
+  reserved_until?: string | null;
+  reservation_token?: string | null;
 }
 
 export function rowToProduct(row: ProductRow): Product {
@@ -72,6 +87,10 @@ export function rowToProduct(row: ProductRow): Product {
     description: row.description,
     editorialStory: meta.editorialStory,
     garmentDetails: meta.garmentDetails,
+    sku: meta.sku,
+    costPrice: meta.costPrice,
+    storageLocation: meta.storageLocation,
+    source: meta.source,
     imageUrls: row.image_urls ?? [],
     vintedTitle: row.vinted_title ?? undefined,
     vintedDescription: row.vinted_description ?? undefined,

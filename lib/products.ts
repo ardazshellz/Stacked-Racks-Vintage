@@ -34,6 +34,10 @@ export interface Product {
   vintedTitle?: string;
   vintedDescription?: string;
   garmentDetails?: GarmentDetails;
+  sku?: string;
+  costPrice?: number;
+  storageLocation?: string;
+  source?: string;
 }
 
 export const SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;

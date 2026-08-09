@@ -1,19 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { products as staticProducts, Product } from "@/lib/products";
-import { getDynamicProducts } from "@/lib/dynamicProducts";
+import type { Product } from "@/lib/products";
 
 export function useProducts(): Product[] {
   const [databaseProducts, setDatabaseProducts] = useState<Product[]>([]);
-  const [legacyProducts, setLegacyProducts] = useState<Product[]>([]);
   const [hiddenProductIds, setHiddenProductIds] = useState<string[]>([]);
   const [deletedProductIds, setDeletedProductIds] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
     const refresh = async () => {
-      setLegacyProducts(getDynamicProducts());
       try {
         const response = await fetch("/api/products", { cache: "no-store" });
         const data = await response.json();
@@ -36,7 +33,7 @@ export function useProducts(): Product[] {
 
   const seen = new Set<string>();
   const unavailable = new Set([...hiddenProductIds, ...deletedProductIds]);
-  return [...databaseProducts, ...legacyProducts, ...staticProducts].filter((product) => {
+  return databaseProducts.filter((product) => {
     const id = String(product.id);
     if (unavailable.has(id)) return false;
     if (seen.has(id)) return false;

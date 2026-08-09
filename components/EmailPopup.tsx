@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 
 const SUBSCRIBED_KEY = "sr_email_subscribed";
-const VOUCHER_CODE = "VINTAGE10";
 
 export default function EmailPopup() {
   const [visible, setVisible] = useState(false);
@@ -11,6 +10,7 @@ export default function EmailPopup() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [voucherCode, setVoucherCode] = useState("");
 
   useEffect(() => {
     const open = () => {
@@ -37,6 +37,7 @@ export default function EmailPopup() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Could not send your code");
+      setVoucherCode(String(data.code ?? ""));
       setSubmitted(true);
       localStorage.setItem(SUBSCRIBED_KEY, "1");
     } catch (submitError) {
@@ -127,7 +128,7 @@ export default function EmailPopup() {
                 {/* Voucher code box */}
                 <div className="bg-[#1a1a1a] border border-[#E8500A]/30 px-5 py-3 mb-4">
                   <p className="text-[#555] text-[9px] tracking-[0.25em] uppercase mb-1">Your discount code</p>
-                  <p className="text-[#E8500A] font-black text-2xl tracking-[0.3em]">{VOUCHER_CODE}</p>
+                  <p className="text-[#E8500A] font-black text-xl sm:text-2xl tracking-[0.2em] break-all">{voucherCode}</p>
                 </div>
 
                 <div className="text-left bg-[#161616] border border-white/5 p-4 mb-4 space-y-2">
@@ -135,7 +136,7 @@ export default function EmailPopup() {
                   <ol className="text-[#aaa] text-[10px] leading-relaxed space-y-1 list-decimal list-inside">
                     <li>Find an item you love and add it to your cart</li>
                     <li>Continue to secure checkout</li>
-                    <li>Enter <span className="text-[#E8500A] font-black">{VOUCHER_CODE}</span> in the discount code field at checkout</li>
+                    <li>Enter <span className="text-[#E8500A] font-black">{voucherCode}</span> in the discount code field at checkout</li>
                     <li>10% comes off your total automatically</li>
                   </ol>
                 </div>

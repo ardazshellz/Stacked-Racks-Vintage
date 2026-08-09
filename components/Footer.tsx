@@ -24,7 +24,7 @@ export default function Footer() {
             <span className="text-[#F5C300] ml-2">RACKS</span>
             <span className="text-white ml-2">VINTAGE</span>
           </h2>
-          <p className="text-[#444] text-[10px] mt-2 tracking-[0.25em] uppercase">
+          <p className="text-[#888] text-[10px] mt-2 tracking-[0.25em] uppercase">
             Vintage & Rare Clothing Since Day One
           </p>
         </div>
@@ -70,9 +70,11 @@ export default function Footer() {
         <div className="flex flex-wrap justify-center gap-5 mb-4">
           {[
             { label: "Contact", href: "/contact" },
+            { label: "Track order", href: "/order-status" },
             { label: "Privacy Policy", href: "/legal/privacy" },
             { label: "Terms & Conditions", href: "/legal/terms" },
             { label: "Legal & Returns", href: "/legal" },
+            { label: "Cookie settings", href: "#cookie-settings" },
           ].map(({ label, href }) => (
             <a key={label} href={href}
               className="text-[#777] text-[11px] hover:text-white uppercase tracking-widest transition-colors">
@@ -81,9 +83,11 @@ export default function Footer() {
           ))}
         </div>
 
-        <p className="text-center text-[#2a2a2a] text-[10px] tracking-wide">
-          © 2026 Stacked Racks Vintage Ltd · London, UK · All Rights Reserved
-        </p>
+        <div className="text-center text-[#888] text-[10px] tracking-wide space-y-1">
+          <p>STACKED RACKS VINTAGE LTD · Company no. 15999498 · Registered in England and Wales</p>
+          <p>Registered office: 114 Durnsford Road, London, England, SW19 8HQ</p>
+          <p>© 2026 Stacked Racks Vintage Ltd · All Rights Reserved</p>
+        </div>
       </div>
     </footer>
     </>

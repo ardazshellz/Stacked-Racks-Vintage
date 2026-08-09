@@ -44,6 +44,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid webhook signature" }, { status: 400 });
   }
 
+  const supabase = getSupabaseAdmin();
+
+  if (event.type === "checkout.session.expired") {
+    const expired = event.data.object as Stripe.Checkout.Session;
+    const token = expired.metadata?.reservation_token;
+    if (token) await supabase.rpc("release_product_reservation", { p_token: token });
+    return NextResponse.json({ received: true, reservationReleased: Boolean(token) });
+  }
+
+  if (event.type === "charge.refunded") {
+    const charge = event.data.object as Stripe.Charge;
+    const paymentIntent = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+    if (paymentIntent) {
+      const refundedAmount = Number(charge.amount_refunded ?? 0) / 100;
+      await supabase
+        .from("orders")
+        .update({
+          payment_status: charge.refunded ? "refunded" : "partially_refunded",
+          fulfilment_status: "refunded",
+          refunded_amount: refundedAmount,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("stripe_payment_intent", paymentIntent);
+    }
+    return NextResponse.json({ received: true });
+  }
+
   if (event.type !== "checkout.session.completed") {
     return NextResponse.json({ received: true });
   }
@@ -54,7 +81,6 @@ export async function POST(req: Request) {
   }
 
   const metadata = session.metadata ?? {};
-  const supabase = getSupabaseAdmin();
   const orderId = `SR-${session.id.slice(-12).toUpperCase()}`;
   const itemIds = metadataArray<string>(metadata.item_ids, "string");
   const itemNames = metadataArray<string>(metadata.item_names, "string");
@@ -63,6 +89,14 @@ export async function POST(req: Request) {
   const itemPrice = itemPrices.length ? itemPrices.reduce((sum, price) => sum + price, 0) : Number(metadata.item_price ?? 0);
   const postage = Number(metadata.postage ?? 0);
   const total = Number(session.amount_total ?? Math.round((itemPrice + postage) * 100)) / 100;
+  const paymentIntent = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? "";
+  const reservationToken = metadata.reservation_token ?? "";
+  const items = itemNames.map((name, index) => ({
+    id: itemIds[index] ?? "",
+    name,
+    brand: itemBrands[index] ?? "",
+    price: Number(itemPrices[index] ?? 0),
+  }));
 
   const { data: existing } = await supabase
     .from("orders")
@@ -77,6 +111,7 @@ export async function POST(req: Request) {
       .insert({
         id: orderId,
         stripe_session_id: session.id,
+        stripe_payment_intent: paymentIntent,
         source: "stripe",
         item_id: itemIds.join(",") || metadata.item_id || "",
         item_name: itemNames.join(" | ") || metadata.item_name || "Vintage item",
@@ -89,6 +124,8 @@ export async function POST(req: Request) {
         customer_phone: metadata.customer_phone ?? session.customer_details?.phone ?? "",
         customer_address: metadata.customer_address ?? "",
         payment_status: "paid",
+        fulfilment_status: "paid",
+        items,
         date_of_sale: new Date().toISOString(),
       })
       .select("*")
@@ -99,15 +136,34 @@ export async function POST(req: Request) {
     }
     order = data;
 
-    const databaseItemIds = (itemIds.length ? itemIds : [metadata.item_id ?? ""])
-      .filter((id) => /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id));
-    if (databaseItemIds.length) {
-      const { error: stockError } = await supabase
-        .from("products")
-        .update({ stock: 0, updated_at: new Date().toISOString() })
-        .in("id", databaseItemIds);
-      if (stockError) console.error("Product stock update failed:", stockError);
+    if (reservationToken) {
+      const { error: stockError } = await supabase.rpc("complete_product_reservation", { p_token: reservationToken });
+      if (stockError) console.error("Product reservation completion failed:", stockError);
+    } else {
+      const databaseItemIds = (itemIds.length ? itemIds : [metadata.item_id ?? ""])
+        .filter((id) => /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id));
+      if (databaseItemIds.length) {
+        const { error: stockError } = await supabase
+          .from("products")
+          .update({ stock: 0, updated_at: new Date().toISOString() })
+          .in("id", databaseItemIds);
+        if (stockError) console.error("Product stock update failed:", stockError);
+      }
     }
+
+    if (metadata.discount_code && metadata.discount_code !== "VINTAGE10") {
+      await supabase
+        .from("subscribers")
+        .update({ discount_redeemed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("discount_code", metadata.discount_code);
+    }
+
+    await supabase.from("admin_audit_log").insert({
+      action: "order.paid",
+      target_type: "order",
+      target_id: orderId,
+      details: { stripe_session_id: session.id, total },
+    });
   }
 
   const gmailPass = process.env.GMAIL_APP_PASSWORD;

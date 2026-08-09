@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { getBrandsInStock } from "@/lib/products";
+import { getBrandsInStock, type Product } from "@/lib/products";
 import { useProducts } from "@/hooks/useProducts";
 import CartLink from "./CartLink";
 
@@ -120,8 +120,9 @@ function buildNavItems(inStockBrands: string[]): NavItem[] {
   ];
 }
 
-export default function Navbar() {
-  const products = useProducts();
+export default function Navbar({ products: suppliedProducts }: { products?: Product[] }) {
+  const fetchedProducts = useProducts();
+  const products = suppliedProducts ?? fetchedProducts;
   const inStockBrands = getBrandsInStock(products);
   const navItems = buildNavItems(inStockBrands);
 

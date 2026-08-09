@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import { addCartItem, CART_UPDATED_EVENT, getCartIds } from "@/lib/cart";
 import type { Product } from "@/lib/products";
+import { trackEvent } from "@/lib/analytics";
 
 function subscribeToCart(onStoreChange: () => void) {
   window.addEventListener(CART_UPDATED_EVENT, onStoreChange);
@@ -27,6 +28,14 @@ export default function AddToCartButton({ product, className = "" }: { product: 
     event.stopPropagation();
     const result = addCartItem(product.id);
     setCartFull(result === "full");
+    if (result !== "full") {
+      trackEvent("add_to_cart", {
+        item_id: String(product.id),
+        item_name: product.name,
+        value: product.price,
+        currency: "GBP",
+      });
+    }
   };
 
   return (

@@ -21,6 +21,21 @@ body {
   overflow-x: hidden;
 }
 
+:focus-visible {
+  outline: 3px solid #F5C300;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Hide scrollbar for filter/section nav overflow */
 .scrollbar-none::-webkit-scrollbar {
   display: none;

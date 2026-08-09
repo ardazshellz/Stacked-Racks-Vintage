@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Product } from "@/lib/products";
 import ProductModal from "./ProductModal";
+import Image from "next/image";
 
 const ICONS: Record<string, string> = {
   Jackets: "🧥",
@@ -36,7 +37,7 @@ export default function MarqueeGrid({ products, compact }: Props) {
             >
               Marquee Pieces
             </h2>
-            <p className="text-[#444] text-sm tracking-widest uppercase">
+            <p className="text-[#999] text-sm tracking-widest uppercase">
               Standout vintage selected by Stacked Racks
             </p>
           </div>
@@ -61,7 +62,7 @@ export default function MarqueeGrid({ products, compact }: Props) {
                   <div className="aspect-[3/4] bg-[#0f0f0f] border border-white/8 group-hover:border-[#E8500A]/40 transition-all duration-500 flex items-center justify-center relative overflow-hidden">
                     {/* Icon placeholder */}
                     {product.imageUrls?.[0] ? (
-                      <img src={product.imageUrls[0]} alt={product.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
+                      <Image src={product.imageUrls[0]} alt={product.name} fill sizes={compact ? "(max-width: 640px) 100vw, 50vw" : "(max-width: 640px) 100vw, 480px"} className="object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
                     ) : <div className="text-center z-10">
                       <div className="text-7xl sm:text-8xl mb-4 opacity-30 group-hover:opacity-50 transition-opacity duration-500">
                         {icon}
@@ -102,7 +103,7 @@ export default function MarqueeGrid({ products, compact }: Props) {
                     >
                       {product.name}
                     </h3>
-                    <p className="text-[#555] text-xs tracking-widest uppercase mb-3">
+                    <p className="text-[#999] text-xs tracking-widest uppercase mb-3">
                       {product.brand} · Size {product.size}
                     </p>
 
@@ -136,7 +137,7 @@ export default function MarqueeGrid({ products, compact }: Props) {
       {products.length === 0 && (
         <div className="text-center py-16 border border-dashed border-white/10 mt-4">
           <p className="text-white font-bold mb-2">No items match</p>
-          <p className="text-[#555] text-sm">Try clearing your filters</p>
+          <p className="text-[#999] text-sm">Try clearing your filters</p>
         </div>
       )}
 

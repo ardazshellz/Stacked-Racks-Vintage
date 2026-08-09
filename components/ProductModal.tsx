@@ -1,8 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Product, isNew } from "@/lib/products";
+import { trackEvent } from "@/lib/analytics";
+import { productPath } from "@/lib/product-url";
 import { FREE_SHIPPING_THRESHOLD, qualifiesForFreeShipping } from "@/lib/shipping";
 import AddToCartButton from "./AddToCartButton";
 
@@ -41,6 +44,7 @@ export default function ProductModal({ product, onClose }: Props) {
   const nextImage = useCallback(() => setActiveImage((index) => (index + 1) % images.length), [images.length]);
 
   useEffect(() => {
+    trackEvent("view_item", { item_id: String(product.id), item_name: product.name, value: product.price, currency: "GBP" });
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -60,7 +64,7 @@ export default function ProductModal({ product, onClose }: Props) {
       document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus();
     };
-  }, [handleClose, images.length, nextImage, previousImage, zoomed]);
+  }, [handleClose, images.length, nextImage, previousImage, product.id, product.name, product.price, zoomed]);
 
   const renderGallery = (mobile = false) => (
     <div
@@ -79,7 +83,7 @@ export default function ProductModal({ product, onClose }: Props) {
       {showBadge && <div className={`absolute top-4 left-4 z-20 text-[11px] font-black tracking-[0.15em] px-2.5 py-1 ${badgeCls}`}>{badgeLabel}</div>}
       {images[activeImage] ? (
         <button type="button" onClick={() => setZoomed(true)} aria-label={`Zoom image ${activeImage + 1} of ${images.length}`} className="absolute inset-0 w-full h-full cursor-zoom-in">
-          <img src={images[activeImage]} alt={`${product.name} — photo ${activeImage + 1}`} className="w-full h-full object-contain" decoding="async" />
+          <Image src={images[activeImage]} alt={`${product.name} — photo ${activeImage + 1}`} fill sizes="(max-width: 640px) 100vw, 55vw" className="object-contain" priority={activeImage === 0} />
         </button>
       ) : (
         <div className="text-center px-6"><div className="text-[6rem] mb-4 opacity-40">{icon}</div><p className="text-[#555] text-sm">Photo coming soon</p></div>
@@ -89,7 +93,7 @@ export default function ProductModal({ product, onClose }: Props) {
         <button type="button" onClick={nextImage} aria-label="Next product photo" className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-black/70 border border-white/20 text-white text-xl">›</button>
         <div className="absolute left-3 right-3 bottom-3 z-20 flex items-end justify-between gap-3">
           <div className="flex gap-1.5 overflow-x-auto">
-            {images.map((image, index) => <button type="button" key={`${image}-${index}`} onClick={() => setActiveImage(index)} aria-label={`Show photo ${index + 1}`} className={`w-11 h-14 shrink-0 bg-black border ${index === activeImage ? "border-[#E8500A]" : "border-white/20"}`}><img src={image} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" /></button>)}
+            {images.map((image, index) => <button type="button" key={`${image}-${index}`} onClick={() => setActiveImage(index)} aria-label={`Show photo ${index + 1}`} className={`relative w-11 h-14 shrink-0 bg-black border ${index === activeImage ? "border-[#E8500A]" : "border-white/20"}`}><Image src={image} alt="" fill sizes="44px" className="object-cover" /></button>)}
           </div>
           <span className="shrink-0 bg-black/75 text-white text-[11px] px-2 py-1">{activeImage + 1}/{images.length}</span>
         </div>
@@ -138,6 +142,7 @@ export default function ProductModal({ product, onClose }: Props) {
             <div className="sticky bottom-0 z-10 bg-[#111] border-t border-white/10 pt-3 pb-1 space-y-2">
               <AddToCartButton product={product} className="w-full bg-[#E8500A] text-white font-black text-xs tracking-[0.2em] uppercase py-4 hover:bg-[#c94009] transition-colors shadow-[0_4px_24px_rgba(232,80,10,0.3)]" />
               <a href={`/checkout?item=${product.id}`} className="flex items-center justify-center w-full border border-[#E8500A]/60 text-[#E8500A] font-black text-xs tracking-[0.18em] uppercase py-3 hover:bg-[#E8500A]/10 transition-colors">BUY THIS ITEM NOW</a>
+              <Link href={productPath(product)} className="flex items-center justify-center w-full text-white/80 font-bold text-[11px] tracking-[0.15em] uppercase py-2 hover:text-white transition-colors">Open full product page →</Link>
               <a href="https://www.vinted.co.uk/member/59714764-stackedracks" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-full text-[#888] font-bold text-[11px] tracking-[0.15em] uppercase py-2 hover:text-white transition-colors">Also available on Vinted ↗</a>
             </div>
             <p className="text-center text-[#777] text-[11px] mt-3">Secure Stripe checkout · Cards, Apple Pay and Google Pay where available</p>
@@ -145,7 +150,7 @@ export default function ProductModal({ product, onClose }: Props) {
         </div>
       </div>
 
-      {zoomed && images[activeImage] && <div className="fixed inset-0 z-[90] bg-black/95 p-4 sm:p-10 flex items-center justify-center" onClick={() => setZoomed(false)} role="dialog" aria-label="Enlarged product photo"><img src={images[activeImage]} alt={`${product.name} enlarged`} className="max-w-full max-h-full object-contain" /><button type="button" onClick={() => setZoomed(false)} className="absolute top-4 right-4 w-11 h-11 bg-white text-black text-xl" aria-label="Close enlarged photo">×</button></div>}
+      {zoomed && images[activeImage] && <div className="fixed inset-0 z-[90] bg-black/95 p-4 sm:p-10 flex items-center justify-center" onClick={() => setZoomed(false)} role="dialog" aria-label="Enlarged product photo"><div className="relative w-full h-full"><Image src={images[activeImage]} alt={`${product.name} enlarged`} fill sizes="100vw" className="object-contain" /></div><button type="button" onClick={() => setZoomed(false)} className="absolute top-4 right-4 w-11 h-11 bg-white text-black text-xl" aria-label="Close enlarged photo">×</button></div>}
     </div>
   );
 }

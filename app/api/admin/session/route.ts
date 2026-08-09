@@ -7,6 +7,8 @@ import {
   makeAdminSession,
   verifyAdminPassword,
 } from "@/lib/server/admin-auth";
+import { sameOrigin, withinRateLimit } from "@/lib/server/request-security";
+import { getSupabaseAdmin } from "@/lib/server/supabase";
 
 export async function GET() {
   return NextResponse.json({
@@ -16,12 +18,17 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (!sameOrigin(req)) return NextResponse.json({ error: "Invalid request" }, { status: 403 });
+  if (!(await withinRateLimit(req, "admin-login", 8, 15 * 60))) {
+    return NextResponse.json({ error: "Too many attempts. Try again in 15 minutes." }, { status: 429 });
+  }
   const { password } = (await req.json()) as { password?: string };
   if (!verifyAdminPassword(password ?? "")) {
     return NextResponse.json({ error: "Incorrect password" }, { status: 401 });
   }
 
   const response = NextResponse.json({ authenticated: true });
+  await getSupabaseAdmin().from("admin_audit_log").insert({ action: "admin.login", target_type: "session", target_id: "admin" });
   response.cookies.set(ADMIN_COOKIE, makeAdminSession(), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -32,7 +39,8 @@ export async function POST(req: Request) {
   return response;
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
+  if (!sameOrigin(req)) return NextResponse.json({ error: "Invalid request" }, { status: 403 });
   const response = NextResponse.json({ authenticated: false });
   response.cookies.set(ADMIN_COOKIE, "", {
     httpOnly: true,

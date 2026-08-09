@@ -9,6 +9,7 @@ import {
   getProductSettings,
   saveProductSettings,
 } from "@/lib/server/product-settings";
+import { sameOrigin } from "@/lib/server/request-security";
 
 function validProduct(value: unknown): value is Omit<Product, "id"> {
   if (!value || typeof value !== "object") return false;
@@ -34,8 +35,12 @@ export async function GET() {
     const rows = data as ProductRow[];
     const settingsRow = rows.find((row) => row.name === PRODUCT_SETTINGS_NAME);
     const settings = parseProductSettings(settingsRow?.description);
+    const admin = await isAdminRequest();
     return NextResponse.json({
-      products: rows.filter((row) => row.name !== PRODUCT_SETTINGS_NAME).map(rowToProduct),
+      products: rows
+        .filter((row) => row.name !== PRODUCT_SETTINGS_NAME)
+        .filter((row) => admin || !row.reserved_until || new Date(row.reserved_until).getTime() <= Date.now())
+        .map(rowToProduct),
       ...settings,
     });
   } catch (error) {
@@ -48,6 +53,7 @@ export async function POST(req: Request) {
   if (!(await isAdminRequest())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!sameOrigin(req)) return NextResponse.json({ error: "Invalid request" }, { status: 403 });
   const product = (await req.json()) as unknown;
   if (!validProduct(product)) {
     return NextResponse.json({ error: "Please complete the required product fields" }, { status: 400 });
@@ -65,6 +71,7 @@ export async function PATCH(req: Request) {
   if (!(await isAdminRequest())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!sameOrigin(req)) return NextResponse.json({ error: "Invalid request" }, { status: 403 });
   const body = (await req.json()) as {
     id?: string;
     product?: unknown;
@@ -106,6 +113,7 @@ export async function DELETE(req: Request) {
   if (!(await isAdminRequest())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!sameOrigin(req)) return NextResponse.json({ error: "Invalid request" }, { status: 403 });
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing product id" }, { status: 400 });
   if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id)) {

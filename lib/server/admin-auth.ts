@@ -11,7 +11,7 @@ function adminPassword() {
 }
 
 function signingSecret() {
-  return `${adminPassword()}:${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""}`;
+  return process.env.ADMIN_SESSION_SECRET?.trim() || `${adminPassword()}:${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""}`;
 }
 
 function safeEqual(left: string, right: string) {

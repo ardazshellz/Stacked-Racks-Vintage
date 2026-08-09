@@ -47,6 +47,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={playfairDisplay.variable}>
       <body className="bg-[#0a0a0a] text-white antialiased overflow-x-hidden">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "OnlineStore",
+          name: "Stacked Racks Vintage",
+          legalName: "STACKED RACKS VINTAGE LTD",
+          url: "https://stackedracksvintage.co.uk",
+          email: "stackedracksvintage@gmail.com",
+          identifier: "15999498",
+          address: { "@type": "PostalAddress", streetAddress: "114 Durnsford Road", addressLocality: "London", postalCode: "SW19 8HQ", addressCountry: "GB" },
+          sameAs: ["https://instagram.com/stacked_racks_vintage", "https://www.vinted.co.uk/member/59714764-stackedracks"],
+        }).replace(/</g, "\\u003c") }} />
         <ClientShell />
         {children}
       </body>

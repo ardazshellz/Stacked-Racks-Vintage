@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "How Stacked Racks Vintage Ltd collects, uses and protects your personal data.",
+  alternates: { canonical: "/legal/privacy" },
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -30,27 +31,27 @@ export default function PrivacyPage() {
             style={{ fontFamily: "var(--font-playfair-display), serif" }}>
             Privacy Policy
           </h1>
-          <p className="text-[#555] text-sm">Last updated: May 2026 · Stacked Racks Vintage Ltd, London</p>
+          <p className="text-[#888] text-sm">Last updated: 9 August 2026 · Stacked Racks Vintage Ltd</p>
         </div>
 
         <div className="border-t border-white/5 pt-10">
 
           <Section title="Who We Are">
-            <p>Stacked Racks Vintage Ltd is a company registered in England and Wales, trading as Stacked Racks Vintage. We sell authentic vintage clothing online.</p>
+            <p>Stacked Racks Vintage Ltd (company number 15999498) is the data controller. We are registered in England and Wales at 114 Durnsford Road, London, England, SW19 8HQ.</p>
             <p>Contact: <a href="mailto:stackedracksvintage@gmail.com" className="text-[#E8500A]">stackedracksvintage@gmail.com</a></p>
           </Section>
 
           <Section title="What Data We Collect">
             <p>When you place an order we collect: your full name, email address, phone number, and delivery address. This is necessary to process and ship your order.</p>
             <p>When you sign up for our email list we collect your email address only.</p>
-            <p>We use Google Analytics which automatically collects anonymised data including pages visited, time on site, device type, and general location (country/city level). No personally identifiable information is collected by Analytics.</p>
+            <p>If you consent, Google Analytics collects pseudonymous usage information such as pages visited, time on site, device type and approximate location. We do not send names, order addresses or payment details to Analytics.</p>
             <p>Stripe (our payment processor) collects your card details and billing information directly. We never see or store your card number.</p>
           </Section>
 
           <Section title="How We Use Your Data">
             <p><strong className="text-white">Order fulfilment</strong> — your name, email, phone and address are used solely to process your order, dispatch your item, and provide after-sale support.</p>
-            <p><strong className="text-white">Email marketing</strong> — if you opted in, we may send occasional emails about new arrivals and promotions. You can unsubscribe at any time by replying to any email.</p>
-            <p><strong className="text-white">Analytics</strong> — anonymised Google Analytics data is used to improve the website and understand how visitors use it.</p>
+            <p><strong className="text-white">Email marketing</strong> — if you opted in, we may send occasional emails about new arrivals and promotions. Every marketing email includes an unsubscribe link, and you can also contact us directly.</p>
+            <p><strong className="text-white">Analytics</strong> — consented Google Analytics data is used to improve the website and understand how visitors use it.</p>
             <p><strong className="text-white">HMRC compliance</strong> — we are required by law to retain records of sales for tax purposes for a minimum of 6 years.</p>
           </Section>
 
@@ -68,14 +69,14 @@ export default function PrivacyPage() {
             <p>We do not sell your data. We share data only with:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li><strong className="text-white">Stripe</strong> — payment processing. <a href="https://stripe.com/gb/privacy" className="text-[#E8500A]" target="_blank" rel="noopener noreferrer">Stripe Privacy Policy</a></li>
-              <li><strong className="text-white">Google Analytics</strong> — anonymised site analytics. <a href="https://policies.google.com/privacy" className="text-[#E8500A]" target="_blank" rel="noopener noreferrer">Google Privacy Policy</a></li>
+              <li><strong className="text-white">Google Analytics</strong> — consented site analytics. <a href="https://policies.google.com/privacy" className="text-[#E8500A]" target="_blank" rel="noopener noreferrer">Google Privacy Policy</a></li>
               <li><strong className="text-white">Supabase</strong> — our order database, hosted in the EU. <a href="https://supabase.com/privacy" className="text-[#E8500A]" target="_blank" rel="noopener noreferrer">Supabase Privacy Policy</a></li>
               <li><strong className="text-white">Royal Mail</strong> — your delivery address is shared to ship your order.</li>
             </ul>
           </Section>
 
           <Section title="Data Retention">
-            <p>Order records are retained for 6 years as required by HMRC. Email marketing opt-ins are kept until you unsubscribe. Analytics data is retained for 26 months in Google Analytics.</p>
+            <p>Order records are retained for 6 years for tax and accounting purposes. Email marketing consent records are kept while you remain subscribed and for a limited period afterwards to respect your opt-out. Analytics retention is controlled in Google Analytics.</p>
           </Section>
 
           <Section title="Your Rights (UK GDPR)">

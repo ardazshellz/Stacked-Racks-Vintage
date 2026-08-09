@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/server/admin-auth";
+import { sameOrigin, withinRateLimit } from "@/lib/server/request-security";
 
 export const runtime = "nodejs";
 
@@ -79,6 +80,10 @@ async function imageToGeminiPart(url: string): Promise<GeminiPart | null> {
 export async function POST(req: Request) {
   if (!(await isAdminRequest())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!sameOrigin(req)) return NextResponse.json({ error: "Invalid request" }, { status: 403 });
+  if (!(await withinRateLimit(req, "admin-ai", 30, 60 * 60))) {
+    return NextResponse.json({ error: "AI limit reached. Try again in an hour." }, { status: 429 });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;

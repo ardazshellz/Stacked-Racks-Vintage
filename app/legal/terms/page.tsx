@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 export const metadata: Metadata = {
   title: "Terms & Conditions",
   description: "Terms and conditions for purchasing from Stacked Racks Vintage Ltd.",
+  alternates: { canonical: "/legal/terms" },
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -30,13 +31,13 @@ export default function TermsPage() {
             style={{ fontFamily: "var(--font-playfair-display), serif" }}>
             Terms & Conditions
           </h1>
-          <p className="text-[#555] text-sm">Last updated: May 2026 · Stacked Racks Vintage Ltd, London</p>
+          <p className="text-[#888] text-sm">Last updated: 9 August 2026 · Stacked Racks Vintage Ltd</p>
         </div>
 
         <div className="border-t border-white/5 pt-10">
 
           <Section title="1. Company Information">
-            <p>Stacked Racks Vintage Ltd is registered in England and Wales. Registered office: London, United Kingdom.</p>
+            <p>Stacked Racks Vintage Ltd is registered in England and Wales under company number 15999498. Registered office: 114 Durnsford Road, London, England, SW19 8HQ.</p>
             <p>By accessing this website and purchasing from us, you agree to these terms and conditions in full.</p>
           </Section>
 
@@ -44,7 +45,7 @@ export default function TermsPage() {
             <p>All items sold are authentic second-hand and vintage clothing. We personally source and verify every piece.</p>
             <p>Descriptions and condition gradings (Excellent, Good, Fair) are provided honestly and in good faith. Any vintage wear consistent with the age of the garment will be noted in the listing.</p>
             <p>Brand names referenced in listings (Nike, Adidas, Burberry, etc.) are the property of their respective owners. Their use is purely descriptive of second-hand items and does not imply any affiliation or endorsement.</p>
-            <p>Availability is not guaranteed. Items may sell before a listing is updated.</p>
+            <p>Most pieces are one-off. An item is temporarily reserved while its Stripe checkout is active and is removed from sale after confirmed payment.</p>
           </Section>
 
           <Section title="3. Pricing & Payment">
@@ -56,15 +57,15 @@ export default function TermsPage() {
           <Section title="4. Shipping">
             <p>Orders are dispatched within 24–48 hours of confirmed payment, excluding weekends and UK public holidays.</p>
             <p>Standard UK delivery via Royal Mail is 2–3 working days. Tracking information will be sent by email once dispatched.</p>
-            <p>We are not responsible for delays caused by Royal Mail or other shipping carriers once an item has been dispatched.</p>
+            <p>Please contact us if a parcel is delayed or lost. Where we arrange delivery, the item remains our responsibility until it is delivered to you or your nominated recipient.</p>
           </Section>
 
           <Section title="5. Returns & Refunds">
             <p>Under the Consumer Contracts Regulations 2013 and Consumer Rights Act 2015, you have the right to cancel and return most items within 14 days of receiving them without giving a reason.</p>
-            <p>To initiate a return, contact us within 14 days of delivery via Instagram DM or <a href="mailto:stackedracksvintage@gmail.com" className="text-[#E8500A]">stackedracksvintage@gmail.com</a>. Clear photographic evidence of the item must be provided before any return is approved.</p>
+            <p>To cancel, contact us within 14 days of delivery via Instagram DM or <a href="mailto:stackedracksvintage@gmail.com" className="text-[#E8500A]">stackedracksvintage@gmail.com</a>. You do not need to give a reason. We may ask for photographs where an item is reported as faulty, damaged or not as described.</p>
             <p>Items must be returned in the same condition as received — unworn, unaltered, and with original packaging where applicable. Buyers cover return postage costs unless the item is faulty or significantly not as described.</p>
-            <p>Refunds are issued within 14 days of receiving the returned item, to the original payment method.</p>
-            <p>Vintage wear consistent with the age of the garment, as described in the listing, does not constitute grounds for a return.</p>
+            <p>After cancellation, send the item back within 14 days. Refunds, including standard outbound delivery where required by law, are issued to the original payment method within 14 days of us receiving the item back or receiving evidence that it was sent.</p>
+            <p>Nothing in these terms limits your statutory rights if an item is faulty or not as described.</p>
           </Section>
 
           <Section title="6. Intellectual Property">

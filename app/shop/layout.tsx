@@ -9,6 +9,7 @@ export const metadata: Metadata = {
     description: "Browse rare 80s, 90s & 00s vintage clothing. Nike, Adidas, Burberry and more.",
     images: [{ url: "/hero-rail.jpg" }],
   },
+  alternates: { canonical: "/shop" },
 };
 
 export default function ShopLayout({ children }: { children: React.ReactNode }) {

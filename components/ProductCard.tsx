@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { Product, isNew } from "@/lib/products";
+import { productPath } from "@/lib/product-url";
 import SizeGuide from "./SizeGuide";
 import AddToCartButton from "./AddToCartButton";
 
@@ -26,7 +29,7 @@ export default function ProductCard({ product, onClick }: Props) {
     <article className={`group relative bg-[#111] border border-white/10 transition-all duration-200 ${isSoldOut ? "opacity-55" : "hover:border-[#E8500A] hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(232,80,10,0.18)]"}`}>
       <button type="button" onClick={onClick} disabled={isSoldOut} className="block w-full text-left disabled:cursor-default" aria-label={isSoldOut ? `${product.name} — sold out` : `View ${product.name}`}>
         <div className="aspect-[3/4] bg-[#161616] flex items-center justify-center relative overflow-hidden">
-          {product.imageUrls?.[0] ? <img src={product.imageUrls[0]} alt={product.name} loading="lazy" decoding="async" className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 ${isSoldOut ? "grayscale" : "group-hover:scale-[1.03]"}`} /> : <div className="text-center p-4"><div className="text-4xl sm:text-5xl mb-3 opacity-45">{ICONS[product.category] ?? "👕"}</div><p className="text-[#666] text-xs">Photo coming soon</p></div>}
+          {product.imageUrls?.[0] ? <Image src={product.imageUrls[0]} alt={product.name} fill sizes="(max-width: 640px) 50vw, (max-width: 1280px) 33vw, 25vw" className={`object-cover transition-transform duration-500 ${isSoldOut ? "grayscale" : "group-hover:scale-[1.03]"}`} /> : <div className="text-center p-4"><div className="text-4xl sm:text-5xl mb-3 opacity-45">{ICONS[product.category] ?? "👕"}</div><p className="text-[#999] text-xs">Photo coming soon</p></div>}
           {(showMarqueeBadge || showNewBadge) && <span className={`absolute top-2.5 left-2.5 text-[10px] font-black tracking-[0.12em] px-2 py-1 ${badgeCls}`}>{badgeLabel}</span>}
           {isSoldOut && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-white/70 text-xl font-black tracking-[0.25em] border-2 border-white/30 px-4 py-1.5 -rotate-6">SOLD</span></div>}
           {product.imageUrls && product.imageUrls.length > 1 && <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] px-2 py-1">{product.imageUrls.length} photos</span>}
@@ -42,6 +45,7 @@ export default function ProductCard({ product, onClick }: Props) {
           <button type="button" onClick={() => setSizeGuideOpen(true)} className="text-[#888] text-[11px] hover:text-white underline underline-offset-2 transition-colors">Size guide</button>
           <span className={`font-black text-lg ${isSoldOut ? "text-[#666]" : "text-[#E8500A]"}`}>{isSoldOut ? "SOLD" : `£${product.price.toFixed(2)}`}</span>
         </div>
+        <Link href={productPath(product)} className="mt-2 min-h-8 flex items-center text-[#aaa] hover:text-white text-[11px] font-bold underline underline-offset-4">View full details</Link>
         {!isSoldOut && <AddToCartButton product={product} className="mt-3 w-full border border-[#E8500A]/60 text-[#E8500A] hover:bg-[#E8500A] hover:text-white py-2.5 text-[11px] font-black tracking-[0.14em] transition-colors" />}
       </div>
     </article>
