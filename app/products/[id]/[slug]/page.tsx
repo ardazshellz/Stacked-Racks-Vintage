@@ -73,7 +73,10 @@ export default async function ProductPage({ params }: Props) {
       <div className="grid min-w-0 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
         <ProductGallery images={product.imageUrls ?? []} name={product.name} productId={String(product.id)} price={product.price} />
         <section className="min-w-0 max-w-full lg:sticky lg:top-28">
-          <p className="text-[#E8500A] text-xs font-black tracking-[0.2em] uppercase mb-3">{displayGender(product.gender)} · {product.category}</p>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="border border-[#E8500A]/60 bg-[#E8500A]/10 px-2.5 py-1.5 text-[#E8500A] text-[10px] font-black tracking-[0.14em] uppercase">{displayGender(product.gender)}</span>
+            <span className="text-[#999] text-[10px] font-bold tracking-[0.16em] uppercase">{product.category}</span>
+          </div>
           <h1 className="text-white text-3xl sm:text-4xl font-black leading-tight mb-3" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h1>
           <p className="text-[#bbb] mb-6">{product.brand} · Tagged size {product.size}</p>
           <div className="space-y-3 text-[#ccc] text-sm leading-relaxed mb-6">{product.description.split("\n").filter(Boolean).map((line) => <p key={line}>{line}</p>)}</div>

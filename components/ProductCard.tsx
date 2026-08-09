@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Product, isNew } from "@/lib/products";
+import { displayGender, Product, isNew } from "@/lib/products";
 import { productPath } from "@/lib/product-url";
 import SizeGuide from "./SizeGuide";
 import AddToCartButton from "./AddToCartButton";
@@ -35,6 +35,10 @@ export default function ProductCard({ product, onClick }: Props) {
           {product.imageUrls && product.imageUrls.length > 1 && <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] px-2 py-1">{product.imageUrls.length} photos</span>}
         </div>
         <div className="p-3 sm:p-4 pb-2">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="inline-flex border border-[#E8500A]/60 bg-[#E8500A]/10 px-2 py-1 text-[#E8500A] text-[9px] font-black tracking-[0.14em] uppercase">{displayGender(product.gender)}</span>
+            <span className="min-w-0 truncate text-[#888] text-[9px] font-bold tracking-[0.12em] uppercase">{product.category}</span>
+          </div>
           <h3 className={`text-sm font-semibold leading-snug mb-1.5 line-clamp-2 ${isSoldOut ? "text-white/50" : "text-white group-hover:text-[#E8500A]"}`}>{product.name}</h3>
           <p className="text-xs tracking-wide"><span className={isSoldOut ? "text-[#666]" : "text-[#bbb] font-medium"}>{product.brand}</span><span className="text-[#555] mx-1.5">·</span><span className="text-[#888]">Size {product.size}</span></p>
         </div>

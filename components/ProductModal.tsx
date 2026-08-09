@@ -111,13 +111,19 @@ export default function ProductModal({ product, onClose }: Props) {
         {renderGallery()}
         <div className="sm:flex-1 sm:overflow-y-auto flex flex-col">
           <button ref={mobileCloseButtonRef} type="button" onClick={handleClose} className="sm:hidden w-full flex items-center justify-between gap-4 px-5 py-4 border-b border-white/10 sticky top-0 bg-[#111] z-30 min-h-16 text-left" aria-label="Close product details">
-            <span className="text-[#bbb] text-xs tracking-wider uppercase">{displayGender(product.gender)} · {product.category}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 border border-[#E8500A]/60 bg-[#E8500A]/10 px-2.5 py-1.5 text-[#E8500A] text-[10px] font-black tracking-[0.14em] uppercase">{displayGender(product.gender)}</span>
+              <span className="truncate text-[#aaa] text-[10px] font-bold tracking-[0.14em] uppercase">{product.category}</span>
+            </span>
             <span aria-hidden="true" className="w-8 h-8 shrink-0 rounded-full border border-white/20 bg-black/35 text-white text-xl leading-none flex items-center justify-center">×</span>
           </button>
           {renderGallery(true)}
 
           <div className="p-5 sm:p-7 flex flex-col flex-1">
-            <p className="hidden sm:block text-[#777] text-[11px] tracking-[0.22em] uppercase mb-3">{displayGender(product.gender)} · {product.category}</p>
+            <div className="hidden sm:flex items-center gap-2 mb-3">
+              <span className="border border-[#E8500A]/60 bg-[#E8500A]/10 px-2.5 py-1.5 text-[#E8500A] text-[10px] font-black tracking-[0.14em] uppercase">{displayGender(product.gender)}</span>
+              <span className="text-[#888] text-[10px] font-bold tracking-[0.16em] uppercase">{product.category}</span>
+            </div>
             <h2 className="text-white text-xl sm:text-2xl font-black mb-1 leading-tight" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h2>
             <p className="text-[#bbb] text-sm mb-5"><span className="font-medium">{product.brand}</span><span className="text-[#555] mx-2">·</span>Tagged size {product.size}</p>
 
