@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { addCartItem, CART_UPDATED_EVENT, getCartIds } from "@/lib/cart";
+import { addCartItem, CART_UPDATED_EVENT, getCartIds, removeCartItem } from "@/lib/cart";
 import type { Product } from "@/lib/products";
 import { trackEvent } from "@/lib/analytics";
 
@@ -23,9 +23,20 @@ export default function AddToCartButton({ product, className = "" }: { product: 
   const isInCart = cartSnapshot.split("|").includes(String(product.id));
   const [cartFull, setCartFull] = useState(false);
 
-  const add = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const toggleCart = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    setCartFull(false);
+    if (isInCart) {
+      removeCartItem(product.id);
+      trackEvent("remove_from_cart", {
+        item_id: String(product.id),
+        item_name: product.name,
+        value: product.price,
+        currency: "GBP",
+      });
+      return;
+    }
     const result = addCartItem(product.id);
     setCartFull(result === "full");
     if (result !== "full") {
@@ -41,12 +52,14 @@ export default function AddToCartButton({ product, className = "" }: { product: 
   return (
     <button
       type="button"
-      onClick={add}
-      disabled={product.stock < 1 || isInCart}
+      onClick={toggleCart}
+      disabled={product.stock < 1}
       className={className}
       aria-live="polite"
+      aria-pressed={isInCart}
+      aria-label={isInCart ? `Remove ${product.name} from cart` : `Add ${product.name} to cart`}
     >
-      {isInCart ? "ALREADY IN CART" : cartFull ? "CART FULL" : "ADD TO CART"}
+      {isInCart ? "ALREADY IN CART · CLICK TO REMOVE" : cartFull ? "CART FULL" : "ADD TO CART"}
     </button>
   );
 }
