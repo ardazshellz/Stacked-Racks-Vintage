@@ -31,6 +31,8 @@ export async function POST(req: Request) {
   if (!body.item_name || !body.customer_name || Number(body.total) <= 0) {
     return NextResponse.json({ error: "Customer, item and total are required" }, { status: 400 });
   }
+  const requestedPurchaseCost = Number(body.cost_price ?? 0);
+  const purchaseCost = Number.isFinite(requestedPurchaseCost) ? Math.max(0, requestedPurchaseCost) : 0;
   const row = {
     id: `SR-${Date.now().toString(36).toUpperCase()}`,
     source: "manual",
@@ -45,6 +47,13 @@ export async function POST(req: Request) {
     customer_address: String(body.customer_address ?? ""),
     payment_status: String(body.payment_status ?? "paid").toLowerCase(),
     notes: String(body.notes ?? ""),
+    items: [{
+      id: "",
+      name: String(body.item_name),
+      brand: String(body.brand ?? ""),
+      price: Number(body.price ?? body.total),
+      costPrice: purchaseCost,
+    }],
     date_of_sale: String(body.date_of_sale ?? new Date().toISOString()),
   };
   const { data, error } = await getSupabaseAdmin().from("orders").insert(row).select("*").single();

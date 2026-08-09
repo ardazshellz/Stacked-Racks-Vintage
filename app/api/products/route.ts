@@ -40,7 +40,16 @@ export async function GET() {
       products: rows
         .filter((row) => row.name !== PRODUCT_SETTINGS_NAME)
         .filter((row) => admin || !row.reserved_until || new Date(row.reserved_until).getTime() <= Date.now())
-        .map(rowToProduct),
+        .map((row) => {
+          const product = rowToProduct(row);
+          return admin ? product : {
+            ...product,
+            sku: undefined,
+            costPrice: undefined,
+            storageLocation: undefined,
+            source: undefined,
+          };
+        }),
       ...settings,
     });
   } catch (error) {

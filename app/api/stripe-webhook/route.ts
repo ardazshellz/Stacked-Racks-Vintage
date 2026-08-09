@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import nodemailer from "nodemailer";
+import { rowToProduct, type ProductRow } from "@/lib/product-db";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
 import { WELCOME_DISCOUNT_CODE } from "@/lib/discount";
 
@@ -92,11 +93,28 @@ export async function POST(req: Request) {
   const total = Number(session.amount_total ?? Math.round((itemPrice + postage) * 100)) / 100;
   const paymentIntent = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? "";
   const reservationToken = metadata.reservation_token ?? "";
+  const databaseItemIds = itemIds.filter((id) => /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id));
+  const productCosts = new Map<string, number>();
+  if (databaseItemIds.length) {
+    const { data: productRows, error: productCostError } = await supabase
+      .from("products")
+      .select("*")
+      .in("id", databaseItemIds);
+    if (productCostError) {
+      console.error("Could not read private product costs for order snapshot:", productCostError);
+    } else {
+      for (const row of (productRows ?? []) as ProductRow[]) {
+        const product = rowToProduct(row);
+        productCosts.set(String(product.id), Number(product.costPrice) || 0);
+      }
+    }
+  }
   const items = itemNames.map((name, index) => ({
     id: itemIds[index] ?? "",
     name,
     brand: itemBrands[index] ?? "",
     price: Number(itemPrices[index] ?? 0),
+    costPrice: productCosts.get(itemIds[index] ?? "") ?? 0,
   }));
 
   const { data: existing } = await supabase
@@ -141,13 +159,13 @@ export async function POST(req: Request) {
       const { error: stockError } = await supabase.rpc("complete_product_reservation", { p_token: reservationToken });
       if (stockError) console.error("Product reservation completion failed:", stockError);
     } else {
-      const databaseItemIds = (itemIds.length ? itemIds : [metadata.item_id ?? ""])
+      const stockItemIds = (itemIds.length ? itemIds : [metadata.item_id ?? ""])
         .filter((id) => /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id));
-      if (databaseItemIds.length) {
+      if (stockItemIds.length) {
         const { error: stockError } = await supabase
           .from("products")
           .update({ stock: 0, updated_at: new Date().toISOString() })
-          .in("id", databaseItemIds);
+          .in("id", stockItemIds);
         if (stockError) console.error("Product stock update failed:", stockError);
       }
     }

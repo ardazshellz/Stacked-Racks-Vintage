@@ -19,6 +19,7 @@ type Tab = "orders" | "listings";
 
 interface OrderRow {
   id: string;
+  item_id?: string;
   source: string;
   item_name: string;
   brand: string;
@@ -37,6 +38,13 @@ interface OrderRow {
   dispatched_at?: string;
   refunded_amount?: number | string;
   stripe_fee?: number | string;
+  items?: Array<{
+    id?: string;
+    name?: string;
+    brand?: string;
+    price?: number | string;
+    costPrice?: number | string;
+  }>;
 }
 
 const EMPTY_PRODUCT: Omit<Product, "id"> = {
@@ -176,22 +184,44 @@ function money(value: number | string) {
 }
 
 function csvCell(value: unknown) {
-  return `"${String(value ?? "").replaceAll('"', '""')}"`;
+  const text = String(value ?? "");
+  const excelSafeText = /^[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${excelSafeText.replaceAll('"', '""')}"`;
 }
 
-function downloadHmrcCsv(orders: OrderRow[]) {
-  const headers = ["Date", "Order ID", "Item", "Brand", "Sale Price", "Postage", "Total", "Customer Name"];
+function orderPurchaseCost(order: OrderRow, products: Product[]) {
+  const itemSnapshots = Array.isArray(order.items) ? order.items : [];
+  if (itemSnapshots.some((item) => item.costPrice !== undefined)) {
+    return itemSnapshots.reduce((sum, item) => sum + Number(item.costPrice || 0), 0);
+  }
+
+  const productIds = String(order.item_id ?? "").split(",").map((id) => id.trim()).filter(Boolean);
+  const productsById = products.filter((product) => productIds.includes(String(product.id)));
+  if (productsById.length) {
+    return productsById.reduce((sum, product) => sum + Number(product.costPrice || 0), 0);
+  }
+
+  const itemNames = String(order.item_name ?? "").split(" | ").map((name) => name.trim().toLowerCase());
+  return products
+    .filter((product) => itemNames.includes(product.name.trim().toLowerCase()))
+    .reduce((sum, product) => sum + Number(product.costPrice || 0), 0);
+}
+
+function downloadHmrcCsv(orders: OrderRow[], products: Product[]) {
+  const headers = ["Date", "Order ID", "Item", "Brand", "Sale Price", "Item Purchase Cost", "Gross Profit Before Fees", "Postage", "Total", "Customer Name"];
   const rows = orders.map((order) => [
     new Date(order.date_of_sale).toLocaleDateString("en-GB"),
     order.id,
     csvCell(order.item_name),
     csvCell(order.brand),
     Number(order.price).toFixed(2),
+    orderPurchaseCost(order, products).toFixed(2),
+    (Number(order.price) - orderPurchaseCost(order, products)).toFixed(2),
     Number(order.postage).toFixed(2),
     Number(order.total).toFixed(2),
     csvCell(order.customer_name),
   ]);
-  const blob = new Blob([[headers.join(","), ...rows.map((row) => row.join(","))].join("\n")], {
+  const blob = new Blob([`\uFEFF${[headers.join(","), ...rows.map((row) => row.join(","))].join("\n")}`], {
     type: "text/csv;charset=utf-8",
   });
   const url = URL.createObjectURL(blob);
@@ -220,7 +250,7 @@ export default function AdminPage() {
   const [exportTo, setExportTo] = useState("");
   const [showManualSale, setShowManualSale] = useState(false);
   const [thirtyDaysAgo] = useState(() => Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const [manualSale, setManualSale] = useState({ customer_name: "", item_name: "", brand: "", price: 0, postage: 0, total: 0, notes: "Vinted sale" });
+  const [manualSale, setManualSale] = useState({ customer_name: "", item_name: "", brand: "", price: 0, cost_price: 0, postage: 0, total: 0, notes: "Vinted sale" });
 
   const [form, setForm] = useState<Omit<Product, "id">>(EMPTY_PRODUCT);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -305,6 +335,8 @@ export default function AdminPage() {
   const pendingFulfilment = orders.filter((order) => order.payment_status === "paid" && !["dispatched", "delivered"].includes(order.fulfilment_status ?? "paid")).length;
   const averageOrder = paidOrders.length ? revenue / paidOrders.length : 0;
   const inventoryCost = products.filter((product) => product.stock > 0).reduce((sum, product) => sum + (Number(product.costPrice) || 0) * product.stock, 0);
+  const soldStockCost = paidOrders.reduce((sum, order) => sum + orderPurchaseCost(order, products), 0);
+  const grossProfitBeforeFees = paidOrders.reduce((sum, order) => sum + Number(order.price) - orderPurchaseCost(order, products), 0);
   const exportableOrders = orders.filter((order) => {
     const orderDate = new Date(order.date_of_sale).getTime();
     const afterStart = !exportFrom || orderDate >= new Date(`${exportFrom}T00:00:00`).getTime();
@@ -330,7 +362,7 @@ export default function AdminPage() {
     const data = await response.json();
     if (!response.ok) return setDataError(data.error ?? "Could not save sale");
     setShowManualSale(false);
-    setManualSale({ customer_name: "", item_name: "", brand: "", price: 0, postage: 0, total: 0, notes: "Vinted sale" });
+    setManualSale({ customer_name: "", item_name: "", brand: "", price: 0, cost_price: 0, postage: 0, total: 0, notes: "Vinted sale" });
     await loadDashboard();
   };
 
@@ -570,21 +602,25 @@ export default function AdminPage() {
 
         {tab === "orders" && (
           <section>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-7">
-              {[{ label: "Paid orders", value: paidOrders.length }, { label: "All-time revenue", value: money(revenue) }, { label: "Last 30 days", value: money(recentRevenue) }, { label: "Average order", value: money(averageOrder) }, { label: "Needs packing", value: pendingFulfilment }, { label: "Stock cost", value: money(inventoryCost) }].map((stat) => <div key={stat.label} className="bg-[#111] border border-white/8 p-5"><p className="text-[#888] text-[9px] uppercase tracking-[0.2em] mb-2">{stat.label}</p><p className="text-2xl font-black">{stat.value}</p></div>)}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-7">
+              {[{ label: "Paid orders", value: paidOrders.length }, { label: "All-time revenue", value: money(revenue) }, { label: "Last 30 days", value: money(recentRevenue) }, { label: "Average order", value: money(averageOrder) }, { label: "Needs packing", value: pendingFulfilment }, { label: "Unsold stock cost", value: money(inventoryCost) }, { label: "Sold stock cost", value: money(soldStockCost) }, { label: "Gross profit before fees", value: money(grossProfitBeforeFees) }].map((stat) => <div key={stat.label} className="bg-[#111] border border-white/8 p-5"><p className="text-[#888] text-[9px] uppercase tracking-[0.2em] mb-2">{stat.label}</p><p className="text-2xl font-black">{stat.value}</p></div>)}
             </div>
             <div className="flex flex-wrap gap-3 items-center mb-4">
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customer, item or order…" className={`${INPUT} sm:max-w-xs`} />
               <button onClick={() => setShowManualSale(true)} className="bg-[#E8500A] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Record Vinted sale</button>
               <label className="text-[#aaa] text-[9px] uppercase tracking-wider">From <input type="date" value={exportFrom} onChange={(event) => setExportFrom(event.target.value)} className="ml-1 bg-[#171717] border border-white/10 px-2 py-2 text-white" /></label>
               <label className="text-[#aaa] text-[9px] uppercase tracking-wider">To <input type="date" value={exportTo} onChange={(event) => setExportTo(event.target.value)} className="ml-1 bg-[#171717] border border-white/10 px-2 py-2 text-white" /></label>
-              <button onClick={() => downloadHmrcCsv(exportableOrders)} className="border border-[#F5C300]/40 text-[#F5C300] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Export {exportableOrders.length} to HMRC CSV</button>
+              <button onClick={() => downloadHmrcCsv(exportableOrders, products)} className="border border-[#F5C300]/40 text-[#F5C300] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Export {exportableOrders.length} to HMRC CSV</button>
               <button onClick={loadDashboard} className="border border-white/10 text-[#888] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Refresh</button>
             </div>
+            <p className="text-[#666] text-[10px] mb-4">HMRC CSV now includes what you paid for each item and gross profit before platform, payment and other business expenses.</p>
             <div className="bg-[#111] border border-white/8 overflow-x-auto">
-              <table className="w-full min-w-[1120px] text-left">
-                <thead><tr className="border-b border-white/10">{["Date", "Order", "Customer", "Item", "Source", "Payment", "Fulfilment", "Total"].map((heading) => <th key={heading} className="px-4 py-3 text-[#888] text-[9px] tracking-[0.18em] uppercase">{heading}</th>)}</tr></thead>
-                <tbody>{filteredOrders.map((order) => <tr key={order.id} className="border-b border-white/5 hover:bg-white/[0.02]"><td className="px-4 py-3 text-[#999] text-xs">{new Date(order.date_of_sale).toLocaleDateString("en-GB")}</td><td className="px-4 py-3 text-[#E8500A] text-xs font-bold">{order.id}</td><td className="px-4 py-3"><p className="text-sm font-semibold">{order.customer_name}</p><p className="text-[#888] text-[10px]">{order.customer_email}</p></td><td className="px-4 py-3"><p className="text-sm">{order.item_name}</p><p className="text-[#888] text-[10px]">{order.brand}</p></td><td className="px-4 py-3 text-[#999] text-xs uppercase">{order.source}</td><td className="px-4 py-3"><span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[9px] uppercase">{order.payment_status}</span></td><td className="px-4 py-3"><select aria-label={`Fulfilment status for ${order.id}`} value={order.fulfilment_status ?? (order.payment_status === "paid" ? "paid" : order.payment_status)} onChange={(event) => void updateOrder(order, event.target.value)} className="bg-[#171717] border border-white/10 text-white text-[10px] uppercase px-2 py-2"><option value="paid">Paid</option><option value="packing">Packing</option><option value="dispatched">Dispatched</option><option value="delivered">Delivered</option><option value="returned">Returned</option><option value="refunded">Refunded</option></select>{order.tracking_number && <p className="text-[#F5C300] text-[9px] mt-1 max-w-32 truncate" title={order.tracking_number}>{order.tracking_number}</p>}</td><td className="px-4 py-3 font-black">{money(order.total)}</td></tr>)}</tbody>
+              <table className="w-full min-w-[1320px] text-left">
+                <thead><tr className="border-b border-white/10">{["Date", "Order", "Customer", "Item", "Source", "Payment", "Fulfilment", "Item cost", "Gross profit", "Total"].map((heading) => <th key={heading} className="px-4 py-3 text-[#888] text-[9px] tracking-[0.18em] uppercase">{heading}</th>)}</tr></thead>
+                <tbody>{filteredOrders.map((order) => {
+                  const purchaseCost = orderPurchaseCost(order, products);
+                  return <tr key={order.id} className="border-b border-white/5 hover:bg-white/[0.02]"><td className="px-4 py-3 text-[#999] text-xs">{new Date(order.date_of_sale).toLocaleDateString("en-GB")}</td><td className="px-4 py-3 text-[#E8500A] text-xs font-bold">{order.id}</td><td className="px-4 py-3"><p className="text-sm font-semibold">{order.customer_name}</p><p className="text-[#888] text-[10px]">{order.customer_email}</p></td><td className="px-4 py-3"><p className="text-sm">{order.item_name}</p><p className="text-[#888] text-[10px]">{order.brand}</p></td><td className="px-4 py-3 text-[#999] text-xs uppercase">{order.source}</td><td className="px-4 py-3"><span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[9px] uppercase">{order.payment_status}</span></td><td className="px-4 py-3"><select aria-label={`Fulfilment status for ${order.id}`} value={order.fulfilment_status ?? (order.payment_status === "paid" ? "paid" : order.payment_status)} onChange={(event) => void updateOrder(order, event.target.value)} className="bg-[#171717] border border-white/10 text-white text-[10px] uppercase px-2 py-2"><option value="paid">Paid</option><option value="packing">Packing</option><option value="dispatched">Dispatched</option><option value="delivered">Delivered</option><option value="returned">Returned</option><option value="refunded">Refunded</option></select>{order.tracking_number && <p className="text-[#F5C300] text-[9px] mt-1 max-w-32 truncate" title={order.tracking_number}>{order.tracking_number}</p>}</td><td className="px-4 py-3 text-[#aaa] font-bold">{money(purchaseCost)}</td><td className="px-4 py-3 text-[#F5C300] font-black">{money(Number(order.price) - purchaseCost)}</td><td className="px-4 py-3 font-black">{money(order.total)}</td></tr>;
+                })}</tbody>
               </table>
               {!filteredOrders.length && <p className="text-[#555] text-center py-14">No sales recorded yet.</p>}
             </div>
@@ -605,12 +641,13 @@ export default function AdminPage() {
                   <AutocompleteControl label="Quick listing details" value={quickDetails} onChange={setQuickDetails} rows={3} multiline placeholder="Example: Nike, jacket, medium, men's, 90s, black, good condition, £65" suggestions={LISTING_WORDS} />
                   <div className="mt-3 flex flex-wrap items-center gap-3"><button onClick={() => void generateQuickListing()} disabled={generating || quickDetails.trim().length < 3} className="bg-[#F5C300] disabled:opacity-40 text-black font-black text-xs tracking-[0.14em] uppercase px-5 py-3">{generating ? "Building listing…" : photoAnalysis ? "Merge details with photo analysis" : "Fill every box with AI"}</button><span className="text-[#777] text-[10px]">Include the price with £ if you want that filled too.</span></div>
                 </div>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <Field label="Brand" value={form.brand} onChange={(value) => setForm({ ...form, brand: value })} placeholder="Nike, Adidas, Vintage…" suggestions={ALL_BRANDS} />
                   <Select label="Category" value={form.category} options={CATEGORIES} onChange={(value) => setForm({ ...form, category: value })} />
                   <Select label="Size" value={form.size} options={SIZES} onChange={(value) => setForm({ ...form, size: value })} />
                   <Select label="Department" value={form.gender} options={["Mens", "Womens"]} optionLabel={displayGender} onChange={(value) => setForm({ ...form, gender: value as Product["gender"] })} />
-                  <Field label="Price (£)" value={form.price || ""} type="number" onChange={(value) => setForm({ ...form, price: Number(value) })} />
+                  <Field label="Customer sale price (£)" value={form.price || ""} type="number" onChange={(value) => setForm({ ...form, price: Number(value) })} />
+                  <Field label="What you paid for item (£) — private" value={form.costPrice || ""} type="number" onChange={(value) => setForm({ ...form, costPrice: Math.max(0, Number(value)) })} placeholder="Optional" />
                   <Select label="Era" value={form.era} options={ERAS} onChange={(value) => setForm({ ...form, era: value as Era })} />
                   <Select label="Condition" value={form.condition} options={["Excellent", "Good", "Fair"]} onChange={(value) => setForm({ ...form, condition: value as Condition })} />
                   <Select label="Fit" value={form.fit} options={FITS} onChange={(value) => setForm({ ...form, fit: value as Fit })} />
@@ -640,8 +677,8 @@ export default function AdminPage() {
                 </div>
                 <div className="border border-white/8 bg-[#161616] p-4">
                   <p className="text-[#F5C300] text-[10px] font-black tracking-[0.18em] uppercase mb-3">Private inventory details</p>
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"><Field label="SKU" value={form.sku ?? ""} onChange={(value) => setForm({ ...form, sku: value })} placeholder="SR-0001" /><Field label="Cost price (£)" value={form.costPrice || ""} type="number" onChange={(value) => setForm({ ...form, costPrice: Number(value) })} /><Field label="Storage location" value={form.storageLocation ?? ""} onChange={(value) => setForm({ ...form, storageLocation: value })} placeholder="Rail A / Box 3" /><Field label="Source" value={form.source ?? ""} onChange={(value) => setForm({ ...form, source: value })} placeholder="Wholesaler / kilo sale" /></div>
-                  <p className="text-[#888] text-[10px] mt-3">Only visible in admin. Cost price powers the stock-value figure.</p>
+                  <div className="grid sm:grid-cols-3 gap-3"><Field label="SKU" value={form.sku ?? ""} onChange={(value) => setForm({ ...form, sku: value })} placeholder="SR-0001" /><Field label="Storage location" value={form.storageLocation ?? ""} onChange={(value) => setForm({ ...form, storageLocation: value })} placeholder="Rail A / Box 3" /><Field label="Source" value={form.source ?? ""} onChange={(value) => setForm({ ...form, source: value })} placeholder="Wholesaler / kilo sale" /></div>
+                  <p className="text-[#888] text-[10px] mt-3">Only visible in admin. The amount you paid is saved privately with the listing, added to completed orders and included in the HMRC CSV.</p>
                 </div>
                 <Field label="Website title" value={form.name} onChange={(value) => setForm({ ...form, name: value })} suggestions={LISTING_WORDS} />
                 <TextArea label="Website description" value={form.description} onChange={(value) => setForm({ ...form, description: value })} suggestions={LISTING_WORDS} />
@@ -667,7 +704,7 @@ export default function AdminPage() {
         )}
       </div>
 
-      {showManualSale && <Modal title="Record a Vinted or manual sale" onClose={() => setShowManualSale(false)}><div className="grid sm:grid-cols-2 gap-4"><Field label="Customer name" value={manualSale.customer_name} onChange={(value) => setManualSale({ ...manualSale, customer_name: value })} /><Field label="Item" value={manualSale.item_name} onChange={(value) => setManualSale({ ...manualSale, item_name: value })} /><Field label="Brand" value={manualSale.brand} onChange={(value) => setManualSale({ ...manualSale, brand: value })} /><Field label="Sale price" value={manualSale.price || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, price: Number(value) })} /><Field label="Postage" value={manualSale.postage || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, postage: Number(value) })} /><Field label="Notes" value={manualSale.notes} onChange={(value) => setManualSale({ ...manualSale, notes: value })} /></div><button onClick={recordManualSale} disabled={!manualSale.customer_name || !manualSale.item_name || manualSale.price <= 0} className="w-full mt-5 bg-[#E8500A] disabled:opacity-40 py-3 font-black text-xs tracking-wider uppercase">Save sale</button></Modal>}
+      {showManualSale && <Modal title="Record a Vinted or manual sale" onClose={() => setShowManualSale(false)}><div className="grid sm:grid-cols-2 gap-4"><Field label="Customer name" value={manualSale.customer_name} onChange={(value) => setManualSale({ ...manualSale, customer_name: value })} /><Field label="Item" value={manualSale.item_name} onChange={(value) => setManualSale({ ...manualSale, item_name: value })} /><Field label="Brand" value={manualSale.brand} onChange={(value) => setManualSale({ ...manualSale, brand: value })} /><Field label="Customer sale price (£)" value={manualSale.price || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, price: Number(value) })} /><Field label="What you paid for item (£) — private" value={manualSale.cost_price || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, cost_price: Math.max(0, Number(value)) })} placeholder="Optional" /><Field label="Postage" value={manualSale.postage || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, postage: Number(value) })} /><Field label="Notes" value={manualSale.notes} onChange={(value) => setManualSale({ ...manualSale, notes: value })} /></div><p className="text-[#777] text-[10px] mt-4">The amount you paid is private and appears in the HMRC CSV and profit figures.</p><button onClick={recordManualSale} disabled={!manualSale.customer_name || !manualSale.item_name || manualSale.price <= 0} className="w-full mt-5 bg-[#E8500A] disabled:opacity-40 py-3 font-black text-xs tracking-wider uppercase">Save sale</button></Modal>}
     </main>
   );
 }
