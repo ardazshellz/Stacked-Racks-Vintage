@@ -7,7 +7,7 @@ import Navbar from "@/components/Navbar";
 import ProductGallery from "@/components/ProductGallery";
 import { getPublicProduct, getPublicProducts } from "@/lib/server/catalog";
 import { productPath, productSlug } from "@/lib/product-url";
-import { displayGender } from "@/lib/products";
+import { displayGender, getVintedItemUrl } from "@/lib/products";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +40,7 @@ export default async function ProductPage({ params }: Props) {
 
   const products = await getPublicProducts().catch(() => [product]);
   const details = product.garmentDetails;
+  const vintedItemUrl = getVintedItemUrl(product);
   const measurements = [["Pit to pit", details?.pitToPit], ["Length", details?.length], ["Sleeve", details?.sleeve]].filter((entry): entry is [string, string] => Boolean(entry[1]));
   const base = process.env.NEXT_PUBLIC_BASE_URL ?? "https://stackedracksvintage.co.uk";
   const jsonLd = {
@@ -77,7 +78,7 @@ export default async function ProductPage({ params }: Props) {
             <span className="border border-[#E8500A]/60 bg-[#E8500A]/10 px-2.5 py-1.5 text-[#E8500A] text-[10px] font-black tracking-[0.14em] uppercase">{displayGender(product.gender)}</span>
             <span className="text-[#999] text-[10px] font-bold tracking-[0.16em] uppercase">{product.category}</span>
           </div>
-          <h1 className="text-white text-3xl sm:text-4xl font-black leading-tight mb-3" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h1>
+          {vintedItemUrl ? <a href={vintedItemUrl} target="_blank" rel="noopener noreferrer" className="block text-white hover:text-[#F5C300] transition-colors" aria-label={`View ${product.name} on Vinted`}><h1 className="text-3xl sm:text-4xl font-black leading-tight mb-3" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h1></a> : <h1 className="text-white text-3xl sm:text-4xl font-black leading-tight mb-3" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h1>}
           <p className="text-[#bbb] mb-6">{product.brand} · Tagged size {product.size}</p>
           <div className="space-y-3 text-[#ccc] text-sm leading-relaxed mb-6">{product.description.split("\n").filter(Boolean).map((line) => <p key={line}>{line}</p>)}</div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">{[["Size", product.size], ["Era", product.era], ["Condition", product.condition], ["Fit", product.fit]].map(([label, value]) => <div key={label} className="bg-[#151515] border border-white/10 p-3"><p className="text-[#999] text-xs uppercase mb-1">{label}</p><p className="font-bold">{value}</p></div>)}</div>
@@ -85,6 +86,7 @@ export default async function ProductPage({ params }: Props) {
           {details?.flaws && <div className="border border-white/10 p-4 mb-6"><p className="text-[#999] text-xs uppercase mb-1">Condition notes</p><p className="text-sm">{details.flaws}</p></div>}
           <div className="flex min-w-0 flex-col gap-4 border-y border-white/10 py-5 mb-5 sm:flex-row sm:items-end sm:justify-between"><div className="min-w-0"><p className="text-[#999] text-xs">{product.stock > 0 ? "In stock · one-off piece" : "This piece has sold"}</p><p className="text-[#999] text-xs mt-1">Tracked UK delivery · 14-day returns</p></div><p className="shrink-0 text-[#E8500A] text-3xl font-black">£{product.price.toFixed(2)}</p></div>
           {product.stock > 0 ? <div className="grid sm:grid-cols-2 gap-3"><AddToCartButton product={product} className="w-full min-h-12 bg-[#E8500A] text-white font-black text-xs tracking-[0.18em] uppercase" /><Link href={`/checkout?item=${product.id}`} className="min-h-12 border border-[#E8500A] text-[#E8500A] flex items-center justify-center font-black text-xs tracking-[0.18em] uppercase">Buy now</Link></div> : <Link href="/shop" className="min-h-12 flex items-center justify-center border border-white/20 text-white font-black uppercase text-xs tracking-widest">Browse available pieces</Link>}
+          {vintedItemUrl && <a href={vintedItemUrl} target="_blank" rel="noopener noreferrer" className="mt-3 min-h-12 border border-[#F5C300]/60 text-[#F5C300] flex items-center justify-center font-black text-xs tracking-[0.18em] uppercase hover:bg-[#F5C300]/10">View this item on Vinted ↗</a>}
         </section>
       </div>
     </div>

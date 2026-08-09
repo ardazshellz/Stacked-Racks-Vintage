@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { displayGender, Product, isNew } from "@/lib/products";
+import { displayGender, getVintedItemUrl, Product, isNew } from "@/lib/products";
 import { trackEvent } from "@/lib/analytics";
 import { productPath } from "@/lib/product-url";
 import { FREE_SHIPPING_THRESHOLD, qualifiesForFreeShipping } from "@/lib/shipping";
@@ -31,6 +31,7 @@ export default function ProductModal({ product, onClose }: Props) {
   const badgeLabel = product.badge === "RARE" ? "MARQUEE" : "NEW";
   const badgeCls = product.badge === "RARE" ? "bg-[#E8500A] text-white" : "bg-[#F5C300] text-black";
   const details = product.garmentDetails;
+  const vintedItemUrl = getVintedItemUrl(product);
   const descriptionLines = (product.editorialStory || product.description || "")
     .trim().split(/\n+|(?<=[.!?])\s+(?=[A-Z0-9])/).filter(Boolean);
   const measurements = [
@@ -124,7 +125,7 @@ export default function ProductModal({ product, onClose }: Props) {
               <span className="border border-[#E8500A]/60 bg-[#E8500A]/10 px-2.5 py-1.5 text-[#E8500A] text-[10px] font-black tracking-[0.14em] uppercase">{displayGender(product.gender)}</span>
               <span className="text-[#888] text-[10px] font-bold tracking-[0.16em] uppercase">{product.category}</span>
             </div>
-            <h2 className="text-white text-xl sm:text-2xl font-black mb-1 leading-tight" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h2>
+            {vintedItemUrl ? <a href={vintedItemUrl} target="_blank" rel="noopener noreferrer" className="block text-white hover:text-[#F5C300] transition-colors" aria-label={`View ${product.name} on Vinted`}><h2 className="text-xl sm:text-2xl font-black mb-1 leading-tight" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h2></a> : <h2 className="text-white text-xl sm:text-2xl font-black mb-1 leading-tight" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h2>}
             <p className="text-[#bbb] text-sm mb-5"><span className="font-medium">{product.brand}</span><span className="text-[#555] mx-2">·</span>Tagged size {product.size}</p>
 
             {!!descriptionLines.length && <div className={product.editorialStory ? "border-l-2 border-[#E8500A]/50 pl-4 mb-5" : "mb-5"}>{descriptionLines.map((line, index) => <p key={`${line}-${index}`} className={`${product.editorialStory ? "text-[#bbb] italic" : "text-[#bbb]"} text-sm leading-relaxed mb-2 last:mb-0`}>{line}</p>)}</div>}
@@ -149,7 +150,7 @@ export default function ProductModal({ product, onClose }: Props) {
               <AddToCartButton product={product} className="w-full bg-[#E8500A] text-white font-black text-xs tracking-[0.2em] uppercase py-4 hover:bg-[#c94009] transition-colors shadow-[0_4px_24px_rgba(232,80,10,0.3)]" />
               <a href={`/checkout?item=${product.id}`} className="flex items-center justify-center w-full border border-[#E8500A]/60 text-[#E8500A] font-black text-xs tracking-[0.18em] uppercase py-3 hover:bg-[#E8500A]/10 transition-colors">BUY THIS ITEM NOW</a>
               <Link href={productPath(product)} className="flex items-center justify-center w-full text-white/80 font-bold text-[11px] tracking-[0.15em] uppercase py-2 hover:text-white transition-colors">Open full product page →</Link>
-              <a href="https://www.vinted.co.uk/member/59714764-stackedracks" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-full text-[#888] font-bold text-[11px] tracking-[0.15em] uppercase py-2 hover:text-white transition-colors">Also available on Vinted ↗</a>
+              <a href={vintedItemUrl ?? "https://www.vinted.co.uk/member/59714764-stackedracks"} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-full text-[#888] font-bold text-[11px] tracking-[0.15em] uppercase py-2 hover:text-white transition-colors">{vintedItemUrl ? "View this item on Vinted ↗" : "View our Vinted shop ↗"}</a>
             </div>
             <p className="text-center text-[#777] text-[11px] mt-3">Secure Stripe checkout · Cards, Apple Pay and Google Pay where available</p>
           </div>

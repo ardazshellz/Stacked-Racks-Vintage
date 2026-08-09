@@ -33,11 +33,28 @@ export interface Product {
   imageUrls?: string[];
   vintedTitle?: string;
   vintedDescription?: string;
+  vintedUrl?: string;
   garmentDetails?: GarmentDetails;
   sku?: string;
   costPrice?: number;
   storageLocation?: string;
   source?: string;
+}
+
+/** Returns a safe public Vinted item URL, never a profile or non-Vinted link. */
+export function getVintedItemUrl(product: Pick<Product, "vintedUrl">) {
+  const value = product.vintedUrl?.trim();
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    if (url.protocol !== "https:" || (host !== "vinted.co.uk" && host !== "www.vinted.co.uk")) return undefined;
+    if (!/^\/items\/\d+(?:-|$)/.test(url.pathname)) return undefined;
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return undefined;
+  }
 }
 
 export function displayGender(gender: string) {
