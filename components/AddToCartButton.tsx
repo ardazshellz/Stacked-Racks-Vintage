@@ -59,7 +59,7 @@ export default function AddToCartButton({ product, className = "" }: { product: 
       aria-pressed={isInCart}
       aria-label={isInCart ? `Remove ${product.name} from cart` : `Add ${product.name} to cart`}
     >
-      {isInCart ? "ALREADY IN CART · CLICK TO REMOVE" : cartFull ? "CART FULL" : "ADD TO CART"}
+      {isInCart ? "ALREADY ADDED TO CART" : cartFull ? "CART FULL" : "ADD TO CART"}
     </button>
   );
 }

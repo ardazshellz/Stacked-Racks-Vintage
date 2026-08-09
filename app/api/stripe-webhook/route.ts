@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import nodemailer from "nodemailer";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
+import { WELCOME_DISCOUNT_CODE } from "@/lib/discount";
 
 export const runtime = "nodejs";
 
@@ -151,11 +152,15 @@ export async function POST(req: Request) {
       }
     }
 
-    if (metadata.discount_code && metadata.discount_code !== "VINTAGE10") {
-      await supabase
+    if (metadata.discount_code) {
+      const subscriberUpdate = supabase
         .from("subscribers")
-        .update({ discount_redeemed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-        .eq("discount_code", metadata.discount_code);
+        .update({ discount_redeemed_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      if (metadata.discount_code === WELCOME_DISCOUNT_CODE) {
+        await subscriberUpdate.eq("email", metadata.discount_subscriber_email ?? "");
+      } else {
+        await subscriberUpdate.eq("discount_code", metadata.discount_code);
+      }
     }
 
     await supabase.from("admin_audit_log").insert({

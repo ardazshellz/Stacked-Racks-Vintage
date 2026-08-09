@@ -4,6 +4,7 @@ import nodemailer from "nodemailer";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
 import { sameOrigin, withinRateLimit } from "@/lib/server/request-security";
 import { subscriberToken } from "@/lib/server/subscriber-token";
+import { WELCOME_DISCOUNT_CODE } from "@/lib/discount";
 
 export const runtime = "nodejs";
 
@@ -38,10 +39,10 @@ export async function POST(req: Request) {
 
   const supabase = getSupabaseAdmin();
   const { data: existing } = await supabase.from("subscribers").select("discount_code").eq("email", email).maybeSingle();
-  const voucherCode = existing?.discount_code || `RACKS-${randomBytes(3).toString("hex").toUpperCase()}`;
+  const subscriberCode = existing?.discount_code || `RACKS-${randomBytes(3).toString("hex").toUpperCase()}`;
   const { error: subscriberError } = await supabase.from("subscribers").upsert({
     email,
-    discount_code: voucherCode,
+    discount_code: subscriberCode,
     consent_source: "website",
     consented_at: new Date().toISOString(),
     unsubscribed_at: null,
@@ -67,7 +68,7 @@ export async function POST(req: Request) {
         <h1>Your 10% off code</h1>
         <p style="color:#aaa">Thanks for signing up. Enter this code in the discount-code box on our checkout page.</p>
         <div style="background:#111;border:1px solid #E8500A;padding:20px;text-align:center;margin:24px 0">
-          <strong style="color:#E8500A;font-size:28px;letter-spacing:5px">${voucherCode}</strong>
+          <strong style="color:#E8500A;font-size:28px;letter-spacing:5px">${WELCOME_DISCOUNT_CODE}</strong>
         </div>
         <p><a href="https://stackedracksvintage.co.uk/shop" style="color:#F5C300">Browse the latest drop →</a></p>
         <p style="color:#666;font-size:12px">You received this because you requested a first-order discount at stackedracksvintage.co.uk. <a href="${unsubscribeUrl}" style="color:#aaa">Unsubscribe</a>.</p>
@@ -89,5 +90,5 @@ export async function POST(req: Request) {
     console.error("Signup owner notification failed:", error);
   }
 
-  return NextResponse.json({ ok: true, code: voucherCode });
+  return NextResponse.json({ ok: true, code: WELCOME_DISCOUNT_CODE });
 }

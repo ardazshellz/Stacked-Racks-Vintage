@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import SalesTicker from "./SalesTicker";
 import FloatingButtons from "./FloatingButtons";
 import CookieConsent from "./CookieConsent";
+import EmailPopup from "./EmailPopup";
 
 export default function ClientShell() {
   const pathname = usePathname();
@@ -11,6 +12,7 @@ export default function ClientShell() {
   return (
     <>
       <SalesTicker />
+      <EmailPopup />
       {!pathname.startsWith("/checkout") && <FloatingButtons />}
       <CookieConsent />
     </>

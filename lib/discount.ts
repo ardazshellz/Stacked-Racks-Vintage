@@ -1,0 +1,2 @@
+export const WELCOME_DISCOUNT_CODE = "SRV10";
+export const WELCOME_DISCOUNT_PERCENT = 10;

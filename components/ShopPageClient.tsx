@@ -8,7 +8,6 @@ import Navbar from "@/components/Navbar";
 import ProductCard from "@/components/ProductCard";
 import ProductModal from "@/components/ProductModal";
 import Footer from "@/components/Footer";
-import EmailPopup from "@/components/EmailPopup";
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -473,7 +472,6 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
       )}
 
       <Footer />
-      <EmailPopup />
     </div>
   );
 }

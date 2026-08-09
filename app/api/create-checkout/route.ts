@@ -7,6 +7,7 @@ import { getSupabaseAdmin } from "@/lib/server/supabase";
 import { getProductSettings } from "@/lib/server/product-settings";
 import { calculatePostage } from "@/lib/shipping";
 import { sameOrigin, withinRateLimit } from "@/lib/server/request-security";
+import { WELCOME_DISCOUNT_CODE } from "@/lib/discount";
 
 const MAX_ITEMS = 8;
 
@@ -63,13 +64,14 @@ export async function POST(req: Request) {
 
     const originalSubtotal = products.reduce((sum, product) => sum + product.price, 0);
     const normalizedPromotion = String(promotionCode ?? "").trim().toUpperCase();
-    let discountApplied = normalizedPromotion === "VINTAGE10";
-    if (normalizedPromotion && !discountApplied) {
-      const { data: subscriber } = await supabase
+    let discountApplied = false;
+    if (normalizedPromotion) {
+      const subscriberQuery = supabase
         .from("subscribers")
         .select("discount_code,unsubscribed_at,discount_redeemed_at")
-        .eq("discount_code", normalizedPromotion)
-        .maybeSingle();
+      const { data: subscriber } = normalizedPromotion === WELCOME_DISCOUNT_CODE
+        ? await subscriberQuery.eq("email", safeEmail).maybeSingle()
+        : await subscriberQuery.eq("discount_code", normalizedPromotion).maybeSingle();
       discountApplied = Boolean(subscriber && !subscriber.unsubscribed_at && !subscriber.discount_redeemed_at);
     }
     const itemPrices = products.map((product) => Number((product.price * (discountApplied ? 0.9 : 1)).toFixed(2)));
@@ -110,6 +112,7 @@ export async function POST(req: Request) {
         item_brand: [...new Set(products.map((product) => product.brand))].join(", ").slice(0, 500),
         item_price: String(subtotal),
         discount_code: discountApplied ? normalizedPromotion : "",
+        discount_subscriber_email: discountApplied ? safeEmail : "",
         discount_amount: discountApplied ? String(Number((originalSubtotal - subtotal).toFixed(2))) : "0",
         item_count: String(products.length),
         postage: String(postage),

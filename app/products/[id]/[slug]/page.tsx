@@ -64,14 +64,14 @@ export default async function ProductPage({ params }: Props) {
     },
   };
 
-  return <main className="min-h-screen bg-[#0a0a0a]">
+  return <main className="min-h-screen min-w-0 overflow-x-clip bg-[#0a0a0a]">
     <Navbar products={products} />
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
-    <div className="mt-[92px] max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+    <div className="mt-[92px] w-full min-w-0 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
       <Link href="/shop" className="inline-flex min-h-11 items-center text-[#aaa] hover:text-white text-xs uppercase tracking-widest mb-6">← Back to shop</Link>
-      <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+      <div className="grid min-w-0 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
         <ProductGallery images={product.imageUrls ?? []} name={product.name} productId={String(product.id)} price={product.price} />
-        <section className="lg:sticky lg:top-28">
+        <section className="min-w-0 max-w-full lg:sticky lg:top-28">
           <p className="text-[#E8500A] text-xs font-black tracking-[0.2em] uppercase mb-3">{product.gender} · {product.category}</p>
           <h1 className="text-white text-3xl sm:text-4xl font-black leading-tight mb-3" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h1>
           <p className="text-[#bbb] mb-6">{product.brand} · Tagged size {product.size}</p>
@@ -79,7 +79,7 @@ export default async function ProductPage({ params }: Props) {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">{[["Size", product.size], ["Era", product.era], ["Condition", product.condition], ["Fit", product.fit]].map(([label, value]) => <div key={label} className="bg-[#151515] border border-white/10 p-3"><p className="text-[#999] text-xs uppercase mb-1">{label}</p><p className="font-bold">{value}</p></div>)}</div>
           {measurements.length > 0 && <div className="border border-white/10 p-4 mb-6"><p className="font-black text-xs uppercase tracking-widest mb-3">Measurements · laid flat</p><div className="grid grid-cols-3 gap-3">{measurements.map(([label, value]) => <div key={label}><p className="text-[#999] text-xs">{label}</p><p className="font-bold">{value}</p></div>)}</div></div>}
           {details?.flaws && <div className="border border-white/10 p-4 mb-6"><p className="text-[#999] text-xs uppercase mb-1">Condition notes</p><p className="text-sm">{details.flaws}</p></div>}
-          <div className="flex items-end justify-between gap-4 border-y border-white/10 py-5 mb-5"><div><p className="text-[#999] text-xs">{product.stock > 0 ? "In stock · one-off piece" : "This piece has sold"}</p><p className="text-[#999] text-xs mt-1">Tracked UK delivery · 14-day returns</p></div><p className="text-[#E8500A] text-3xl font-black">£{product.price.toFixed(2)}</p></div>
+          <div className="flex min-w-0 flex-col gap-4 border-y border-white/10 py-5 mb-5 sm:flex-row sm:items-end sm:justify-between"><div className="min-w-0"><p className="text-[#999] text-xs">{product.stock > 0 ? "In stock · one-off piece" : "This piece has sold"}</p><p className="text-[#999] text-xs mt-1">Tracked UK delivery · 14-day returns</p></div><p className="shrink-0 text-[#E8500A] text-3xl font-black">£{product.price.toFixed(2)}</p></div>
           {product.stock > 0 ? <div className="grid sm:grid-cols-2 gap-3"><AddToCartButton product={product} className="w-full min-h-12 bg-[#E8500A] text-white font-black text-xs tracking-[0.18em] uppercase" /><Link href={`/checkout?item=${product.id}`} className="min-h-12 border border-[#E8500A] text-[#E8500A] flex items-center justify-center font-black text-xs tracking-[0.18em] uppercase">Buy now</Link></div> : <Link href="/shop" className="min-h-12 flex items-center justify-center border border-white/20 text-white font-black uppercase text-xs tracking-widest">Browse available pieces</Link>}
         </section>
       </div>

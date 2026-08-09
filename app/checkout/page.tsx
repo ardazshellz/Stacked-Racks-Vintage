@@ -73,7 +73,7 @@ function CheckoutContent() {
   const removeItem = (product: Product) => { removeCartItem(product.id); setProducts((current) => current?.filter((item) => String(item.id) !== String(product.id))); };
   const applyPromotion = async () => {
     setPromotionError("");
-    const response = await fetch("/api/validate-promotion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: promotionInput }) });
+    const response = await fetch("/api/validate-promotion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: promotionInput, email }) });
     const data = await response.json().catch(() => ({ valid: false }));
     setPromotionApplied(Boolean(response.ok && data.valid));
     if (!response.ok || !data.valid) setPromotionError("That code is not recognised or has already been used.");

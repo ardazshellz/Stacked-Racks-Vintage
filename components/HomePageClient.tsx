@@ -11,7 +11,6 @@ import ProductCard from "@/components/ProductCard";
 import ProductModal from "@/components/ProductModal";
 import { Product } from "@/lib/products";
 import Footer from "@/components/Footer";
-import EmailPopup from "@/components/EmailPopup";
 import { useRouter } from "next/navigation";
 import { clearCart } from "@/lib/cart";
 
@@ -547,8 +546,6 @@ export default function HomePageClient({ initialProducts }: { initialProducts: P
       </div>
 
       <FAQSection />
-      <EmailPopup />
-
       {selectedProduct && (
         <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
       )}
