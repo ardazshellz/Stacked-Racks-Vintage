@@ -14,10 +14,33 @@ export interface CampaignDraftInput {
   percentOff?: number;
 }
 
+const SPELLING_CORRECTIONS: Array<[RegExp, string]> = [
+  [/\b(?:disounted|discouted|discountd)\b/gi, "discounted"],
+  [/\b(?:recomended|recommened)\b/gi, "recommended"],
+  [/\b(?:prommo|promocode)\b/gi, "promo code"],
+  [/\b(?:avaible|avaliable)\b/gi, "available"],
+  [/\b(?:recieved|receieved)\b/gi, "received"],
+  [/\bwebiste\b/gi, "website"],
+  [/\bvinetd\b/gi, "Vinted"],
+  [/\bdelievery\b/gi, "delivery"],
+  [/\bcolleciton\b/gi, "collection"],
+  [/\bnike\b/gi, "Nike"],
+  [/\badidas\b/gi, "Adidas"],
+  [/\bcarhartt\b/gi, "Carhartt"],
+  [/\bvinted\b/gi, "Vinted"],
+];
+
+export function correctMarketingText(value: unknown) {
+  return SPELLING_CORRECTIONS.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), String(value ?? ""))
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\s+([,.;!?])/g, "$1")
+    .trim();
+}
+
 export function generateCampaignDraft(input: CampaignDraftInput) {
-  const keywords = input.keywords.split(/[,\n]/).map((word) => word.trim()).filter(Boolean);
+  const keywords = correctMarketingText(input.keywords).split(/[,\n]/).map((word) => word.trim()).filter(Boolean);
   const focus = keywords.slice(0, 3).join(", ") || "fresh vintage arrivals";
-  const items = String(input.recommendedItems ?? "").split(/[,\n]/).map((item) => item.trim()).filter(Boolean);
+  const items = correctMarketingText(input.recommendedItems).split(/[,\n]/).map((item) => item.trim()).filter(Boolean);
   const code = normalizePromotionCode(input.promotionCode);
   const offer = code && input.percentOff
     ? `Use code ${code} for ${input.percentOff}% off at checkout.`
@@ -29,6 +52,6 @@ export function generateCampaignDraft(input: CampaignDraftInput) {
   return {
     subject: `New at Stacked Racks: ${focus}`.slice(0, 120),
     previewText: `Fresh vintage picks, including ${focus}.`.slice(0, 160),
-    body: `A fresh selection has just landed at Stacked Racks Vintage.\n\n${recommendations}\n\n${offer}\n\nEvery item is a one-off, so once it is gone, it is gone.\n\nShop the latest drop: https://stackedracksvintage.co.uk/shop`,
+    body: `HELLO STACKER,\n\nA fresh selection has just landed at Stacked Racks Vintage.\n\n${recommendations}\n\n${offer}\n\nEvery item is a one-off, so once it is gone, it is gone.\n\nShop the latest drop: https://stackedracksvintage.co.uk/shop\n\nThank you,\nThe Stacked Racks Team\n\nStacked Racks Vintage\nWebsite: https://stackedracksvintage.co.uk\nVinted: https://www.vinted.co.uk/member/59714764-stackedracks`,
   };
 }

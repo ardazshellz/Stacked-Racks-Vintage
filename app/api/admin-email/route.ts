@@ -13,7 +13,11 @@ function escapeHtml(value: unknown) {
 
 function campaignHtml(body: string, previewText: string, unsubscribeUrl: string) {
   const content = escapeHtml(body)
-    .replaceAll("https://stackedracksvintage.co.uk/shop", '<a href="https://stackedracksvintage.co.uk/shop" style="color:#F5C300">Shop the latest drop →</a>')
+    .replaceAll("https://stackedracksvintage.co.uk/shop", "__SR_SHOP_LINK__")
+    .replaceAll("https://www.vinted.co.uk/member/59714764-stackedracks", "__SR_VINTED_LINK__")
+    .replaceAll("https://stackedracksvintage.co.uk", '<a href="https://stackedracksvintage.co.uk" style="color:#F5C300">stackedracksvintage.co.uk</a>')
+    .replaceAll("__SR_SHOP_LINK__", '<a href="https://stackedracksvintage.co.uk/shop" style="color:#F5C300">Shop the latest drop →</a>')
+    .replaceAll("__SR_VINTED_LINK__", '<a href="https://www.vinted.co.uk/member/59714764-stackedracks" style="color:#F5C300">Stacked Racks on Vinted</a>')
     .replaceAll("\n", "<br>");
   return `<div style="display:none;max-height:0;overflow:hidden">${escapeHtml(previewText)}</div><div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0a0a0a;color:#fff;padding:32px"><p style="color:#E8500A;font-size:12px;letter-spacing:2px;text-transform:uppercase">Stacked Racks Vintage</p><div style="font-size:16px;line-height:1.7;color:#ddd">${content}</div><p style="margin-top:32px;color:#666;font-size:12px">You are receiving this because you joined the Stacked Racks email list. <a href="${unsubscribeUrl}" style="color:#aaa">Unsubscribe</a>.</p></div>`;
 }
@@ -59,6 +63,15 @@ export async function POST(req: Request) {
     const { data, error } = await supabase.from("promotion_codes").upsert({ code, percent_off: percentOff, description: String(body.description ?? "").slice(0, 200), active: body.active !== false, expires_at: body.expiresAt || null, max_redemptions: maxRedemptions, updated_at: new Date().toISOString() }, { onConflict: "code" }).select("*").single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     await supabase.from("admin_audit_log").insert({ action: "promotion.saved", target_type: "promotion", target_id: code, details: { percent_off: percentOff } });
+    return NextResponse.json({ promotion: data });
+  }
+
+  if (action === "cancel-promotion") {
+    const code = normalizePromotionCode(body.code);
+    if (!code) return NextResponse.json({ error: "Promotion code is required." }, { status: 400 });
+    const { data, error } = await supabase.from("promotion_codes").update({ active: false, updated_at: new Date().toISOString() }).eq("code", code).select("*").single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await supabase.from("admin_audit_log").insert({ action: "promotion.cancelled", target_type: "promotion", target_id: code, details: {} });
     return NextResponse.json({ promotion: data });
   }
 

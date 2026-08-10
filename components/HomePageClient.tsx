@@ -53,6 +53,10 @@ const FAQ_ITEMS = [
     q: "What is your returns policy?",
     a: "You can cancel and return most items within 14 days of receiving them. Items must be returned in the same condition as received. Contact us by email or Instagram DM to start a return. Buyers cover return postage unless the item is faulty or significantly not as described.",
   },
+  {
+    q: "How do I make a complaint?",
+    a: <span>If something has gone wrong, please email us at <a href="mailto:stackedracksvintage@gmail.com?subject=Customer%20complaint" className="text-[#E8500A] underline hover:text-[#F5C300]">stackedracksvintage@gmail.com</a> with your order number and a clear explanation of the issue. We will personally review it and respond as quickly as possible.</span>,
+  },
 ];
 
 function FAQSection() {
