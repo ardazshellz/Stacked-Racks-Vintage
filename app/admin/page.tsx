@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import EmailMarketing from "@/components/admin/EmailMarketing";
+import PhotoEditor from "@/components/admin/PhotoEditor";
 import {
   ALL_BRANDS,
   CATEGORIES,
@@ -260,6 +261,7 @@ export default function AdminPage() {
   const [photoAnalysis, setPhotoAnalysis] = useState("");
   const [sellerNotes, setSellerNotes] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [editingPhoto, setEditingPhoto] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [listingMessage, setListingMessage] = useState("");
@@ -417,6 +419,12 @@ export default function AdminPage() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const replaceEditedPhoto = (oldUrl: string, newUrl: string) => {
+    setForm((current) => ({ ...current, imageUrls: current.imageUrls?.map((url) => url === oldUrl ? newUrl : url) }));
+    setEditingPhoto(null);
+    setListingMessage("Photo crop and rotation saved");
   };
 
   const generateListing = async (overrides: Partial<Omit<Product, "id">> = {}, notesOverride?: string, mode: "listing" | "photos" = "listing") => {
@@ -587,6 +595,7 @@ export default function AdminPage() {
   }
 
   return (
+    <>
     <main className="min-h-screen bg-[#0a0a0a] text-white">
       <header className="sticky top-0 z-30 bg-[#0d0d0d]/95 backdrop-blur border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
@@ -634,8 +643,8 @@ export default function AdminPage() {
             <div className="space-y-5">
               <div className="bg-[#111] border border-white/8 p-5 sm:p-6">
                 <div className="flex items-start justify-between gap-4 mb-5"><div><p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">Photo-first listing</p><h2 className="text-xl font-black">{editingId ? "Edit product" : "Create a product"}</h2><p className="text-[#666] text-xs mt-1">Upload the photos, let AI read them, then add anything it could not see.</p></div>{editingId && <button onClick={() => { setEditingId(null); setForm(EMPTY_PRODUCT); setQuickDetails(""); setPhotoAnalysis(""); setSellerNotes(""); }} className="text-[#777] text-xs">Cancel edit</button>}</div>
-                <label className="block border-2 border-dashed border-white/10 hover:border-[#E8500A]/50 p-7 text-center cursor-pointer mb-4"><input type="file" accept="image/jpeg,image/png,image/webp,image/heic" multiple className="hidden" onChange={(event) => void uploadPhotos(event.target.files)} disabled={uploading} /><span className="text-sm font-bold">{uploading ? "Uploading photos…" : "Choose product photos"}</span><span className="block text-[#555] text-[10px] mt-1">JPG, PNG, WEBP or HEIC · 4MB each</span></label>
-                {!!form.imageUrls?.length && <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">{form.imageUrls.map((url, index) => <div key={url} className="relative aspect-[3/4] bg-[#1a1a1a] group"><Image src={url} alt={`Product photo ${index + 1}`} fill sizes="(max-width: 640px) 33vw, 150px" className="object-cover" /><span className="absolute top-1 left-1 bg-black/80 px-1.5 py-1 text-[8px] font-black">{index === 0 ? "COVER" : index + 1}</span><button aria-label={`Remove photo ${index + 1}`} onClick={() => void removePhoto(url)} className="absolute top-1 right-1 bg-black/80 w-7 h-7 text-xs">×</button><div className="absolute bottom-1 left-1 right-1 flex justify-between"><button aria-label="Move photo left" disabled={index === 0} onClick={() => movePhoto(index, -1)} className="bg-black/80 disabled:opacity-30 w-7 h-7">←</button>{index > 0 && <button onClick={() => { const urls = [...(form.imageUrls ?? [])]; urls.splice(index, 1); urls.unshift(url); setForm({ ...form, imageUrls: urls }); }} className="bg-black/80 px-1 text-[8px]">Cover</button>}<button aria-label="Move photo right" disabled={index === (form.imageUrls?.length ?? 0) - 1} onClick={() => movePhoto(index, 1)} className="bg-black/80 disabled:opacity-30 w-7 h-7">→</button></div></div>)}</div>}
+                <label className="block border-2 border-dashed border-white/10 hover:border-[#E8500A]/50 p-7 text-center cursor-pointer mb-4"><input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple className="hidden" onChange={(event) => { void uploadPhotos(event.target.files); event.target.value = ""; }} disabled={uploading} /><span className="text-sm font-bold">{uploading ? "Uploading and preparing photos…" : "Choose product photos"}</span><span className="block text-[#777] text-[10px] mt-1">JPG, PNG, WEBP or HEIC · up to 20MB each · orientation fixed automatically</span></label>
+                {!!form.imageUrls?.length && <><p className="text-[#888] text-[10px] mb-2">Photos appear here when ready. Tap <strong className="text-white">Crop / rotate</strong> on any image before publishing.</p><div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">{form.imageUrls.map((url, index) => <div key={url} className="relative bg-[#1a1a1a] group border border-white/10"><div className="relative aspect-[3/4]"><Image src={url} alt={`Product photo ${index + 1}`} fill sizes="(max-width: 640px) 50vw, 150px" className="object-cover" /><span className="absolute top-1 left-1 bg-black/80 px-1.5 py-1 text-[8px] font-black">{index === 0 ? "COVER" : index + 1}</span><button aria-label={`Remove photo ${index + 1}`} onClick={() => void removePhoto(url)} className="absolute top-1 right-1 bg-black/80 w-7 h-7 text-xs">×</button></div><button onClick={() => setEditingPhoto(url)} className="w-full bg-[#E8500A] py-2 text-[9px] font-black uppercase tracking-wider">Crop / rotate</button><div className="p-1 flex justify-between"><button aria-label="Move photo left" disabled={index === 0} onClick={() => movePhoto(index, -1)} className="bg-black/80 disabled:opacity-30 w-8 h-7">←</button>{index > 0 && <button onClick={() => { const urls = [...(form.imageUrls ?? [])]; urls.splice(index, 1); urls.unshift(url); setForm({ ...form, imageUrls: urls }); }} className="bg-black/80 px-2 text-[8px]">Make cover</button>}<button aria-label="Move photo right" disabled={index === (form.imageUrls?.length ?? 0) - 1} onClick={() => movePhoto(index, 1)} className="bg-black/80 disabled:opacity-30 w-8 h-7">→</button></div></div>)}</div></>}
                 <div className="mb-5 flex flex-wrap items-center gap-3"><button onClick={() => void analysePhotos()} disabled={generating || !form.imageUrls?.length} className="bg-[#E8500A] disabled:opacity-40 text-white font-black text-xs tracking-[0.16em] uppercase px-5 py-3">{generating ? "Reading pictures…" : "Analyse pictures"}</button><span className="text-[#666] text-[10px]">Reads labels, logos, colours, item details and visible condition. Paid web search stays off.</span></div>
                 {photoAnalysis && <div className="mb-5 border border-[#E8500A]/25 bg-[#E8500A]/[0.05] p-4"><p className="text-[#E8500A] text-[9px] font-black tracking-[0.18em] uppercase mb-2">What the pictures show</p><p className="text-[#bbb] text-xs leading-relaxed">{photoAnalysis}</p><a href={`https://www.google.com/search?q=${encodeURIComponent([form.brand, form.name, form.era, form.garmentDetails?.colour].filter(Boolean).join(" "))}`} target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-[#F5C300] text-[10px] font-black uppercase tracking-wider">Search the web for a matching item ↗</a></div>}
                 <div className="mb-5 border border-[#F5C300]/25 bg-[#F5C300]/[0.04] p-4">
@@ -710,7 +719,9 @@ export default function AdminPage() {
       </div>
 
       {showManualSale && <Modal title="Record a Vinted or manual sale" onClose={() => setShowManualSale(false)}><div className="grid sm:grid-cols-2 gap-4"><Field label="Customer name" value={manualSale.customer_name} onChange={(value) => setManualSale({ ...manualSale, customer_name: value })} /><Field label="Item" value={manualSale.item_name} onChange={(value) => setManualSale({ ...manualSale, item_name: value })} /><Field label="Brand" value={manualSale.brand} onChange={(value) => setManualSale({ ...manualSale, brand: value })} /><Field label="Customer sale price (£)" value={manualSale.price || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, price: Number(value) })} /><Field label="What you paid for item (£) — private" value={manualSale.cost_price || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, cost_price: Math.max(0, Number(value)) })} placeholder="Optional" /><Field label="Postage" value={manualSale.postage || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, postage: Number(value) })} /><Field label="Notes" value={manualSale.notes} onChange={(value) => setManualSale({ ...manualSale, notes: value })} /></div><p className="text-[#777] text-[10px] mt-4">The amount you paid is private and appears in the HMRC CSV and profit figures.</p><button onClick={recordManualSale} disabled={!manualSale.customer_name || !manualSale.item_name || manualSale.price <= 0} className="w-full mt-5 bg-[#E8500A] disabled:opacity-40 py-3 font-black text-xs tracking-wider uppercase">Save sale</button></Modal>}
-    </main>
+      </main>
+      {editingPhoto && <PhotoEditor url={editingPhoto} onClose={() => setEditingPhoto(null)} onSaved={(url) => replaceEditedPhoto(editingPhoto, url)} />}
+    </>
   );
 }
 
