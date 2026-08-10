@@ -76,6 +76,29 @@ const EMPTY_PRODUCT: Omit<Product, "id"> = {
 
 const INPUT = "w-full bg-[#171717] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-[#E8500A]/70 placeholder:text-[#444]";
 const LABEL = "block text-[#666] text-[9px] font-black tracking-[0.18em] uppercase mb-1.5";
+const SAFE_UPLOAD_BYTES = 3.5 * 1024 * 1024;
+
+async function optimisePhotoForUpload(file: File) {
+  if (file.size <= SAFE_UPLOAD_BYTES && file.type.startsWith("image/")) return file;
+
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  try {
+    const scale = Math.min(1, 1800 / bitmap.width, 2400 / bitmap.height);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("This browser could not prepare the photo");
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((result) => result ? resolve(result) : reject(new Error("This photo could not be prepared")), "image/jpeg", 0.84);
+    });
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, "") || "photo"}.jpg`, { type: "image/jpeg" });
+  } finally {
+    bitmap.close();
+  }
+}
 
 const LISTING_WORDS = [
   ...ALL_BRANDS,
@@ -405,34 +428,25 @@ export default function AdminPage() {
     try {
       const urls: string[] = [];
       for (const file of Array.from(files).slice(0, 6 - (form.imageUrls?.length ?? 0))) {
+        setListingMessage(`Optimising ${file.name}…`);
+        let preparedFile: File;
+        try {
+          preparedFile = await optimisePhotoForUpload(file);
+        } catch {
+          throw new Error(`Could not read ${file.name}. Please export it as JPG and try again.`);
+        }
+
+        if (preparedFile.size > SAFE_UPLOAD_BYTES) {
+          throw new Error(`${file.name} is still too large after preparing. Please crop it slightly and try again.`);
+        }
+
         setListingMessage(`Uploading ${file.name}…`);
-        const prepareResponse = await fetch("/api/admin/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phase: "prepare", fileName: file.name, fileType: file.type, fileSize: file.size }),
-        });
-        const prepared = await prepareResponse.json();
-        if (!prepareResponse.ok) throw new Error(prepared.error ?? `Could not prepare ${file.name}`);
-
         const uploadBody = new FormData();
-        uploadBody.append("cacheControl", "3600");
-        uploadBody.append("", file);
-        const directResponse = await fetch(prepared.signedUrl, {
-          method: "PUT",
-          headers: { "x-upsert": "false" },
-          body: uploadBody,
-        });
-        if (!directResponse.ok) throw new Error(`Could not upload ${file.name}. Please try again.`);
-
-        setListingMessage(`Preparing ${file.name}…`);
-        const processResponse = await fetch("/api/admin/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phase: "process", path: prepared.path }),
-        });
-        const processed = await processResponse.json();
-        if (!processResponse.ok) throw new Error(processed.error ?? `Could not prepare ${file.name}`);
-        urls.push(processed.url);
+        uploadBody.append("file", preparedFile);
+        const response = await fetch("/api/admin/upload", { method: "POST", body: uploadBody });
+        const uploaded = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(uploaded.error ?? `Could not upload ${file.name}`);
+        urls.push(uploaded.url);
       }
       setForm((current) => ({ ...current, imageUrls: [...(current.imageUrls ?? []), ...urls] }));
       setListingMessage(`${urls.length} photo${urls.length === 1 ? "" : "s"} uploaded`);
