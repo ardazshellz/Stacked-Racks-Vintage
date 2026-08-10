@@ -8,7 +8,7 @@ import { sameOrigin } from "@/lib/server/request-security";
 export const runtime = "nodejs";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
-const MAX_BYTES = 20 * 1024 * 1024;
+const MAX_BYTES = 50 * 1024 * 1024;
 const OUTPUT_WIDTH = 1200;
 const OUTPUT_HEIGHT = 1600;
 
@@ -23,18 +23,72 @@ function publicUrl(path: string) {
   return getSupabaseAdmin().storage.from("product-images").getPublicUrl(path).data.publicUrl;
 }
 
+function safeIncomingPath(path?: string) {
+  return typeof path === "string" && path.startsWith("incoming/") && !path.includes("..") && !path.includes("\\") ? path : null;
+}
+
+async function normalizeAndPublish(incomingPath: string) {
+  const supabase = getSupabaseAdmin();
+  const bucket = supabase.storage.from("product-images");
+  const { data, error: downloadError } = await bucket.download(incomingPath);
+  if (downloadError || !data) throw new Error(downloadError?.message ?? "Could not load the uploaded photo");
+
+  try {
+    const normalized = await sharp(Buffer.from(await data.arrayBuffer()), { failOn: "none" })
+      .rotate()
+      .resize({ width: 1800, height: 2400, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 90, mozjpeg: true })
+      .toBuffer();
+    const finalPath = `${new Date().toISOString().slice(0, 10)}/${randomUUID()}.jpg`;
+    const { error: uploadError } = await bucket.upload(finalPath, normalized, {
+      contentType: "image/jpeg",
+      cacheControl: "31536000",
+      upsert: false,
+    });
+    if (uploadError) throw new Error(uploadError.message);
+    return publicUrl(finalPath);
+  } finally {
+    await bucket.remove([incomingPath]);
+  }
+}
+
 export async function POST(req: Request) {
   if (!(await isAdminRequest())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!sameOrigin(req)) return NextResponse.json({ error: "Invalid request" }, { status: 403 });
+
+  if (req.headers.get("content-type")?.includes("application/json")) {
+    const body = (await req.json()) as { phase?: string; fileName?: string; fileType?: string; fileSize?: number; path?: string };
+    if (body.phase === "prepare") {
+      if (!body.fileType || !ALLOWED_TYPES.has(body.fileType) || !body.fileSize || body.fileSize > MAX_BYTES) {
+        return NextResponse.json({ error: "Use a JPG, PNG, WEBP or HEIC image under 50MB" }, { status: 400 });
+      }
+      const extension = body.fileName?.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "image";
+      const path = `incoming/${new Date().toISOString().slice(0, 10)}/${randomUUID()}.${extension}`;
+      const { data, error } = await getSupabaseAdmin().storage.from("product-images").createSignedUploadUrl(path);
+      if (error || !data) return NextResponse.json({ error: error?.message ?? "Could not prepare photo upload" }, { status: 500 });
+      return NextResponse.json({ path, signedUrl: data.signedUrl });
+    }
+    if (body.phase === "process") {
+      const incomingPath = safeIncomingPath(body.path);
+      if (!incomingPath) return NextResponse.json({ error: "Invalid uploaded photo" }, { status: 400 });
+      try {
+        return NextResponse.json({ url: await normalizeAndPublish(incomingPath) });
+      } catch (error) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : "Could not prepare photo" }, { status: 500 });
+      }
+    }
+    return NextResponse.json({ error: "Invalid upload step" }, { status: 400 });
+  }
+
   const data = await req.formData();
   const file = data.get("file");
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Choose an image to upload" }, { status: 400 });
   }
   if (!ALLOWED_TYPES.has(file.type) || file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "Use a JPG, PNG, WEBP or HEIC image under 20MB" }, { status: 400 });
+    return NextResponse.json({ error: "Use a JPG, PNG, WEBP or HEIC image under 50MB" }, { status: 400 });
   }
 
   let normalized: Buffer;
