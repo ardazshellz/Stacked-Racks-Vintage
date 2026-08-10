@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import EmailMarketing from "@/components/admin/EmailMarketing";
 import {
   ALL_BRANDS,
   CATEGORIES,
@@ -15,7 +16,7 @@ import {
   type Product,
 } from "@/lib/products";
 
-type Tab = "orders" | "listings";
+type Tab = "orders" | "listings" | "email";
 
 interface OrderRow {
   id: string;
@@ -574,7 +575,7 @@ export default function AdminPage() {
         <div className="w-full max-w-sm bg-[#111] border border-white/10 p-7">
           <p className="text-[#E8500A] text-[10px] font-black tracking-[0.3em] uppercase mb-3">Private area</p>
           <h1 className="text-white text-2xl font-black mb-1">Stacked Racks Admin</h1>
-          <p className="text-[#666] text-sm mb-6">Orders, listings and HMRC exports.</p>
+          <p className="text-[#666] text-sm mb-6">Orders, listings, email marketing and HMRC exports.</p>
           {!configured && <p className="text-amber-300 text-xs bg-amber-500/10 border border-amber-500/20 p-3 mb-4">Admin password still needs to be configured on Vercel.</p>}
           <label className={LABEL}>Admin password</label>
           <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void handleLogin()} className={`${INPUT} mb-3`} />
@@ -591,7 +592,7 @@ export default function AdminPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
           <div><h1 className="font-black tracking-widest text-sm">STACKED RACKS — ADMIN</h1><p className="text-[#555] text-[10px] mt-1">Live shop management</p></div>
           <nav className="flex gap-1">
-            {(["orders", "listings"] as const).map((item) => <button key={item} onClick={() => setTab(item)} className={`px-4 py-2 text-[10px] font-black tracking-[0.16em] uppercase border ${tab === item ? "bg-[#E8500A] border-[#E8500A]" : "border-white/10 text-[#777]"}`}>{item === "orders" ? "Sales" : "Listing studio"}</button>)}
+            {(["orders", "listings", "email"] as const).map((item) => <button key={item} onClick={() => setTab(item)} className={`px-4 py-2 text-[10px] font-black tracking-[0.16em] uppercase border ${tab === item ? "bg-[#E8500A] border-[#E8500A]" : "border-white/10 text-[#777]"}`}>{item === "orders" ? "Sales" : item === "listings" ? "Listing studio" : "Email & promos"}</button>)}
           </nav>
           <button onClick={handleLogout} className="text-[#666] hover:text-white text-xs">Sign out</button>
         </div>
@@ -705,6 +706,7 @@ export default function AdminPage() {
             </aside>
           </section>
         )}
+        {tab === "email" && <EmailMarketing />}
       </div>
 
       {showManualSale && <Modal title="Record a Vinted or manual sale" onClose={() => setShowManualSale(false)}><div className="grid sm:grid-cols-2 gap-4"><Field label="Customer name" value={manualSale.customer_name} onChange={(value) => setManualSale({ ...manualSale, customer_name: value })} /><Field label="Item" value={manualSale.item_name} onChange={(value) => setManualSale({ ...manualSale, item_name: value })} /><Field label="Brand" value={manualSale.brand} onChange={(value) => setManualSale({ ...manualSale, brand: value })} /><Field label="Customer sale price (£)" value={manualSale.price || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, price: Number(value) })} /><Field label="What you paid for item (£) — private" value={manualSale.cost_price || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, cost_price: Math.max(0, Number(value)) })} placeholder="Optional" /><Field label="Postage" value={manualSale.postage || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, postage: Number(value) })} /><Field label="Notes" value={manualSale.notes} onChange={(value) => setManualSale({ ...manualSale, notes: value })} /></div><p className="text-[#777] text-[10px] mt-4">The amount you paid is private and appears in the HMRC CSV and profit figures.</p><button onClick={recordManualSale} disabled={!manualSale.customer_name || !manualSale.item_name || manualSale.price <= 0} className="w-full mt-5 bg-[#E8500A] disabled:opacity-40 py-3 font-black text-xs tracking-wider uppercase">Save sale</button></Modal>}

@@ -10,7 +10,6 @@ export default function EmailPopup() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [voucherCode, setVoucherCode] = useState("");
 
   useEffect(() => {
     const open = () => {
@@ -37,7 +36,6 @@ export default function EmailPopup() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Could not send your code");
-      setVoucherCode(String(data.code ?? ""));
       setSubmitted(true);
       localStorage.setItem(SUBSCRIBED_KEY, "1");
     } catch (submitError) {
@@ -117,32 +115,27 @@ export default function EmailPopup() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                 </div>
-                <p className="text-[#E8500A] text-[9px] font-black tracking-[0.3em] uppercase mb-2">Your Code</p>
+                <p className="text-[#E8500A] text-[9px] font-black tracking-[0.3em] uppercase mb-2">Check Your Inbox</p>
                 <h2
                   className="text-white text-xl font-black tracking-wide mb-3"
                   style={{ fontFamily: "var(--font-playfair-display), serif" }}
                 >
-                  You&apos;re In
+                  Your Private Code Is On Its Way
                 </h2>
-
-                {/* Voucher code box */}
-                <div className="bg-[#1a1a1a] border border-[#E8500A]/30 px-5 py-3 mb-4">
-                  <p className="text-[#555] text-[9px] tracking-[0.25em] uppercase mb-1">Your discount code</p>
-                  <p className="text-[#E8500A] font-black text-xl sm:text-2xl tracking-[0.2em] break-all">{voucherCode}</p>
-                </div>
 
                 <div className="text-left bg-[#161616] border border-white/5 p-4 mb-4 space-y-2">
                   <p className="text-white text-[10px] font-bold tracking-wider uppercase">How to use it</p>
                   <ol className="text-[#aaa] text-[10px] leading-relaxed space-y-1 list-decimal list-inside">
                     <li>Find an item you love and add it to your cart</li>
                     <li>Continue to secure checkout</li>
-                    <li>Enter <span className="text-[#E8500A] font-black">{voucherCode}</span> in the discount code field at checkout</li>
+                    <li>Open the email we have just sent you</li>
+                    <li>Enter your private code in the discount-code field at checkout</li>
                     <li>10% comes off your total automatically</li>
                   </ol>
                 </div>
 
                 <p className="text-[#444] text-[9px] leading-relaxed">
-                  Check your inbox — we&apos;ve also emailed it to you so you don&apos;t lose it.
+                  The code is only revealed by email, so keep that message safe until you use it.
                 </p>
               </div>
 

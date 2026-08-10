@@ -7,7 +7,8 @@ import { getSupabaseAdmin } from "@/lib/server/supabase";
 import { getProductSettings } from "@/lib/server/product-settings";
 import { calculatePostage } from "@/lib/shipping";
 import { sameOrigin, withinRateLimit } from "@/lib/server/request-security";
-import { WELCOME_DISCOUNT_CODE } from "@/lib/discount";
+import { discountedPrices } from "@/lib/promotions";
+import { validatePromotion } from "@/lib/server/promotions";
 
 const MAX_ITEMS = 8;
 
@@ -63,18 +64,15 @@ export async function POST(req: Request) {
     const products = (reservedRows as ProductRow[]).map(rowToProduct) as Product[];
 
     const originalSubtotal = products.reduce((sum, product) => sum + product.price, 0);
-    const normalizedPromotion = String(promotionCode ?? "").trim().toUpperCase();
-    let discountApplied = false;
-    if (normalizedPromotion) {
-      const subscriberQuery = supabase
-        .from("subscribers")
-        .select("discount_code,unsubscribed_at,discount_redeemed_at")
-      const { data: subscriber } = normalizedPromotion === WELCOME_DISCOUNT_CODE
-        ? await subscriberQuery.eq("email", safeEmail).maybeSingle()
-        : await subscriberQuery.eq("discount_code", normalizedPromotion).maybeSingle();
-      discountApplied = Boolean(subscriber && !subscriber.unsubscribed_at && !subscriber.discount_redeemed_at);
+    const promotion = promotionCode ? await validatePromotion(supabase, promotionCode, safeEmail) : { valid: false as const };
+    if (promotionCode && !promotion.valid) {
+      await supabase.rpc("release_product_reservation", { p_token: reservationToken });
+      reservationToken = "";
+      return NextResponse.json({ error: "That discount code is invalid, expired or does not match this email address." }, { status: 400 });
     }
-    const itemPrices = products.map((product) => Number((product.price * (discountApplied ? 0.9 : 1)).toFixed(2)));
+    const discountApplied = promotion.valid;
+    const percentOff = promotion.valid ? promotion.percentOff : 0;
+    const itemPrices = discountedPrices(products.map((product) => product.price), percentOff);
     const subtotal = itemPrices.reduce((sum, price) => sum + price, 0);
     const postage = calculatePostage(originalSubtotal);
     const postagePence = Math.round(postage * 100);
@@ -111,8 +109,10 @@ export async function POST(req: Request) {
         item_name: products.map((product) => product.name).join(" | ").slice(0, 500),
         item_brand: [...new Set(products.map((product) => product.brand))].join(", ").slice(0, 500),
         item_price: String(subtotal),
-        discount_code: discountApplied ? normalizedPromotion : "",
-        discount_subscriber_email: discountApplied ? safeEmail : "",
+        discount_code: promotion.valid ? promotion.code : "",
+        discount_source: promotion.valid ? promotion.source : "",
+        discount_percent: String(percentOff),
+        discount_subscriber_email: promotion.valid && promotion.source === "subscriber" ? safeEmail : "",
         discount_amount: discountApplied ? String(Number((originalSubtotal - subtotal).toFixed(2))) : "0",
         item_count: String(products.length),
         postage: String(postage),

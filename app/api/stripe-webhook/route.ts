@@ -3,7 +3,6 @@ import Stripe from "stripe";
 import nodemailer from "nodemailer";
 import { rowToProduct, type ProductRow } from "@/lib/product-db";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
-import { WELCOME_DISCOUNT_CODE } from "@/lib/discount";
 
 export const runtime = "nodejs";
 
@@ -171,13 +170,13 @@ export async function POST(req: Request) {
     }
 
     if (metadata.discount_code) {
-      const subscriberUpdate = supabase
-        .from("subscribers")
-        .update({ discount_redeemed_at: new Date().toISOString(), updated_at: new Date().toISOString() });
-      if (metadata.discount_code === WELCOME_DISCOUNT_CODE) {
-        await subscriberUpdate.eq("email", metadata.discount_subscriber_email ?? "");
+      if (metadata.discount_source === "promotion") {
+        const { error: promotionError } = await supabase.rpc("redeem_promotion_code", { p_code: metadata.discount_code });
+        if (promotionError) console.error("Promotion redemption update failed:", promotionError);
       } else {
-        await subscriberUpdate.eq("discount_code", metadata.discount_code);
+        const subscriberUpdate = supabase.from("subscribers").update({ discount_redeemed_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+        if (metadata.discount_subscriber_email) await subscriberUpdate.eq("email", metadata.discount_subscriber_email);
+        else await subscriberUpdate.eq("discount_code", metadata.discount_code);
       }
     }
 

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { calculatePostage, FREE_SHIPPING_THRESHOLD, STANDARD_POSTAGE } from "../lib/shipping.ts";
 import { productPath, productSlug } from "../lib/product-url.ts";
+import { discountedPrices, generateCampaignDraft, normalizePromotionCode } from "../lib/promotions.ts";
 
 test("postage is charged below £50", () => {
   assert.equal(calculatePostage(FREE_SHIPPING_THRESHOLD - 0.01), STANDARD_POSTAGE);
@@ -20,4 +21,22 @@ test("product URLs are readable and stable", () => {
 
 test("product slugs safely handle punctuation", () => {
   assert.equal(productSlug("Women's Carhartt WIP — Coat!"), "womens-carhartt-wip-coat");
+});
+
+test("promotion codes are normalised and discounts round per item", () => {
+  assert.equal(normalizePromotionCode(" weekend 15! "), "WEEKEND15");
+  assert.deepEqual(discountedPrices([13, 14.99], 10), [11.7, 13.49]);
+});
+
+test("campaign generator includes recommended products and an optional offer", () => {
+  const draft = generateCampaignDraft({
+    keywords: "90s tees, weekend drop",
+    recommendedItems: "Nike centre swoosh tee\nPink Floyd graphic tee",
+    promotionCode: "weekend15",
+    percentOff: 15,
+  });
+  assert.match(draft.subject, /90s tees/);
+  assert.match(draft.body, /Nike centre swoosh tee/);
+  assert.match(draft.body, /WEEKEND15/);
+  assert.match(draft.body, /15%/);
 });
