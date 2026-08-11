@@ -62,7 +62,7 @@ export default function MarqueeGrid({ products, compact }: Props) {
                   <div className="aspect-[3/4] bg-[#0f0f0f] border border-white/8 group-hover:border-[#E8500A]/40 transition-all duration-500 flex items-center justify-center relative overflow-hidden">
                     {/* Icon placeholder */}
                     {product.imageUrls?.[0] ? (
-                      <Image src={product.imageUrls[0]} alt={product.name} fill sizes={compact ? "(max-width: 640px) 100vw, 50vw" : "(max-width: 640px) 100vw, 480px"} className="object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
+                      <Image src={product.imageUrls[0]} alt={product.name} fill sizes={compact ? "(max-width: 640px) 100vw, 50vw" : "(max-width: 640px) 100vw, 480px"} className="object-contain p-1.5 transition-transform duration-700 group-hover:scale-[1.02]" />
                     ) : <div className="text-center z-10">
                       <div className="text-7xl sm:text-8xl mb-4 opacity-30 group-hover:opacity-50 transition-opacity duration-500">
                         {icon}
