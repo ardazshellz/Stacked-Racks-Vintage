@@ -5,6 +5,7 @@ import SalesTicker from "./SalesTicker";
 import FloatingButtons from "./FloatingButtons";
 import CookieConsent from "./CookieConsent";
 import EmailPopup from "./EmailPopup";
+import SiteAnalytics from "./SiteAnalytics";
 
 export default function ClientShell() {
   const pathname = usePathname();
@@ -15,6 +16,7 @@ export default function ClientShell() {
       <EmailPopup />
       {!pathname.startsWith("/checkout") && <FloatingButtons />}
       <CookieConsent />
+      <SiteAnalytics />
     </>
   );
 }

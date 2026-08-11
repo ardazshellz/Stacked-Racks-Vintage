@@ -7,6 +7,7 @@ import { displayGender, Product, isNew } from "@/lib/products";
 import { productPath } from "@/lib/product-url";
 import SizeGuide from "./SizeGuide";
 import AddToCartButton from "./AddToCartButton";
+import { trackFirstParty } from "@/lib/first-party-analytics";
 
 interface Props { product: Product; onClick: () => void }
 
@@ -24,10 +25,14 @@ export default function ProductCard({ product, onClick }: Props) {
   const showNewBadge = !showMarqueeBadge && isNew(product);
   const badgeLabel = showMarqueeBadge ? "MARQUEE" : "NEW";
   const badgeCls = showMarqueeBadge ? "bg-[#E8500A] text-white" : "bg-[#F5C300] text-black";
+  const openProduct = () => {
+    trackFirstParty("product_click", { productId: String(product.id), productName: product.name });
+    onClick();
+  };
 
   return <>
     <article className={`group relative bg-[#111] border border-white/10 transition-all duration-200 ${isSoldOut ? "opacity-55" : "hover:border-[#E8500A] hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(232,80,10,0.18)]"}`}>
-      <button type="button" onClick={onClick} disabled={isSoldOut} className="block w-full text-left disabled:cursor-default" aria-label={isSoldOut ? `${product.name} — sold out` : `View ${product.name}`}>
+      <button type="button" onClick={openProduct} disabled={isSoldOut} className="block w-full text-left disabled:cursor-default" aria-label={isSoldOut ? `${product.name} — sold out` : `View ${product.name}`}>
         <div className="aspect-[3/4] bg-[#161616] flex items-center justify-center relative overflow-hidden">
           {product.imageUrls?.[0] ? <Image src={product.imageUrls[0]} alt={product.name} fill sizes="(max-width: 640px) 50vw, (max-width: 1280px) 33vw, 25vw" className={`object-contain p-1.5 transition-transform duration-500 ${isSoldOut ? "grayscale" : "group-hover:scale-[1.02]"}`} /> : <div className="text-center p-4"><div className="text-4xl sm:text-5xl mb-3 opacity-45">{ICONS[product.category] ?? "👕"}</div><p className="text-[#999] text-xs">Photo coming soon</p></div>}
           {(showMarqueeBadge || showNewBadge) && <span className={`absolute top-2.5 left-2.5 text-[10px] font-black tracking-[0.12em] px-2 py-1 ${badgeCls}`}>{badgeLabel}</span>}

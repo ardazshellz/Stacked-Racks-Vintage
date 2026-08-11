@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import { addCartItem, CART_UPDATED_EVENT, getCartIds, removeCartItem } from "@/lib/cart";
 import type { Product } from "@/lib/products";
 import { trackEvent } from "@/lib/analytics";
+import { trackFirstParty } from "@/lib/first-party-analytics";
 
 function subscribeToCart(onStoreChange: () => void) {
   window.addEventListener(CART_UPDATED_EVENT, onStoreChange);
@@ -40,6 +41,7 @@ export default function AddToCartButton({ product, className = "" }: { product: 
     const result = addCartItem(product.id);
     setCartFull(result === "full");
     if (result !== "full") {
+      trackFirstParty("add_to_cart", { productId: String(product.id), productName: product.name });
       trackEvent("add_to_cart", {
         item_id: String(product.id),
         item_name: product.name,
