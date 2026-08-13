@@ -17,10 +17,10 @@ const nextConfig: NextConfig = {
       "form-action 'self' https://checkout.stripe.com",
       "frame-ancestors 'none'",
       "object-src 'none'",
-      "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com",
+      "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://connect.facebook.net",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.supabase.co https://www.google-analytics.com",
-      "connect-src 'self' https://*.supabase.co https://www.google-analytics.com https://*.google-analytics.com",
+      "img-src 'self' data: blob: https://*.supabase.co https://www.google-analytics.com https://www.facebook.com",
+      "connect-src 'self' https://*.supabase.co https://www.google-analytics.com https://*.google-analytics.com https://www.facebook.com https://connect.facebook.net",
       "frame-src https://checkout.stripe.com https://js.stripe.com https://hooks.stripe.com",
       "upgrade-insecure-requests",
     ].join("; ");

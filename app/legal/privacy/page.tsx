@@ -45,13 +45,14 @@ export default function PrivacyPage() {
             <p>When you place an order we collect: your full name, email address, phone number, and delivery address. This is necessary to process and ship your order.</p>
             <p>When you sign up for our email list we collect your email address only.</p>
             <p>If you consent, Google Analytics collects pseudonymous usage information such as pages visited, time on site, device type and approximate location. We do not send names, order addresses or payment details to Analytics.</p>
+            <p>If you consent, the Meta Pixel records website actions such as page views, product views, adding an item to the basket, starting checkout and completed purchases. This helps us measure and improve advertising. We do not send your name, delivery address or card details to Meta.</p>
             <p>Stripe (our payment processor) collects your card details and billing information directly. We never see or store your card number.</p>
           </Section>
 
           <Section title="How We Use Your Data">
             <p><strong className="text-white">Order fulfilment</strong> — your name, email, phone and address are used solely to process your order, dispatch your item, and provide after-sale support.</p>
             <p><strong className="text-white">Email marketing</strong> — if you opted in, we may send occasional emails about new arrivals and promotions. Every marketing email includes an unsubscribe link, and you can also contact us directly.</p>
-            <p><strong className="text-white">Analytics</strong> — consented Google Analytics data is used to improve the website and understand how visitors use it.</p>
+            <p><strong className="text-white">Analytics and advertising measurement</strong> — consented Google Analytics and Meta Pixel data is used to improve the website, understand how visitors use it and measure advertising performance.</p>
             <p><strong className="text-white">HMRC compliance</strong> — we are required by law to retain records of sales for tax purposes for a minimum of 6 years.</p>
           </Section>
 
@@ -60,6 +61,7 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-1">
               <li><strong className="text-white">Essential cookies</strong> — set by Stripe to process payments securely. Cannot be disabled.</li>
               <li><strong className="text-white">Analytics cookies</strong> — Google Analytics (_ga, _gid). Only set if you accept cookies.</li>
+              <li><strong className="text-white">Advertising measurement cookies</strong> — Meta Pixel (_fbp and related Meta cookies). Only set if you accept cookies.</li>
               <li><strong className="text-white">Preference cookies</strong> — we store your cookie consent choice and email subscription status locally in your browser.</li>
             </ul>
             <p>You can manage or delete cookies via your browser settings at any time.</p>
@@ -70,6 +72,7 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-1">
               <li><strong className="text-white">Stripe</strong> — payment processing. <a href="https://stripe.com/gb/privacy" className="text-[#E8500A]" target="_blank" rel="noopener noreferrer">Stripe Privacy Policy</a></li>
               <li><strong className="text-white">Google Analytics</strong> — consented site analytics. <a href="https://policies.google.com/privacy" className="text-[#E8500A]" target="_blank" rel="noopener noreferrer">Google Privacy Policy</a></li>
+              <li><strong className="text-white">Meta</strong> — consented advertising measurement. <a href="https://www.facebook.com/privacy/policy/" className="text-[#E8500A]" target="_blank" rel="noopener noreferrer">Meta Privacy Policy</a></li>
               <li><strong className="text-white">Supabase</strong> — our order database, hosted in the EU. <a href="https://supabase.com/privacy" className="text-[#E8500A]" target="_blank" rel="noopener noreferrer">Supabase Privacy Policy</a></li>
               <li><strong className="text-white">Royal Mail</strong> — your delivery address is shared to ship your order.</li>
             </ul>

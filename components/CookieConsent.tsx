@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Script from "next/script";
+import { usePathname } from "next/navigation";
+import { initialiseMetaPixel, revokeMetaConsent, trackMetaEvent } from "@/lib/meta-pixel";
 
 const KEY = "sr_cookie_consent";
 
@@ -9,10 +11,13 @@ export default function CookieConsent() {
   const [consent, setConsent] = useState<"accepted" | "declined" | null>(null);
   const [ready, setReady] = useState(false);
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
+  const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+  const pathname = usePathname();
 
   useEffect(() => {
     const showSettings = () => {
       if (window.location.hash === "#cookie-settings") {
+        revokeMetaConsent();
         localStorage.removeItem(KEY);
         setConsent(null);
         setReady(true);
@@ -20,7 +25,11 @@ export default function CookieConsent() {
     };
     const frame = window.requestAnimationFrame(() => {
       const stored = localStorage.getItem(KEY);
-      if (window.location.hash === "#cookie-settings") setConsent(null);
+      if (window.location.hash === "#cookie-settings") {
+        revokeMetaConsent();
+        localStorage.removeItem(KEY);
+        setConsent(null);
+      }
       else if (stored === "accepted" || stored === "declined") setConsent(stored);
       setReady(true);
     });
@@ -28,12 +37,21 @@ export default function CookieConsent() {
     return () => { window.cancelAnimationFrame(frame); window.removeEventListener("hashchange", showSettings); };
   }, []);
 
+  useEffect(() => {
+    if (consent === "accepted" && metaPixelId) initialiseMetaPixel(metaPixelId);
+  }, [consent, metaPixelId]);
+
+  useEffect(() => {
+    if (consent === "accepted" && metaPixelId) trackMetaEvent("PageView");
+  }, [consent, metaPixelId, pathname]);
+
   const accept = () => {
     localStorage.setItem(KEY, "accepted");
     setConsent("accepted");
   };
 
   const decline = () => {
+    revokeMetaConsent();
     localStorage.setItem(KEY, "declined");
     setConsent("declined");
   };
@@ -64,7 +82,7 @@ export default function CookieConsent() {
           <div className="flex-1">
             <p className="text-white text-xs font-bold mb-1">This site uses cookies</p>
             <p className="text-[#aaa] text-[11px] leading-relaxed">
-              We use optional Google Analytics cookies to understand how the site is used. Stripe may use essential cookies when you choose to pay. Read our{" "}
+              We use optional Google Analytics and Meta Pixel cookies to understand site use and measure advertising. Stripe may use essential cookies when you choose to pay. Read our{" "}
               <a href="/legal/privacy" className="text-[#E8500A] hover:underline">Privacy Policy</a>.
             </p>
           </div>
