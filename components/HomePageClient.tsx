@@ -7,6 +7,7 @@ import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import MarqueeBanner from "@/components/MarqueeBanner";
 import SectionBoxes from "@/components/SectionBoxes";
+import CustomerReviews from "@/components/CustomerReviews";
 import ProductCard from "@/components/ProductCard";
 import ProductModal from "@/components/ProductModal";
 import { Product } from "@/lib/products";
@@ -406,6 +407,7 @@ export default function HomePageClient({ initialProducts }: { initialProducts: P
       <Hero />
       <MarqueeBanner />
       <SectionBoxes />
+      <CustomerReviews />
 
       {/* ── Browse section ── */}
       <div id="shop" className="border-t border-white/5">
