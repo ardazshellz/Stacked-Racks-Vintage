@@ -27,6 +27,16 @@ function safeIncomingPath(path?: string) {
   return typeof path === "string" && path.startsWith("incoming/") && !path.includes("..") && !path.includes("\\") ? path : null;
 }
 
+async function assertVisiblePhoto(buffer: Buffer) {
+  const { channels } = await sharp(buffer).stats();
+  const visibleChannels = channels.slice(0, 3);
+  const brightest = Math.max(...visibleChannels.map((channel) => channel.max));
+  const darkest = Math.min(...visibleChannels.map((channel) => channel.min));
+  if (brightest < 8 || darkest > 247 || brightest - darkest < 3) {
+    throw new Error("The prepared photo was blank and was rejected. Upload the original JPG instead.");
+  }
+}
+
 async function normalizeAndPublish(incomingPath: string) {
   const supabase = getSupabaseAdmin();
   const bucket = supabase.storage.from("product-images");
@@ -39,6 +49,7 @@ async function normalizeAndPublish(incomingPath: string) {
       .resize({ width: 1800, height: 2400, fit: "inside", withoutEnlargement: true })
       .jpeg({ quality: 90, mozjpeg: true })
       .toBuffer();
+    await assertVisiblePhoto(normalized);
     const finalPath = `${new Date().toISOString().slice(0, 10)}/${randomUUID()}.jpg`;
     const { error: uploadError } = await bucket.upload(finalPath, normalized, {
       contentType: "image/jpeg",
@@ -98,8 +109,13 @@ export async function POST(req: Request) {
       .resize({ width: 1800, height: 2400, fit: "inside", withoutEnlargement: true })
       .jpeg({ quality: 90, mozjpeg: true })
       .toBuffer();
-  } catch {
-    return NextResponse.json({ error: "This photo could not be read. On iPhone, choose Most Compatible or export it as JPG." }, { status: 400 });
+    await assertVisiblePhoto(normalized);
+  } catch (error) {
+    return NextResponse.json({
+      error: error instanceof Error
+        ? error.message
+        : "This photo could not be read. On iPhone, choose Most Compatible or export it as JPG.",
+    }, { status: 400 });
   }
 
   const path = `${new Date().toISOString().slice(0, 10)}/${randomUUID()}.jpg`;
@@ -151,6 +167,7 @@ export async function PUT(req: Request) {
       .extract({ left, top, width: OUTPUT_WIDTH, height: OUTPUT_HEIGHT })
       .jpeg({ quality: 91, mozjpeg: true })
       .toBuffer();
+    await assertVisiblePhoto(edited);
 
     const newPath = `${new Date().toISOString().slice(0, 10)}/${randomUUID()}.jpg`;
     const { error: uploadError } = await supabase.storage.from("product-images").upload(newPath, edited, {
