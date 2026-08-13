@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { trackEvent } from "@/lib/analytics";
 import { trackFirstParty } from "@/lib/first-party-analytics";
+import { trackMetaEvent } from "@/lib/meta-pixel";
 
 export default function ProductGallery({ images, name, productId, price }: { images: string[]; name: string; productId: string; price: number }) {
   const [active, setActive] = useState(0);
@@ -12,6 +13,7 @@ export default function ProductGallery({ images, name, productId, price }: { ima
   useEffect(() => {
     trackEvent("view_item", { item_id: productId, item_name: name, value: price, currency: "GBP" });
     trackFirstParty("product_view", { productId, productName: name });
+    trackMetaEvent("ViewContent", { content_ids: [productId], content_name: name, content_type: "product", value: price, currency: "GBP" });
   }, [name, price, productId]);
 
   if (!images.length) {

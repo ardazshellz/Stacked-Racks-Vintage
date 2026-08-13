@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { displayGender, getVintedItemUrl, Product, isNew } from "@/lib/products";
 import { trackEvent } from "@/lib/analytics";
+import { trackMetaEvent } from "@/lib/meta-pixel";
 import { productPath } from "@/lib/product-url";
 import { FREE_SHIPPING_THRESHOLD, qualifiesForFreeShipping } from "@/lib/shipping";
 import AddToCartButton from "./AddToCartButton";
@@ -46,6 +47,10 @@ export default function ProductModal({ product, onClose }: Props) {
 
   useEffect(() => {
     trackEvent("view_item", { item_id: String(product.id), item_name: product.name, value: product.price, currency: "GBP" });
+    trackMetaEvent("ViewContent", { content_ids: [String(product.id)], content_name: product.name, content_type: "product", value: product.price, currency: "GBP" });
+  }, [product.id, product.name, product.price]);
+
+  useEffect(() => {
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -65,7 +70,7 @@ export default function ProductModal({ product, onClose }: Props) {
       document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus();
     };
-  }, [handleClose, images.length, nextImage, previousImage, product.id, product.name, product.price, zoomed]);
+  }, [handleClose, images.length, nextImage, previousImage, zoomed]);
 
   const renderGallery = (mobile = false) => (
     <div

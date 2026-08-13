@@ -5,6 +5,7 @@ import { addCartItem, CART_UPDATED_EVENT, getCartIds, removeCartItem } from "@/l
 import type { Product } from "@/lib/products";
 import { trackEvent } from "@/lib/analytics";
 import { trackFirstParty } from "@/lib/first-party-analytics";
+import { trackMetaEvent } from "@/lib/meta-pixel";
 
 function subscribeToCart(onStoreChange: () => void) {
   window.addEventListener(CART_UPDATED_EVENT, onStoreChange);
@@ -45,6 +46,13 @@ export default function AddToCartButton({ product, className = "" }: { product: 
       trackEvent("add_to_cart", {
         item_id: String(product.id),
         item_name: product.name,
+        value: product.price,
+        currency: "GBP",
+      });
+      trackMetaEvent("AddToCart", {
+        content_ids: [String(product.id)],
+        content_name: product.name,
+        content_type: "product",
         value: product.price,
         currency: "GBP",
       });

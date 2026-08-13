@@ -9,6 +9,7 @@ import type { Product } from "@/lib/products";
 import { trackEvent } from "@/lib/analytics";
 import { trackFirstParty } from "@/lib/first-party-analytics";
 import { calculatePostage, FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
+import { trackMetaEvent } from "@/lib/meta-pixel";
 
 function Field({ label, value, onChange, type = "text", placeholder = "", required = false, autoComplete }: {
   label: string; value: string; onChange: (value: string) => void; type?: string;
@@ -90,6 +91,7 @@ function CheckoutContent() {
     try {
       trackEvent("begin_checkout", { value: total, currency: "GBP", items: products.length });
       trackFirstParty("checkout_started");
+      trackMetaEvent("InitiateCheckout", { content_ids: products.map((product) => String(product.id)), content_type: "product", value: total, currency: "GBP", num_items: products.length });
       const response = await fetch("/api/create-checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itemIds: products.map((product) => product.id), name, email, phone, address, promotionCode: promotionApplied ? promotionInput.trim().toUpperCase() : "" }) });
       const data = await response.json();
       if (data.url) window.location.href = data.url;
