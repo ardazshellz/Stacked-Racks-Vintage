@@ -637,12 +637,24 @@ export default function AdminPage() {
 
   const updateStock = async (product: Product) => {
     const { id, ...details } = product;
+    const nextStock = product.stock > 0 ? 0 : 1;
     const response = await fetch("/api/products", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, product: { ...details, stock: product.stock > 0 ? 0 : 1 } }),
+      body: JSON.stringify({ id, product: { ...details, stock: nextStock } }),
     });
-    if (response.ok) await loadDashboard();
+    const data = await response.json();
+    if (!response.ok) {
+      setDataError(data.error ?? "Could not update the listing status");
+      return;
+    }
+    if (String(id) === editingId) {
+      setForm((current) => ({ ...current, stock: nextStock }));
+      setListingMessage(nextStock > 0 ? "Product relisted on the website" : "Product marked as sold and removed from the shop");
+    }
+    setDataError("");
+    await loadDashboard();
+    window.dispatchEvent(new CustomEvent("sr:products-updated"));
   };
 
   const setPurchasePrice = async (product: Product) => {
@@ -797,6 +809,7 @@ export default function AdminPage() {
             <div className="space-y-5">
               <div className="bg-[#111] border border-white/8 p-5 sm:p-6">
                 <div className="flex items-start justify-between gap-4 mb-5"><div><p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">Photo-first listing</p><h2 className="text-xl font-black">{editingId ? "Edit product" : "Create a product"}</h2><p className="text-[#666] text-xs mt-1">Upload the photos, let AI read them, then add anything it could not see.</p></div>{editingId && <button onClick={() => { setEditingId(null); setForm(EMPTY_PRODUCT); setQuickDetails(""); setPhotoAnalysis(""); setSellerNotes(""); }} className="text-[#777] text-xs">Cancel edit</button>}</div>
+                {editingId && <button type="button" onClick={() => void updateStock({ id: editingId, ...form })} className={`mb-5 w-full border px-5 py-4 text-sm font-black uppercase tracking-[0.16em] ${form.stock > 0 ? "border-red-500/60 bg-red-500/10 text-red-300 hover:bg-red-500/20" : "border-emerald-500/60 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"}`}>{form.stock > 0 ? "Mark as sold — remove from site" : "Relist on site"}</button>}
                 <label className="block border-2 border-dashed border-white/10 hover:border-[#E8500A]/50 p-7 text-center cursor-pointer mb-4"><input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple className="hidden" onChange={(event) => { void uploadPhotos(event.target.files); event.target.value = ""; }} disabled={uploading} /><span className="text-sm font-bold">{uploading ? "Uploading and preparing photos…" : "Choose product photos"}</span><span className="block text-[#777] text-[10px] mt-1">JPG, PNG, WEBP or HEIC · up to 50MB each · orientation fixed automatically</span></label>
                 {!!form.imageUrls?.length && <><p className="text-[#888] text-[10px] mb-2">Photos appear here when ready. The preview shows the whole image without cropping. Tap <strong className="text-white">Crop / rotate</strong> only when an adjustment is needed.</p><div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">{form.imageUrls.map((url, index) => <div key={url} className="relative bg-[#1a1a1a] group border border-white/10"><div className="relative aspect-[3/4]"><Image src={url} alt={`Product photo ${index + 1}`} fill sizes="(max-width: 640px) 50vw, 150px" className="object-contain p-1" /><span className="absolute top-1 left-1 bg-black/80 px-1.5 py-1 text-[8px] font-black">{index === 0 ? "COVER" : index + 1}</span><button aria-label={`Remove photo ${index + 1}`} onClick={() => void removePhoto(url)} className="absolute top-1 right-1 bg-black/80 w-7 h-7 text-xs">×</button></div><button onClick={() => setEditingPhoto(url)} className="w-full bg-[#E8500A] py-2 text-[9px] font-black uppercase tracking-wider">Crop / rotate</button><div className="p-1 flex justify-between"><button aria-label="Move photo left" disabled={index === 0} onClick={() => movePhoto(index, -1)} className="bg-black/80 disabled:opacity-30 w-8 h-7">←</button>{index > 0 && <button onClick={() => { const urls = [...(form.imageUrls ?? [])]; urls.splice(index, 1); urls.unshift(url); setForm({ ...form, imageUrls: urls }); }} className="bg-black/80 px-2 text-[8px]">Make cover</button>}<button aria-label="Move photo right" disabled={index === (form.imageUrls?.length ?? 0) - 1} onClick={() => movePhoto(index, 1)} className="bg-black/80 disabled:opacity-30 w-8 h-7">→</button></div></div>)}</div></>}
                 <div className="mb-5 flex flex-wrap items-center gap-3"><button onClick={() => void analysePhotos()} disabled={generating || !form.imageUrls?.length} className="bg-[#E8500A] disabled:opacity-40 text-white font-black text-xs tracking-[0.16em] uppercase px-5 py-3">{generating ? "Reading pictures…" : "Analyse pictures"}</button><span className="text-[#666] text-[10px]">Reads labels, logos, colours, item details and visible condition. Paid web search stays off.</span></div>
@@ -869,7 +882,7 @@ export default function AdminPage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold truncate">{product.name}</p>
                     <p className="text-[#666] text-[10px]">{product.brand} · {money(product.price)}</p>
-                    <p className={`text-[9px] mt-1 ${hidden ? "text-amber-300" : product.stock > 0 ? "text-emerald-400" : "text-red-400"}`}>{hidden ? "HIDDEN FROM PUBLIC" : recordedVintedSale ? "SOLD ON VINTED" : product.stock > 0 ? "LIVE" : "SOLD"}</p>
+                    <p className={`text-[9px] mt-1 ${hidden ? "text-amber-300" : product.stock > 0 ? "text-emerald-400" : "text-red-400"}`}>{hidden ? "HIDDEN FROM PUBLIC" : product.stock > 0 ? "LIVE" : recordedVintedSale ? "SOLD ON VINTED" : "SOLD"}</p>
                     {recordedVintedSale
                       ? <p className="text-[#F5C300] text-[9px] mt-1">Purchased {money(orderPurchaseCost(recordedVintedSale, products))} · Sold {money(recordedVintedSale.price)}</p>
                       : <p className="text-[#777] text-[9px] mt-1">Purchase cost: {product.costPrice === undefined ? "Not added" : money(product.costPrice)}</p>}
