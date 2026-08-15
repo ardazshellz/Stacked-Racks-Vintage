@@ -255,13 +255,22 @@ function orderPurchaseCost(order: OrderRow, products: Product[]) {
     .reduce((sum, product) => sum + Number(product.costPrice || 0), 0);
 }
 
+function salesChannel(source: string) {
+  const normalisedSource = String(source ?? "").trim().toLowerCase();
+  if (normalisedSource === "vinted") return "Vinted";
+  if (normalisedSource === "stripe" || normalisedSource === "website") return "Stacked Racks Website";
+  if (normalisedSource === "manual") return "Manual sale";
+  return source || "Unknown";
+}
+
 function downloadHmrcCsv(orders: OrderRow[], products: Product[]) {
-  const headers = ["Date", "Order ID", "Item", "Brand", "Sale Price", "Item Purchase Cost", "Gross Profit Before Fees", "Postage", "Total", "Customer Name"];
+  const headers = ["Date", "Order ID", "Item", "Brand", "Sales Channel", "Sale Price", "Item Purchase Cost", "Gross Profit Before Fees", "Postage", "Total", "Customer Name"];
   const rows = orders.map((order) => [
     new Date(order.date_of_sale).toLocaleDateString("en-GB"),
     order.id,
     csvCell(order.item_name),
     csvCell(order.brand),
+    csvCell(salesChannel(order.source)),
     Number(order.price).toFixed(2),
     orderPurchaseCost(order, products).toFixed(2),
     (Number(order.price) - orderPurchaseCost(order, products)).toFixed(2),
