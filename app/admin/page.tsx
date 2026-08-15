@@ -299,6 +299,9 @@ export default function AdminPage() {
   const [showManualSale, setShowManualSale] = useState(false);
   const [thirtyDaysAgo] = useState(() => Date.now() - 30 * 24 * 60 * 60 * 1000);
   const [manualSale, setManualSale] = useState({ customer_name: "", item_name: "", brand: "", price: 0, cost_price: 0, postage: 0, total: 0, notes: "Vinted sale" });
+  const [vintedSaleProduct, setVintedSaleProduct] = useState<Product | null>(null);
+  const [vintedSale, setVintedSale] = useState({ purchasePrice: "", soldPrice: "" });
+  const [recordingVintedSale, setRecordingVintedSale] = useState(false);
 
   const [form, setForm] = useState<Omit<Product, "id">>(EMPTY_PRODUCT);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -400,6 +403,13 @@ export default function AdminPage() {
     if (!query) return sorted.slice(0, 5);
     return sorted.filter((product) => `${product.name} ${product.brand}`.toLowerCase().includes(query));
   }, [productSearch, products]);
+  const vintedSaleByProductId = useMemo(() => {
+    const sales = new Map<string, OrderRow>();
+    orders.forEach((order) => {
+      if (order.source === "vinted" && order.item_id) sales.set(String(order.item_id), order);
+    });
+    return sales;
+  }, [orders]);
 
   const recordManualSale = async () => {
     const total = manualSale.total || manualSale.price + manualSale.postage;
@@ -607,6 +617,64 @@ export default function AdminPage() {
     if (response.ok) await loadDashboard();
   };
 
+  const setPurchasePrice = async (product: Product) => {
+    const value = window.prompt(`What did you pay for ${product.name}?`, product.costPrice === undefined ? "" : String(product.costPrice));
+    if (value === null) return;
+    const purchasePrice = Number(value);
+    if (!Number.isFinite(purchasePrice) || purchasePrice < 0) {
+      setDataError("Enter a valid purchase price of £0 or more");
+      return;
+    }
+    const { id, ...details } = product;
+    const response = await fetch("/api/products", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, product: { ...details, costPrice: purchasePrice } }),
+    });
+    const data = await response.json();
+    if (!response.ok) return setDataError(data.error ?? "Could not save purchase price");
+    setDataError("");
+    await loadDashboard();
+  };
+
+  const openVintedSale = (product: Product) => {
+    setDataError("");
+    setVintedSaleProduct(product);
+    setVintedSale({
+      purchasePrice: product.costPrice === undefined ? "" : String(product.costPrice),
+      soldPrice: String(product.price),
+    });
+  };
+
+  const recordVintedProductSale = async () => {
+    if (!vintedSaleProduct) return;
+    const purchasePrice = Number(vintedSale.purchasePrice);
+    const soldPrice = Number(vintedSale.soldPrice);
+    if (!Number.isFinite(purchasePrice) || purchasePrice < 0 || !Number.isFinite(soldPrice) || soldPrice <= 0) {
+      setDataError("Enter both the purchase price and the Vinted sold price");
+      return;
+    }
+    setRecordingVintedSale(true);
+    setDataError("");
+    try {
+      const response = await fetch("/api/admin-vinted-sale", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: String(vintedSaleProduct.id), purchasePrice, soldPrice }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Could not record Vinted sale");
+      setVintedSaleProduct(null);
+      setVintedSale({ purchasePrice: "", soldPrice: "" });
+      await loadDashboard();
+      window.dispatchEvent(new CustomEvent("sr:products-updated"));
+    } catch (error) {
+      setDataError(error instanceof Error ? error.message : "Could not record Vinted sale");
+    } finally {
+      setRecordingVintedSale(false);
+    }
+  };
+
   const toggleProductVisibility = async (product: Product) => {
     setDataError("");
     const id = String(product.id);
@@ -767,7 +835,26 @@ export default function AdminPage() {
                 const id = String(product.id);
                 const hidden = hiddenProductIds.includes(id);
                 const databaseProduct = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id);
-                return <div key={product.id} className={`border p-3 flex gap-3 ${hidden ? "border-amber-500/25 bg-amber-500/[0.03]" : "border-white/8"}`}><div className="w-16 h-20 bg-[#1a1a1a] shrink-0 overflow-hidden">{product.imageUrls?.[0] && <Image src={product.imageUrls[0]} alt="" width={64} height={80} className="w-full h-full object-cover" />}</div><div className="min-w-0 flex-1"><p className="text-sm font-bold truncate">{product.name}</p><p className="text-[#666] text-[10px]">{product.brand} · {money(product.price)}</p><p className={`text-[9px] mt-1 ${hidden ? "text-amber-300" : product.stock > 0 ? "text-emerald-400" : "text-red-400"}`}>{hidden ? "HIDDEN FROM PUBLIC" : product.stock > 0 ? "LIVE" : "SOLD"}</p><div className="flex flex-wrap gap-x-3 gap-y-2 mt-2">{databaseProduct && <button onClick={() => editProduct(product)} className="text-[#E8500A] text-[10px]">Edit</button>}{databaseProduct && <button onClick={() => void updateStock(product)} className="text-[#aaa] text-[10px]">{product.stock > 0 ? "Mark sold" : "Relist"}</button>}<button onClick={() => void toggleProductVisibility(product)} className="text-amber-300 text-[10px]">{hidden ? "Show publicly" : "Hide from public"}</button><button onClick={() => void removeProduct(product)} className="text-red-400 text-[10px]">Delete</button></div></div></div>;
+                const recordedVintedSale = vintedSaleByProductId.get(id);
+                return <div key={product.id} className={`border p-3 flex gap-3 ${hidden ? "border-amber-500/25 bg-amber-500/[0.03]" : "border-white/8"}`}>
+                  <div className="w-16 h-20 bg-[#1a1a1a] shrink-0 overflow-hidden">{product.imageUrls?.[0] && <Image src={product.imageUrls[0]} alt="" width={64} height={80} className="w-full h-full object-cover" />}</div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold truncate">{product.name}</p>
+                    <p className="text-[#666] text-[10px]">{product.brand} · {money(product.price)}</p>
+                    <p className={`text-[9px] mt-1 ${hidden ? "text-amber-300" : product.stock > 0 ? "text-emerald-400" : "text-red-400"}`}>{hidden ? "HIDDEN FROM PUBLIC" : recordedVintedSale ? "SOLD ON VINTED" : product.stock > 0 ? "LIVE" : "SOLD"}</p>
+                    {recordedVintedSale
+                      ? <p className="text-[#F5C300] text-[9px] mt-1">Purchased {money(orderPurchaseCost(recordedVintedSale, products))} · Sold {money(recordedVintedSale.price)}</p>
+                      : <p className="text-[#777] text-[9px] mt-1">Purchase cost: {product.costPrice === undefined ? "Not added" : money(product.costPrice)}</p>}
+                    <div className="flex flex-wrap gap-x-3 gap-y-2 mt-2">
+                      {databaseProduct && <button onClick={() => editProduct(product)} className="text-[#E8500A] text-[10px]">Edit</button>}
+                      {databaseProduct && !recordedVintedSale && <button onClick={() => openVintedSale(product)} className="text-[#F5C300] text-[10px] font-bold">Sold on Vinted</button>}
+                      {databaseProduct && !recordedVintedSale && <button onClick={() => void setPurchasePrice(product)} className="text-sky-300 text-[10px]">{product.costPrice === undefined ? "Add purchase price" : "Update purchase price"}</button>}
+                      {databaseProduct && !recordedVintedSale && <button onClick={() => void updateStock(product)} className="text-[#aaa] text-[10px]">{product.stock > 0 ? "Mark sold elsewhere" : "Relist"}</button>}
+                      <button onClick={() => void toggleProductVisibility(product)} className="text-amber-300 text-[10px]">{hidden ? "Show publicly" : "Hide from public"}</button>
+                      <button onClick={() => void removeProduct(product)} className="text-red-400 text-[10px]">Delete</button>
+                    </div>
+                  </div>
+                </div>;
               })}</div>
               {!managedProducts.length && <p className="text-[#555] text-xs py-8 text-center">No matching products.</p>}
             </aside>
@@ -777,6 +864,7 @@ export default function AdminPage() {
         {tab === "analytics" && <AnalyticsDashboard />}
       </div>
 
+      {vintedSaleProduct && <Modal title="Record Vinted sale" onClose={() => !recordingVintedSale && setVintedSaleProduct(null)}><div className="border border-white/10 bg-[#161616] p-4 mb-5"><p className="text-white font-black">{vintedSaleProduct.name}</p><p className="text-[#777] text-xs mt-1">This will mark the item sold on your website and add the sale to Orders and your HMRC CSV.</p></div><div className="grid sm:grid-cols-2 gap-4"><Field label="What you paid (£) — private" value={vintedSale.purchasePrice} type="number" onChange={(value) => setVintedSale({ ...vintedSale, purchasePrice: value })} placeholder="Required" /><Field label="Vinted sold price (£)" value={vintedSale.soldPrice} type="number" onChange={(value) => setVintedSale({ ...vintedSale, soldPrice: value })} placeholder="Required" /></div><p className="text-[#777] text-[10px] mt-4">Use the item price you received, excluding postage paid separately by the buyer.</p><button onClick={recordVintedProductSale} disabled={recordingVintedSale || vintedSale.purchasePrice === "" || Number(vintedSale.purchasePrice) < 0 || Number(vintedSale.soldPrice) <= 0} className="w-full mt-5 bg-[#F5C300] text-black disabled:opacity-40 py-3 font-black text-xs tracking-wider uppercase">{recordingVintedSale ? "Saving sale…" : "Confirm sold on Vinted"}</button></Modal>}
       {showManualSale && <Modal title="Record a Vinted or manual sale" onClose={() => setShowManualSale(false)}><div className="grid sm:grid-cols-2 gap-4"><Field label="Customer name" value={manualSale.customer_name} onChange={(value) => setManualSale({ ...manualSale, customer_name: value })} /><Field label="Item" value={manualSale.item_name} onChange={(value) => setManualSale({ ...manualSale, item_name: value })} /><Field label="Brand" value={manualSale.brand} onChange={(value) => setManualSale({ ...manualSale, brand: value })} /><Field label="Customer sale price (£)" value={manualSale.price || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, price: Number(value) })} /><Field label="What you paid for item (£) — private" value={manualSale.cost_price || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, cost_price: Math.max(0, Number(value)) })} placeholder="Optional" /><Field label="Postage" value={manualSale.postage || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, postage: Number(value) })} /><Field label="Notes" value={manualSale.notes} onChange={(value) => setManualSale({ ...manualSale, notes: value })} /></div><p className="text-[#777] text-[10px] mt-4">The amount you paid is private and appears in the HMRC CSV and profit figures.</p><button onClick={recordManualSale} disabled={!manualSale.customer_name || !manualSale.item_name || manualSale.price <= 0} className="w-full mt-5 bg-[#E8500A] disabled:opacity-40 py-3 font-black text-xs tracking-wider uppercase">Save sale</button></Modal>}
       </main>
       {editingPhoto && <PhotoEditor url={editingPhoto} onClose={() => setEditingPhoto(null)} onSaved={(url) => replaceEditedPhoto(editingPhoto, url)} />}
