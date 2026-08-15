@@ -307,7 +307,7 @@ export default function AdminPage() {
   const [exportTo, setExportTo] = useState("");
   const [showManualSale, setShowManualSale] = useState(false);
   const [thirtyDaysAgo] = useState(() => Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const [manualSale, setManualSale] = useState({ customer_name: "", item_name: "", brand: "", price: 0, cost_price: 0, postage: 0, total: 0, notes: "Vinted sale" });
+  const [manualSale, setManualSale] = useState({ item_id: "", customer_name: "", item_name: "", brand: "", price: 0, cost_price: 0, postage: 0, total: 0, notes: "Vinted sale" });
   const [vintedSaleProduct, setVintedSaleProduct] = useState<Product | null>(null);
   const [vintedSale, setVintedSale] = useState({ purchasePrice: "", soldPrice: "" });
   const [recordingVintedSale, setRecordingVintedSale] = useState(false);
@@ -421,6 +421,25 @@ export default function AdminPage() {
   }, [orders]);
 
   const recordManualSale = async () => {
+    if (manualSale.item_id) {
+      const response = await fetch("/api/admin-vinted-sale", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: manualSale.item_id,
+          purchasePrice: manualSale.cost_price,
+          soldPrice: manualSale.price,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) return setDataError(data.error ?? "Could not save Vinted sale");
+      setShowManualSale(false);
+      setManualSale({ item_id: "", customer_name: "", item_name: "", brand: "", price: 0, cost_price: 0, postage: 0, total: 0, notes: "Vinted sale" });
+      await loadDashboard();
+      window.dispatchEvent(new CustomEvent("sr:products-updated"));
+      return;
+    }
+
     const total = manualSale.total || manualSale.price + manualSale.postage;
     const response = await fetch("/api/admin-orders", {
       method: "POST",
@@ -430,7 +449,7 @@ export default function AdminPage() {
     const data = await response.json();
     if (!response.ok) return setDataError(data.error ?? "Could not save sale");
     setShowManualSale(false);
-    setManualSale({ customer_name: "", item_name: "", brand: "", price: 0, cost_price: 0, postage: 0, total: 0, notes: "Vinted sale" });
+    setManualSale({ item_id: "", customer_name: "", item_name: "", brand: "", price: 0, cost_price: 0, postage: 0, total: 0, notes: "Vinted sale" });
     await loadDashboard();
   };
 
@@ -874,7 +893,7 @@ export default function AdminPage() {
       </div>
 
       {vintedSaleProduct && <Modal title="Record Vinted sale" onClose={() => !recordingVintedSale && setVintedSaleProduct(null)}><div className="border border-white/10 bg-[#161616] p-4 mb-5"><p className="text-white font-black">{vintedSaleProduct.name}</p><p className="text-[#777] text-xs mt-1">This will mark the item sold on your website and add the sale to Orders and your HMRC CSV.</p></div><div className="grid sm:grid-cols-2 gap-4"><Field label="What you paid (£) — private" value={vintedSale.purchasePrice} type="number" onChange={(value) => setVintedSale({ ...vintedSale, purchasePrice: value })} placeholder="Required" /><Field label="Vinted sold price (£)" value={vintedSale.soldPrice} type="number" onChange={(value) => setVintedSale({ ...vintedSale, soldPrice: value })} placeholder="Required" /></div><p className="text-[#777] text-[10px] mt-4">Use the item price you received, excluding postage paid separately by the buyer.</p><button onClick={recordVintedProductSale} disabled={recordingVintedSale || vintedSale.purchasePrice === "" || Number(vintedSale.purchasePrice) < 0 || Number(vintedSale.soldPrice) <= 0} className="w-full mt-5 bg-[#F5C300] text-black disabled:opacity-40 py-3 font-black text-xs tracking-wider uppercase">{recordingVintedSale ? "Saving sale…" : "Confirm sold on Vinted"}</button></Modal>}
-      {showManualSale && <Modal title="Record a Vinted or manual sale" onClose={() => setShowManualSale(false)}><div className="grid sm:grid-cols-2 gap-4"><Field label="Customer name" value={manualSale.customer_name} onChange={(value) => setManualSale({ ...manualSale, customer_name: value })} /><Field label="Item" value={manualSale.item_name} onChange={(value) => setManualSale({ ...manualSale, item_name: value })} /><Field label="Brand" value={manualSale.brand} onChange={(value) => setManualSale({ ...manualSale, brand: value })} /><Field label="Customer sale price (£)" value={manualSale.price || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, price: Number(value) })} /><Field label="What you paid for item (£) — private" value={manualSale.cost_price || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, cost_price: Math.max(0, Number(value)) })} placeholder="Optional" /><Field label="Postage" value={manualSale.postage || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, postage: Number(value) })} /><Field label="Notes" value={manualSale.notes} onChange={(value) => setManualSale({ ...manualSale, notes: value })} /></div><p className="text-[#777] text-[10px] mt-4">The amount you paid is private and appears in the HMRC CSV and profit figures.</p><button onClick={recordManualSale} disabled={!manualSale.customer_name || !manualSale.item_name || manualSale.price <= 0} className="w-full mt-5 bg-[#E8500A] disabled:opacity-40 py-3 font-black text-xs tracking-wider uppercase">Save sale</button></Modal>}
+      {showManualSale && <Modal title="Record a Vinted or manual sale" onClose={() => setShowManualSale(false)}><div className="grid sm:grid-cols-2 gap-4"><Field label="Customer name" value={manualSale.customer_name} onChange={(value) => setManualSale({ ...manualSale, customer_name: value })} /><ProductTitlePicker products={products} value={manualSale.item_name} onChange={(value) => setManualSale({ ...manualSale, item_id: "", item_name: value })} onSelect={(product) => setManualSale({ ...manualSale, item_id: /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(product.id)) ? String(product.id) : "", customer_name: manualSale.customer_name || "Vinted buyer", item_name: product.name, brand: product.brand, price: product.price, cost_price: Number(product.costPrice || 0), total: 0 })} /><Field label="Brand" value={manualSale.brand} onChange={(value) => setManualSale({ ...manualSale, brand: value })} /><Field label="Customer sale price (£)" value={manualSale.price || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, price: Number(value) })} /><Field label="What you paid for item (£) — private" value={manualSale.cost_price || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, cost_price: Math.max(0, Number(value)) })} placeholder="Optional" /><Field label="Postage" value={manualSale.postage || ""} type="number" onChange={(value) => setManualSale({ ...manualSale, postage: Number(value) })} /><Field label="Notes" value={manualSale.notes} onChange={(value) => setManualSale({ ...manualSale, notes: value })} /></div><p className="text-[#777] text-[10px] mt-4">Select a website listing to fill its exact title, brand, selling price and purchase cost. A linked Vinted sale also marks the website item sold.</p><button onClick={recordManualSale} disabled={!manualSale.customer_name || !manualSale.item_name || manualSale.price <= 0} className="w-full mt-5 bg-[#E8500A] disabled:opacity-40 py-3 font-black text-xs tracking-wider uppercase">Save sale</button></Modal>}
       </main>
       {editingPhoto && <PhotoEditor url={editingPhoto} onClose={() => setEditingPhoto(null)} onSaved={(url) => replaceEditedPhoto(editingPhoto, url)} />}
     </>
@@ -883,6 +902,19 @@ export default function AdminPage() {
 
 function Field({ label, value, onChange, type = "text", placeholder = "", suggestions }: { label: string; value: string | number; onChange: (value: string) => void; type?: string; placeholder?: string; suggestions?: readonly string[] }) {
   return <label><span className={LABEL}>{label}</span>{type === "text" && suggestions ? <AutocompleteControl label={label} value={String(value)} onChange={onChange} placeholder={placeholder} suggestions={suggestions} /> : <input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} step={type === "number" ? "0.01" : undefined} className={INPUT} />}</label>;
+}
+
+function ProductTitlePicker({ products, value, onChange, onSelect }: { products: Product[]; value: string; onChange: (value: string) => void; onSelect: (product: Product) => void }) {
+  const [focused, setFocused] = useState(false);
+  const query = value.trim().toLowerCase();
+  const matches = query.length
+    ? products
+      .filter((product) => `${product.name} ${product.brand}`.toLowerCase().includes(query))
+      .sort((a, b) => Number(b.name.toLowerCase().startsWith(query)) - Number(a.name.toLowerCase().startsWith(query)))
+      .slice(0, 6)
+    : [];
+
+  return <label className="relative"><span className={LABEL}>Item</span><input value={value} onChange={(event) => onChange(event.target.value)} onFocus={() => setFocused(true)} onBlur={() => window.setTimeout(() => setFocused(false), 120)} placeholder="Start typing a website listing title…" autoComplete="off" role="combobox" aria-expanded={focused && matches.length > 0} aria-controls="manual-sale-product-results" className={INPUT} />{focused && matches.length > 0 && <div id="manual-sale-product-results" role="listbox" className="absolute z-30 left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto border border-[#E8500A]/40 bg-[#181818] shadow-2xl">{matches.map((product) => <button key={product.id} type="button" role="option" aria-selected={value === product.name} onMouseDown={(event) => event.preventDefault()} onClick={() => { onSelect(product); setFocused(false); }} className="block w-full border-b border-white/5 px-3 py-3 text-left hover:bg-[#242424] focus:bg-[#242424] focus:outline-none"><span className="block text-xs font-bold text-white">{product.name}</span><span className="mt-1 block text-[9px] text-[#777]">{product.brand} · {product.size} · {money(product.price)}{product.stock <= 0 ? " · Currently sold" : ""}</span></button>)}</div>}</label>;
 }
 
 function Select({ label, value, options, onChange, optionLabel = (option) => option }: { label: string; value: string; options: readonly string[]; onChange: (value: string) => void; optionLabel?: (option: string) => string }) {
