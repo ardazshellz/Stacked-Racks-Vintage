@@ -25,6 +25,11 @@ const OUTPUT_FIELDS = [
   "suggestedMaterial",
   "visibleFlaws",
   "photoFindings",
+  "pricingReview",
+  "suggestedPriceLow",
+  "suggestedPriceHigh",
+  "pricingReason",
+  "pricingSearchQuery",
 ] as const;
 
 const LISTING_SCHEMA = {
@@ -115,6 +120,12 @@ Writing style:
 - websiteDescription: concise and useful; 3-4 short sentences and no more than 80 words total. Cover the strongest design details, condition and fit without flowery filler. Put every sentence on its own line.
 - vintedDescription: very easy to scan; 2-3 short factual sentences and no more than 240 characters total. Put every sentence on its own line and include visible flaws.
 - Titles must be factual, search-friendly and free from unsupported claims.
+- Treat every item as genuine, as confirmed by the seller. Do not use authenticity uncertainty as a reason to lower the price.
+- Assess pricing conservatively but never default a potentially collectible piece to an ordinary second-hand price.
+- pricingReview must be Needs review for vintage band merchandise, single-stitch or all-over-print T-shirts, dated tour/event pieces, rare football shirts, player-name shirts, tournament patches, designer pieces, unusual collaborations, discontinued models, pre-2005 items with collectible cues, or anything whose identity/value is uncertain. Use Standard for ordinary modern/general sportswear and common high-street pieces.
+- suggestedPriceLow and suggestedPriceHigh are realistic GBP resale ranges based on the visible item, condition, size and general market knowledge. They are guidance, not claims of live web research.
+- pricingReason must explain the important value signals and any condition/size deductions in plain English.
+- pricingSearchQuery must be a precise search phrase for checking sold comparables, including brand, design/model, era and key identifiers where visible.
 
 Return ONLY valid JSON:
 {
@@ -133,7 +144,12 @@ Return ONLY valid JSON:
   "suggestedColour": "concise main colour and pattern visible in the photos",
   "suggestedMaterial": "material only when supported by a readable care label or seller notes, otherwise blank",
   "visibleFlaws": "concise visible flaws, or None visible when the photos support that",
-  "photoFindings": "2-4 sentences summarising visible evidence, label details and any cautious possible model match"
+  "photoFindings": "2-4 sentences summarising visible evidence, label details and any cautious possible model match",
+  "pricingReview": "Needs review or Standard",
+  "suggestedPriceLow": "whole-number GBP lower estimate, numbers only",
+  "suggestedPriceHigh": "whole-number GBP upper estimate, numbers only",
+  "pricingReason": "1-3 plain-English sentences explaining the price range and collectible or ordinary signals",
+  "pricingSearchQuery": "precise search phrase for comparable listings"
 }`;
 
   const safeImageUrls = (Array.isArray(imageUrls) ? imageUrls : [])

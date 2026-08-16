@@ -40,14 +40,22 @@ export async function GET() {
       products: rows
         .filter((row) => row.name !== PRODUCT_SETTINGS_NAME)
         .filter((row) => admin || !row.reserved_until || new Date(row.reserved_until).getTime() <= Date.now())
-        .map((row) => {
-          const product = rowToProduct(row);
+        .map((row) => rowToProduct(row))
+        .filter((product) => admin || product.listingStatus !== "draft")
+        .map((product) => {
           return admin ? product : {
             ...product,
             sku: undefined,
             costPrice: undefined,
             storageLocation: undefined,
             source: undefined,
+            listingStatus: undefined,
+            pricingStatus: undefined,
+            suggestedPriceLow: undefined,
+            suggestedPriceHigh: undefined,
+            pricingReason: undefined,
+            pricingSearchQuery: undefined,
+            pricingReviewedAt: undefined,
           };
         }),
       ...settings,

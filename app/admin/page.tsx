@@ -73,6 +73,13 @@ const EMPTY_PRODUCT: Omit<Product, "id"> = {
   costPrice: 0,
   storageLocation: "",
   source: "",
+  listingStatus: "live",
+  pricingStatus: "standard",
+  suggestedPriceLow: undefined,
+  suggestedPriceHigh: undefined,
+  pricingReason: "",
+  pricingSearchQuery: "",
+  pricingReviewedAt: undefined,
 };
 
 const INPUT = "w-full bg-[#171717] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-[#E8500A]/70 placeholder:text-[#444]";
@@ -229,6 +236,11 @@ function parseQuickListing(details: string, current: Omit<Product, "id">): Parti
 
 function money(value: number | string) {
   return `£${Number(value || 0).toFixed(2)}`;
+}
+
+function aiPrice(value: unknown) {
+  const parsed = Number(String(value ?? "").replace(/[^0-9.]/g, ""));
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : undefined;
 }
 
 function csvCell(value: unknown) {
@@ -406,12 +418,14 @@ export default function AdminPage() {
   });
   const managedProducts = useMemo(() => {
     const query = productSearch.trim().toLowerCase();
-    const sorted = [...products].sort((a, b) =>
+    const sorted = products.filter((product) => product.listingStatus !== "draft").sort((a, b) =>
       new Date(b.listedDate).getTime() - new Date(a.listedDate).getTime(),
     );
     if (!query) return sorted.slice(0, 5);
     return sorted.filter((product) => `${product.name} ${product.brand}`.toLowerCase().includes(query));
   }, [productSearch, products]);
+  const draftProducts = useMemo(() => products.filter((product) => product.listingStatus === "draft"), [products]);
+  const pricingApprovalRequired = form.pricingStatus === "needs_review";
   const vintedSaleByProductId = useMemo(() => {
     const sales = new Map<string, OrderRow>();
     orders.forEach((order) => {
@@ -551,6 +565,9 @@ export default function AdminPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "AI generation failed");
+      const suggestedPriceLow = aiPrice(data.suggestedPriceLow);
+      const suggestedPriceHigh = aiPrice(data.suggestedPriceHigh);
+      const needsPricingReview = String(data.pricingReview).toLowerCase().includes("needs");
       setForm((current) => ({
         ...current,
         ...overrides,
@@ -573,6 +590,13 @@ export default function AdminPage() {
           material: data.suggestedMaterial || current.garmentDetails?.material,
           flaws: data.visibleFlaws || current.garmentDetails?.flaws,
         },
+        price: current.price > 0 ? current.price : suggestedPriceHigh ?? suggestedPriceLow ?? current.price,
+        pricingStatus: needsPricingReview ? "needs_review" : "standard",
+        suggestedPriceLow,
+        suggestedPriceHigh,
+        pricingReason: data.pricingReason || "",
+        pricingSearchQuery: data.pricingSearchQuery || data.vintedTitle || data.websiteTitle || "",
+        pricingReviewedAt: undefined,
       }));
       if (mode === "photos") setPhotoAnalysis(data.photoFindings || "Photos analysed successfully.");
       setListingMessage(mode === "photos" ? "Pictures analysed and fields populated — add any extra details above, then merge with AI" : "Draft generated — check the details before publishing");
@@ -594,12 +618,17 @@ export default function AdminPage() {
     await generateListing({}, quickDetails || sellerNotes, "photos");
   };
 
-  const saveProduct = async () => {
+  const saveProduct = async (listingStatus: "live" | "draft" = "live") => {
+    if (listingStatus === "live" && pricingApprovalRequired) {
+      setListingMessage("Review and approve the suggested pricing before publishing this collectible or uncertain item.");
+      return;
+    }
     setSaving(true);
     setListingMessage("");
     try {
       const productForSave = {
         ...form,
+        listingStatus,
         listedDate: editingId ? form.listedDate : new Date().toISOString().slice(0, 10),
       };
       const response = await fetch("/api/products", {
@@ -609,7 +638,7 @@ export default function AdminPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Could not save product");
-      setListingMessage(editingId ? "Product updated" : "Product published to the website");
+      setListingMessage(listingStatus === "draft" ? "Saved safely in To be uploaded — it is not public" : editingId ? "Product updated" : "Product published to the website");
       setEditingId(null);
       setForm({ ...EMPTY_PRODUCT, listedDate: new Date().toISOString().slice(0, 10) });
       setQuickDetails("");
@@ -824,7 +853,7 @@ export default function AdminPage() {
                   <Select label="Category" value={form.category} options={CATEGORIES} onChange={(value) => setForm({ ...form, category: value })} />
                   <Select label="Size" value={form.size} options={SIZES} onChange={(value) => setForm({ ...form, size: value })} />
                   <Select label="Department" value={form.gender} options={["Mens", "Womens"]} optionLabel={displayGender} onChange={(value) => setForm({ ...form, gender: value as Product["gender"] })} />
-                  <Field label="Customer sale price (£)" value={form.price || ""} type="number" onChange={(value) => setForm({ ...form, price: Number(value) })} />
+                  <Field label="Customer sale price (£)" value={form.price || ""} type="number" onChange={(value) => setForm({ ...form, price: Number(value), pricingStatus: form.pricingStatus === "approved" ? "needs_review" : form.pricingStatus, pricingReviewedAt: undefined })} />
                   <Field label="Item cost (£) — private" value={form.costPrice || ""} type="number" onChange={(value) => setForm({ ...form, costPrice: Math.max(0, Number(value)) })} placeholder="Optional" />
                   <Select label="Era" value={form.era} options={ERAS} onChange={(value) => setForm({ ...form, era: value as Era })} />
                   <Select label="Condition" value={form.condition} options={["Excellent", "Good", "Fair"]} onChange={(value) => setForm({ ...form, condition: value as Condition })} />
@@ -841,6 +870,20 @@ export default function AdminPage() {
 
               <div className="bg-[#111] border border-white/8 p-5 sm:p-6 space-y-4">
                 <h3 className="font-black">Review and publish</h3>
+                <div className={`border p-4 ${pricingApprovalRequired ? "border-amber-400/40 bg-amber-400/[0.06]" : form.pricingStatus === "approved" ? "border-emerald-400/30 bg-emerald-400/[0.05]" : "border-white/10 bg-[#161616]"}`}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[#F5C300] text-[10px] font-black tracking-[0.18em] uppercase">Suggested pricing</p>
+                      {form.suggestedPriceLow && form.suggestedPriceHigh
+                        ? <p className="mt-2 text-2xl font-black">£{form.suggestedPriceLow}–£{form.suggestedPriceHigh}</p>
+                        : <p className="mt-2 text-sm font-bold text-[#888]">Run Analyse pictures to receive a pricing assessment.</p>}
+                    </div>
+                    <span className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${pricingApprovalRequired ? "bg-amber-400 text-black" : form.pricingStatus === "approved" ? "bg-emerald-500 text-black" : "bg-white/10 text-[#aaa]"}`}>{pricingApprovalRequired ? "Review required" : form.pricingStatus === "approved" ? "Price approved" : "Standard item"}</span>
+                  </div>
+                  {form.pricingReason && <p className="mt-3 text-[#bbb] text-xs leading-relaxed">{form.pricingReason}</p>}
+                  {form.pricingSearchQuery && <div className="mt-3 flex flex-wrap gap-3 text-[10px] font-black uppercase tracking-wider"><a href={`https://www.ebay.co.uk/sch/i.html?_nkw=${encodeURIComponent(form.pricingSearchQuery)}&LH_Sold=1&LH_Complete=1`} target="_blank" rel="noopener noreferrer" className="text-[#F5C300]">Check eBay sold ↗</a><a href={`https://www.vinted.co.uk/catalog?search_text=${encodeURIComponent(form.pricingSearchQuery)}`} target="_blank" rel="noopener noreferrer" className="text-[#F5C300]">Check Vinted ↗</a><a href={`https://www.google.com/search?q=${encodeURIComponent(`${form.pricingSearchQuery} vintage sold price`)}`} target="_blank" rel="noopener noreferrer" className="text-[#F5C300]">Check the web ↗</a></div>}
+                  {pricingApprovalRequired && <div className="mt-4 border-t border-amber-300/20 pt-4"><p className="text-amber-100 text-[11px] mb-3">This item may be collectible, rare or hard to price. Check the comparisons, choose the customer price above, then approve it. Until then it can only be saved privately in To be uploaded.</p><button type="button" onClick={() => setForm({ ...form, pricingStatus: "approved", pricingReviewedAt: new Date().toISOString() })} disabled={form.price <= 0} className="bg-[#F5C300] disabled:opacity-40 text-black px-4 py-2.5 text-[10px] font-black uppercase tracking-wider">Approve {form.price > 0 ? money(form.price) : "price"}</button></div>}
+                </div>
                 <div className="border border-white/8 bg-[#161616] p-4">
                   <p className="text-[#E8500A] text-[10px] font-black tracking-[0.18em] uppercase mb-3">Garment details & measurements</p>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -865,11 +908,12 @@ export default function AdminPage() {
                 <Field label="Live Vinted item URL" value={form.vintedUrl ?? ""} onChange={(value) => setForm({ ...form, vintedUrl: value })} placeholder="https://www.vinted.co.uk/items/…" />
                 <p className="text-[#777] text-[10px] -mt-2">Paste the public item link after publishing on Vinted. Product links will then open this exact listing for every visitor.</p>
                 {listingMessage && <p className="text-[#F5C300] text-xs border border-[#F5C300]/20 bg-[#F5C300]/5 p-3">{listingMessage}</p>}
-                <div className="flex flex-wrap gap-3"><button onClick={saveProduct} disabled={saving || !form.name || !form.brand || form.price <= 0} className="bg-[#E8500A] disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">{saving ? "Saving…" : editingId ? "Save changes" : "Publish to website"}</button><button onClick={() => navigator.clipboard.writeText(`${form.vintedTitle}\n\n${form.vintedDescription}`)} className="border border-white/15 text-[#aaa] px-5 py-3 text-xs font-bold">Copy full Vinted listing</button><a href="https://www.vinted.co.uk/items/new" target="_blank" rel="noopener noreferrer" className="border border-[#F5C300]/40 text-[#F5C300] px-5 py-3 text-xs font-bold">Open Vinted ↗</a></div>
+                <div className="flex flex-wrap gap-3"><button onClick={() => void saveProduct("live")} disabled={saving || pricingApprovalRequired || !form.name || !form.brand || form.price <= 0} className="bg-[#E8500A] disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">{saving ? "Saving…" : editingId && form.listingStatus === "draft" ? "Approve and publish" : editingId ? "Save changes" : "Publish to website"}</button><button onClick={() => void saveProduct("draft")} disabled={saving || !form.name || !form.brand || form.price <= 0} className="border border-amber-400/50 text-amber-200 disabled:opacity-40 px-5 py-3 text-xs font-bold">Save to be uploaded</button><button onClick={() => navigator.clipboard.writeText(`${form.vintedTitle}\n\n${form.vintedDescription}`)} className="border border-white/15 text-[#aaa] px-5 py-3 text-xs font-bold">Copy full Vinted listing</button><a href="https://www.vinted.co.uk/items/new" target="_blank" rel="noopener noreferrer" className="border border-[#F5C300]/40 text-[#F5C300] px-5 py-3 text-xs font-bold">Open Vinted ↗</a></div>
               </div>
             </div>
 
             <aside className="bg-[#111] border border-white/8 p-5 xl:sticky xl:top-24">
+              {draftProducts.length > 0 && <div className="mb-6 border border-amber-400/35 bg-amber-400/[0.05] p-4"><div className="flex items-center justify-between gap-3"><div><h3 className="font-black text-amber-200">To be uploaded</h3><p className="text-[#777] text-[10px] mt-1">Private provisional listings waiting for your review.</p></div><span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-amber-400 text-black text-xs font-black">{draftProducts.length}</span></div><div className="mt-3 space-y-2">{draftProducts.map((product) => <button key={product.id} type="button" onClick={() => editProduct(product)} className="w-full border border-white/8 bg-black/20 p-3 text-left hover:border-amber-300/40"><span className="block text-xs font-bold text-white">{product.name}</span><span className="mt-1 block text-[9px] text-[#888]">Suggested {product.suggestedPriceLow && product.suggestedPriceHigh ? `£${product.suggestedPriceLow}–£${product.suggestedPriceHigh}` : money(product.price)} · Review listing</span></button>)}</div></div>}
               <h3 className="font-black mb-1">Manage website products</h3><p className="text-[#555] text-xs mb-4">Your 5 newest listings appear here. Search to find any other item.</p>
               <input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Search product name or brand…" className={`${INPUT} mb-4`} />
               <div className="space-y-3 max-h-[72vh] overflow-y-auto">{managedProducts.map((product) => {

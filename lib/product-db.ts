@@ -15,6 +15,13 @@ function parseEditorialMeta(value: string | null) {
       storageLocation?: string;
       source?: string;
       vintedUrl?: string;
+      listingStatus?: Product["listingStatus"];
+      pricingStatus?: Product["pricingStatus"];
+      suggestedPriceLow?: number;
+      suggestedPriceHigh?: number;
+      pricingReason?: string;
+      pricingSearchQuery?: string;
+      pricingReviewedAt?: string;
     };
     return {
       editorialStory: meta.editorialStory || undefined,
@@ -24,6 +31,13 @@ function parseEditorialMeta(value: string | null) {
       storageLocation: meta.storageLocation,
       source: meta.source,
       vintedUrl: meta.vintedUrl,
+      listingStatus: meta.listingStatus,
+      pricingStatus: meta.pricingStatus,
+      suggestedPriceLow: meta.suggestedPriceLow,
+      suggestedPriceHigh: meta.suggestedPriceHigh,
+      pricingReason: meta.pricingReason,
+      pricingSearchQuery: meta.pricingSearchQuery,
+      pricingReviewedAt: meta.pricingReviewedAt,
     };
   } catch {
     return { editorialStory: undefined, garmentDetails: undefined };
@@ -33,7 +47,20 @@ function parseEditorialMeta(value: string | null) {
 function editorialMeta(product: Omit<Product, "id">) {
   const details = product.garmentDetails;
   const hasDetails = details && Object.values(details).some((value) => value?.trim());
-  const hasInventoryMeta = Boolean(product.sku || product.costPrice || product.storageLocation || product.source || product.vintedUrl);
+  const hasInventoryMeta = Boolean(
+    product.sku ||
+    product.costPrice ||
+    product.storageLocation ||
+    product.source ||
+    product.vintedUrl ||
+    product.listingStatus ||
+    product.pricingStatus ||
+    product.suggestedPriceLow ||
+    product.suggestedPriceHigh ||
+    product.pricingReason ||
+    product.pricingSearchQuery ||
+    product.pricingReviewedAt
+  );
   if (!hasDetails && !hasInventoryMeta) return product.editorialStory?.trim() || null;
   return `${PRODUCT_META_PREFIX}${JSON.stringify({
     editorialStory: product.editorialStory?.trim() || undefined,
@@ -43,6 +70,13 @@ function editorialMeta(product: Omit<Product, "id">) {
     storageLocation: product.storageLocation?.trim() || undefined,
     source: product.source?.trim() || undefined,
     vintedUrl: product.vintedUrl?.trim() || undefined,
+    listingStatus: product.listingStatus,
+    pricingStatus: product.pricingStatus,
+    suggestedPriceLow: Number(product.suggestedPriceLow) || undefined,
+    suggestedPriceHigh: Number(product.suggestedPriceHigh) || undefined,
+    pricingReason: product.pricingReason?.trim() || undefined,
+    pricingSearchQuery: product.pricingSearchQuery?.trim() || undefined,
+    pricingReviewedAt: product.pricingReviewedAt,
   })}`;
 }
 
@@ -95,6 +129,13 @@ export function rowToProduct(row: ProductRow): Product {
     storageLocation: meta.storageLocation,
     source: meta.source,
     vintedUrl: meta.vintedUrl,
+    listingStatus: meta.listingStatus,
+    pricingStatus: meta.pricingStatus,
+    suggestedPriceLow: meta.suggestedPriceLow,
+    suggestedPriceHigh: meta.suggestedPriceHigh,
+    pricingReason: meta.pricingReason,
+    pricingSearchQuery: meta.pricingSearchQuery,
+    pricingReviewedAt: meta.pricingReviewedAt,
     imageUrls: row.image_urls ?? [],
     vintedTitle: row.vinted_title ?? undefined,
     vintedDescription: row.vinted_description ?? undefined,

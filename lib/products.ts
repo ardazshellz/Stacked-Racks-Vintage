@@ -3,6 +3,8 @@ export type Condition = "Excellent" | "Good" | "Fair";
 export type Era = "60s" | "70s" | "80s" | "90s" | "00s" | "2010s" | "2020s";
 export const ERAS = ["60s", "70s", "80s", "90s", "00s", "2010s", "2020s"] as const;
 export type Fit = "Regular" | "Fitted" | "Baggy" | "Oversized";
+export type PricingStatus = "standard" | "needs_review" | "approved";
+export type ListingStatus = "live" | "draft";
 
 export interface GarmentDetails {
   colour?: string;
@@ -39,6 +41,13 @@ export interface Product {
   costPrice?: number;
   storageLocation?: string;
   source?: string;
+  listingStatus?: ListingStatus;
+  pricingStatus?: PricingStatus;
+  suggestedPriceLow?: number;
+  suggestedPriceHigh?: number;
+  pricingReason?: string;
+  pricingSearchQuery?: string;
+  pricingReviewedAt?: string;
 }
 
 /** Returns a safe public Vinted item URL, never a profile or non-Vinted link. */
