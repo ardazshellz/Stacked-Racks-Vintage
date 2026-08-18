@@ -852,12 +852,44 @@ export default function AdminPage() {
                   <Field label="Brand" value={form.brand} onChange={(value) => setForm({ ...form, brand: value })} placeholder="Nike, Adidas, Vintage…" suggestions={ALL_BRANDS} />
                   <Select label="Category" value={form.category} options={CATEGORIES} onChange={(value) => setForm({ ...form, category: value })} />
                   <Select label="Size" value={form.size} options={SIZES} onChange={(value) => setForm({ ...form, size: value })} />
-                  <Select label="Department" value={form.gender} options={["Mens", "Womens"]} optionLabel={displayGender} onChange={(value) => setForm({ ...form, gender: value as Product["gender"] })} />
+                  <Select label="Department" value={form.gender} options={["Mens", "Womens"]} optionLabel={displayGender} onChange={(value) => {
+                    const gender = value as Product["gender"];
+                    setForm({
+                      ...form,
+                      gender,
+                      secondaryGender: form.secondaryGender === gender ? undefined : form.secondaryGender,
+                      secondarySize: form.secondaryGender === gender ? undefined : form.secondarySize,
+                    });
+                  }} />
                   <Field label="Customer sale price (£)" value={form.price || ""} type="number" onChange={(value) => setForm({ ...form, price: Number(value), pricingStatus: form.pricingStatus === "approved" ? "needs_review" : form.pricingStatus, pricingReviewedAt: undefined })} />
                   <Field label="Item cost (£) — private" value={form.costPrice || ""} type="number" onChange={(value) => setForm({ ...form, costPrice: Math.max(0, Number(value)) })} placeholder="Optional" />
                   <Select label="Era" value={form.era} options={ERAS} onChange={(value) => setForm({ ...form, era: value as Era })} />
                   <Select label="Condition" value={form.condition} options={["Excellent", "Good", "Fair"]} onChange={(value) => setForm({ ...form, condition: value as Condition })} />
                   <Select label="Fit" value={form.fit} options={FITS} onChange={(value) => setForm({ ...form, fit: value as Fit })} />
+                </div>
+                <div className="mt-4 grid sm:grid-cols-2 gap-4">
+                  <label className="flex items-start gap-3 border border-white/10 bg-[#171717] p-4 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(form.secondaryGender)}
+                      onChange={(event) => setForm({
+                        ...form,
+                        secondaryGender: event.target.checked ? (form.gender === "Mens" ? "Womens" : "Mens") : undefined,
+                        secondarySize: event.target.checked ? (form.secondarySize || form.size) : undefined,
+                        displaySize: event.target.checked ? form.displaySize : undefined,
+                      })}
+                      className="mt-0.5 accent-[#E8500A]"
+                    />
+                    <span>
+                      <span className="block text-sm font-bold">Also show in {displayGender(form.gender === "Mens" ? "Womens" : "Mens")}</span>
+                      <span className="block text-[#666] text-[10px] mt-1">One listing and one shared stock count — never a duplicate item.</span>
+                    </span>
+                  </label>
+                  {form.secondaryGender && <Select label={`${displayGender(form.secondaryGender)} fit size`} value={form.secondarySize || form.size} options={SIZES} onChange={(value) => setForm({ ...form, secondarySize: value })} />}
+                </div>
+                <div className="mt-4">
+                  <Field label="Customer-facing size label" value={form.displaySize ?? ""} onChange={(value) => setForm({ ...form, displaySize: value })} placeholder={form.secondaryGender ? "Men's XS / Women's M" : "Women's M / UK 10"} />
+                  <p className="text-[#666] text-[10px] mt-2">Optional. Use this for dual-fit or UK-numbered sizing; the department filters still use the size fields above.</p>
                 </div>
                 <div className="mt-4 grid sm:grid-cols-2 gap-4">
                   <label className="flex items-start gap-3 border border-white/10 bg-[#171717] p-4 cursor-pointer"><input type="checkbox" checked={form.badge === "RARE"} onChange={(event) => setForm({ ...form, badge: event.target.checked ? "RARE" : "NEW", rareBadge: event.target.checked ? "ARCHIVE" : undefined })} className="mt-0.5 accent-[#E8500A]" /><span><span className="block text-sm font-bold">Show in Marquee</span><span className="block text-[#666] text-[10px] mt-1">Use this for a featured standout piece.</span></span></label>
