@@ -10,6 +10,12 @@ Flat **measurements** are the source of truth for the listed size. The tag is a 
 
 **Primary measure:** pit-to-pit, with the garment laid flat and measured from armpit to armpit.
 
+### Size-down safety and dual-fit items
+
+- **Size-down safety rule:** when an item measures between two sizes, list the smaller size.
+- **Dual-fit items:** when an item fits both men's and women's sizing, show one shared-stock listing in both the Men's and Women's website categories. Never create two buyable listings for a one-off item.
+- Give each department its correct size group and state both fits in the description—for example: "Fits men's XS / women's M — pit-to-pit 20 in / 51 cm."
+
 ### Men's T-shirts, polos and tops
 
 | Listed size | Pit-to-pit |
@@ -96,7 +102,7 @@ Measurements decide the size. Use these tendencies **only** to identify how a ta
 ### Mandatory rules
 
 1. Set the listed size from **pit-to-pit** using the appropriate chart, not the tag.
-2. If pit-to-pit falls between two sizes, round **down** unless the length clearly indicates the larger size; add a fit note.
+2. If pit-to-pit falls between two sizes, always round **down** to the smaller size and add a fit note.
 3. If the tag disagrees with the measured size, trust the measurement and add: "Tag reads [X], measures like a modern [Y]."
 4. **Never silently change a size the user has manually entered. Warn the user instead.**
 5. If measurements are missing, do not guess a size from the tag alone. Flag that measurements are required before publishing.
