@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { getVintedItemUrl, Product, isNew, productGenderLabel, productSizeLabel } from "@/lib/products";
+import { getVintedItemUrl, Product, isNew, productGenderLabel, productSizeLabel, websiteProductTitle } from "@/lib/products";
 import { trackEvent } from "@/lib/analytics";
 import { trackMetaEvent } from "@/lib/meta-pixel";
 import { productPath } from "@/lib/product-url";
@@ -33,6 +33,7 @@ export default function ProductModal({ product, onClose }: Props) {
   const badgeCls = product.badge === "RARE" ? "bg-[#E8500A] text-white" : "bg-[#F5C300] text-black";
   const details = product.garmentDetails;
   const vintedItemUrl = getVintedItemUrl(product);
+  const displayTitle = websiteProductTitle(product.name);
   const descriptionLines = (product.editorialStory || product.description || "")
     .trim().split(/\n+|(?<=[.!?])\s+(?=[A-Z0-9])/).filter(Boolean);
   const measurements = [
@@ -130,8 +131,8 @@ export default function ProductModal({ product, onClose }: Props) {
               <span className="border border-[#E8500A]/60 bg-[#E8500A]/10 px-2.5 py-1.5 text-[#E8500A] text-[10px] font-black tracking-[0.14em] uppercase">{productGenderLabel(product)}</span>
               <span className="text-[#888] text-[10px] font-bold tracking-[0.16em] uppercase">{product.category}</span>
             </div>
-            {vintedItemUrl ? <a href={vintedItemUrl} target="_blank" rel="noopener noreferrer" className="block text-white hover:text-[#F5C300] transition-colors" aria-label={`View ${product.name} on Vinted`}><h2 className="text-xl sm:text-2xl font-black mb-1 leading-tight" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h2></a> : <h2 className="text-white text-xl sm:text-2xl font-black mb-1 leading-tight" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h2>}
-            <p className="text-[#bbb] text-sm mb-5"><span className="font-medium">{product.brand}</span><span className="text-[#555] mx-2">·</span>Fits {productSizeLabel(product)}</p>
+            {vintedItemUrl ? <a href={vintedItemUrl} target="_blank" rel="noopener noreferrer" className="block text-white hover:text-[#F5C300] transition-colors" aria-label={`View ${product.name} on Vinted`}><h2 className="text-xl sm:text-2xl font-black mb-1 leading-tight" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{displayTitle}</h2></a> : <h2 className="text-white text-xl sm:text-2xl font-black mb-1 leading-tight" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{displayTitle}</h2>}
+            <p className="text-[#d2d2d2] text-[15px] sm:text-base font-semibold leading-snug mb-5"><span>{product.brand}</span><span className="text-[#777] mx-2">·</span>Fits {productSizeLabel(product)}</p>
 
             {!!descriptionLines.length && <div className={product.editorialStory ? "border-l-2 border-[#E8500A]/50 pl-4 mb-5" : "mb-5"}>{descriptionLines.map((line, index) => <p key={`${line}-${index}`} className={`${product.editorialStory ? "text-[#bbb] italic" : "text-[#bbb]"} text-sm leading-relaxed mb-2 last:mb-0`}>{line}</p>)}</div>}
 

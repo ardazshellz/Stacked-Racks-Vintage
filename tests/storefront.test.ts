@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { calculatePostage, FREE_SHIPPING_THRESHOLD, STANDARD_POSTAGE } from "../lib/shipping.ts";
 import { productPath, productSlug } from "../lib/product-url.ts";
 import { correctMarketingText, discountedPrices, generateCampaignDraft, normalizePromotionCode } from "../lib/promotions.ts";
-import { productGenderLabel, productMatchesGender, productMatchesSize, productSizeLabel, type Product } from "../lib/products.ts";
+import { productGenderLabel, productMatchesGender, productMatchesSize, productSizeLabel, websiteProductTitle, type Product } from "../lib/products.ts";
 
 test("postage is charged below £50", () => {
   assert.equal(calculatePostage(FREE_SHIPPING_THRESHOLD - 0.01), STANDARD_POSTAGE);
@@ -22,6 +22,12 @@ test("product URLs are readable and stable", () => {
 
 test("product slugs safely handle punctuation", () => {
   assert.equal(productSlug("Women's Carhartt WIP — Coat!"), "womens-carhartt-wip-coat");
+});
+
+test("website titles hide a trailing department and size without changing other names", () => {
+  assert.equal(websiteProductTitle("Puma Performance White Polo Shirt – Men's M"), "Puma Performance White Polo Shirt");
+  assert.equal(websiteProductTitle("SSC Napoli Polo – Men's XS / Women's M"), "SSC Napoli Polo");
+  assert.equal(websiteProductTitle("90s Nike Track Jacket"), "90s Nike Track Jacket");
 });
 
 test("promotion codes are normalised and discounts round per item", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Product } from "@/lib/products";
+import { Product, productSizeLabel, websiteProductTitle } from "@/lib/products";
 import ProductModal from "./ProductModal";
 import Image from "next/image";
 
@@ -101,10 +101,10 @@ export default function MarqueeGrid({ products, compact }: Props) {
                       className="text-white text-lg sm:text-xl font-bold mb-1 group-hover:text-[#E8500A] transition-colors duration-300"
                       style={{ fontFamily: "var(--font-playfair-display), serif" }}
                     >
-                      {product.name}
+                      {websiteProductTitle(product.name)}
                     </h3>
-                    <p className="text-[#999] text-xs tracking-widest uppercase mb-3">
-                      {product.brand} · Size {product.size}
+                    <p className="text-[#d2d2d2] text-sm font-semibold leading-snug tracking-wide mb-3">
+                      {product.brand} · Size {productSizeLabel(product)}
                     </p>
 
                     {/* Editorial story */}
