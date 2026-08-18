@@ -414,7 +414,7 @@ export default function AdminPage() {
     const orderDate = new Date(order.date_of_sale).getTime();
     const afterStart = !exportFrom || orderDate >= new Date(`${exportFrom}T00:00:00`).getTime();
     const beforeEnd = !exportTo || orderDate <= new Date(`${exportTo}T23:59:59`).getTime();
-    return afterStart && beforeEnd;
+    return order.payment_status === "paid" && afterStart && beforeEnd;
   });
   const managedProducts = useMemo(() => {
     const query = productSearch.trim().toLowerCase();
@@ -475,7 +475,12 @@ export default function AdminPage() {
     const response = await fetch("/api/admin-orders", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: order.id, fulfilment_status: fulfilmentStatus, tracking_number: trackingNumber }),
+      body: JSON.stringify({
+        id: order.id,
+        fulfilment_status: fulfilmentStatus,
+        payment_status: fulfilmentStatus === "refunded" ? "refunded" : undefined,
+        tracking_number: trackingNumber,
+      }),
     });
     const data = await response.json();
     if (!response.ok) return setDataError(data.error ?? "Could not update order");
