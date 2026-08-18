@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { displayGender, getVintedItemUrl, Product, isNew } from "@/lib/products";
+import { getVintedItemUrl, Product, isNew, productGenderLabel, productSizeLabel } from "@/lib/products";
 import { trackEvent } from "@/lib/analytics";
 import { trackMetaEvent } from "@/lib/meta-pixel";
 import { productPath } from "@/lib/product-url";
@@ -118,7 +118,7 @@ export default function ProductModal({ product, onClose }: Props) {
         <div className="sm:flex-1 sm:overflow-y-auto flex flex-col">
           <button ref={mobileCloseButtonRef} type="button" onClick={handleClose} className="sm:hidden w-full flex items-center justify-between gap-4 px-5 py-4 border-b border-white/10 sticky top-0 bg-[#111] z-30 min-h-16 text-left" aria-label="Close product details">
             <span className="flex min-w-0 items-center gap-2">
-              <span className="shrink-0 border border-[#E8500A]/60 bg-[#E8500A]/10 px-2.5 py-1.5 text-[#E8500A] text-[10px] font-black tracking-[0.14em] uppercase">{displayGender(product.gender)}</span>
+              <span className="shrink-0 border border-[#E8500A]/60 bg-[#E8500A]/10 px-2.5 py-1.5 text-[#E8500A] text-[10px] font-black tracking-[0.14em] uppercase">{productGenderLabel(product)}</span>
               <span className="truncate text-[#aaa] text-[10px] font-bold tracking-[0.14em] uppercase">{product.category}</span>
             </span>
             <span aria-hidden="true" className="w-8 h-8 shrink-0 rounded-full border border-white/20 bg-black/35 text-white text-xl leading-none flex items-center justify-center">×</span>
@@ -127,16 +127,16 @@ export default function ProductModal({ product, onClose }: Props) {
 
           <div className="p-5 sm:p-7 flex flex-col flex-1">
             <div className="hidden sm:flex items-center gap-2 mb-3">
-              <span className="border border-[#E8500A]/60 bg-[#E8500A]/10 px-2.5 py-1.5 text-[#E8500A] text-[10px] font-black tracking-[0.14em] uppercase">{displayGender(product.gender)}</span>
+              <span className="border border-[#E8500A]/60 bg-[#E8500A]/10 px-2.5 py-1.5 text-[#E8500A] text-[10px] font-black tracking-[0.14em] uppercase">{productGenderLabel(product)}</span>
               <span className="text-[#888] text-[10px] font-bold tracking-[0.16em] uppercase">{product.category}</span>
             </div>
             {vintedItemUrl ? <a href={vintedItemUrl} target="_blank" rel="noopener noreferrer" className="block text-white hover:text-[#F5C300] transition-colors" aria-label={`View ${product.name} on Vinted`}><h2 className="text-xl sm:text-2xl font-black mb-1 leading-tight" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h2></a> : <h2 className="text-white text-xl sm:text-2xl font-black mb-1 leading-tight" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h2>}
-            <p className="text-[#bbb] text-sm mb-5"><span className="font-medium">{product.brand}</span><span className="text-[#555] mx-2">·</span>Tagged size {product.size}</p>
+            <p className="text-[#bbb] text-sm mb-5"><span className="font-medium">{product.brand}</span><span className="text-[#555] mx-2">·</span>Fits {productSizeLabel(product)}</p>
 
             {!!descriptionLines.length && <div className={product.editorialStory ? "border-l-2 border-[#E8500A]/50 pl-4 mb-5" : "mb-5"}>{descriptionLines.map((line, index) => <p key={`${line}-${index}`} className={`${product.editorialStory ? "text-[#bbb] italic" : "text-[#bbb]"} text-sm leading-relaxed mb-2 last:mb-0`}>{line}</p>)}</div>}
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-5">
-              {[["Size", product.size], ["Era", product.era], ["Condition", product.condition], ["Fit", product.fit]].map(([label, value]) => <div key={label} className="bg-[#1a1a1a] border border-white/8 p-2.5 text-center"><p className="text-[#888] text-[10px] uppercase tracking-[0.14em] mb-1">{label}</p><p className="text-white font-bold text-xs leading-tight">{value}</p></div>)}
+              {[["Size", productSizeLabel(product)], ["Era", product.era], ["Condition", product.condition], ["Fit", product.fit]].map(([label, value]) => <div key={label} className="bg-[#1a1a1a] border border-white/8 p-2.5 text-center"><p className="text-[#888] text-[10px] uppercase tracking-[0.14em] mb-1">{label}</p><p className="text-white font-bold text-xs leading-tight">{value}</p></div>)}
             </div>
 
             {!!measurements.length && <div className="mb-5 border border-white/10 p-4"><div className="flex items-center justify-between mb-3"><p className="text-white text-xs font-black tracking-[0.16em] uppercase">Measurements</p><span className="text-[#777] text-[11px]">Measured flat</span></div><div className="grid grid-cols-3 gap-2">{measurements.map(([label, value]) => <div key={label}><p className="text-[#777] text-[10px] uppercase mb-1">{label}</p><p className="text-white text-sm font-bold">{value}</p></div>)}</div></div>}

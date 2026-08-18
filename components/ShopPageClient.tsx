@@ -2,7 +2,7 @@
 
 import { useState, Suspense, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Product, SIZES, FITS, CATEGORIES, displayGender, getBrandsInStock, isNew } from "@/lib/products";
+import { Product, SIZES, FITS, CATEGORIES, displayGender, getBrandsInStock, isNew, productMatchesGender, productMatchesSize } from "@/lib/products";
 import { useProducts } from "@/hooks/useProducts";
 import Navbar from "@/components/Navbar";
 import ProductCard from "@/components/ProductCard";
@@ -210,10 +210,10 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
   const products = liveProducts.length ? liveProducts : initialProducts;
   const allBrands = getBrandsInStock(products);
   const availableProducts = products.filter((product) => product.stock > 0);
-  const availableSizes = SIZES.filter((size) => availableProducts.some((product) => product.size === size));
+  const availableSizes = SIZES.filter((size) => availableProducts.some((product) => productMatchesSize(product, size)));
   const availableCategories = CATEGORIES.filter((category) => availableProducts.some((product) => product.category === category));
   const availableFits = FITS.filter((fit) => availableProducts.some((product) => product.fit === fit));
-  const availableGenders = (["Mens", "Womens"] as const).filter((gender) => availableProducts.some((product) => product.gender === gender));
+  const availableGenders = (["Mens", "Womens"] as const).filter((gender) => availableProducts.some((product) => productMatchesGender(product, gender)));
 
   const [selectedGender, setSelectedGender] = useState<"All" | "Mens" | "Womens">(
     paramGender ?? "All"
@@ -257,8 +257,8 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
     if (typeFilter && p.rareBadge !== typeFilter) return false;
     if (eraFilter && p.era !== eraFilter) return false;
 
-    const genderMatch = selectedGender === "All" || p.gender === selectedGender;
-    const sizeMatch = selectedSizes.length === 0 || selectedSizes.includes(p.size);
+    const genderMatch = selectedGender === "All" || productMatchesGender(p, selectedGender);
+    const sizeMatch = selectedSizes.length === 0 || selectedSizes.some((size) => productMatchesSize(p, size, selectedGender === "All" ? undefined : selectedGender));
     const brandMatch = selectedBrands.length === 0 || selectedBrands.includes(p.brand);
     const catMatch = selectedCategories.length === 0 || selectedCategories.includes(p.category);
     const fitMatch = selectedFits.length === 0 || selectedFits.includes(p.fit);

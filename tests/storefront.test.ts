@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { calculatePostage, FREE_SHIPPING_THRESHOLD, STANDARD_POSTAGE } from "../lib/shipping.ts";
 import { productPath, productSlug } from "../lib/product-url.ts";
 import { correctMarketingText, discountedPrices, generateCampaignDraft, normalizePromotionCode } from "../lib/promotions.ts";
+import { productGenderLabel, productMatchesGender, productMatchesSize, productSizeLabel, type Product } from "../lib/products.ts";
 
 test("postage is charged below £50", () => {
   assert.equal(calculatePostage(FREE_SHIPPING_THRESHOLD - 0.01), STANDARD_POSTAGE);
@@ -48,4 +49,24 @@ test("campaign generator includes recommended products and an optional offer", (
 
 test("marketing copy corrects common spelling errors", () => {
   assert.equal(correctMarketingText("nike jumpers disounted and avaible"), "Nike jumpers discounted and available");
+});
+
+test("one dual-fit product appears in both departments without duplicating stock", () => {
+  const product = {
+    gender: "Mens",
+    size: "XS",
+    secondaryGender: "Womens",
+    secondarySize: "M",
+    displaySize: "Men's XS / Women's M",
+    stock: 1,
+  } as Product;
+
+  assert.equal(productMatchesGender(product, "Mens"), true);
+  assert.equal(productMatchesGender(product, "Womens"), true);
+  assert.equal(productMatchesSize(product, "XS", "Mens"), true);
+  assert.equal(productMatchesSize(product, "M", "Womens"), true);
+  assert.equal(productMatchesSize(product, "M", "Mens"), false);
+  assert.equal(product.stock, 1);
+  assert.equal(productGenderLabel(product), "Men's + Women's");
+  assert.equal(productSizeLabel(product), "Men's XS / Women's M");
 });

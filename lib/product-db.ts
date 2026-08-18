@@ -22,6 +22,9 @@ function parseEditorialMeta(value: string | null) {
       pricingReason?: string;
       pricingSearchQuery?: string;
       pricingReviewedAt?: string;
+      secondaryGender?: Product["secondaryGender"];
+      secondarySize?: string;
+      displaySize?: string;
     };
     return {
       editorialStory: meta.editorialStory || undefined,
@@ -38,6 +41,9 @@ function parseEditorialMeta(value: string | null) {
       pricingReason: meta.pricingReason,
       pricingSearchQuery: meta.pricingSearchQuery,
       pricingReviewedAt: meta.pricingReviewedAt,
+      secondaryGender: meta.secondaryGender,
+      secondarySize: meta.secondarySize,
+      displaySize: meta.displaySize,
     };
   } catch {
     return { editorialStory: undefined, garmentDetails: undefined };
@@ -59,7 +65,10 @@ function editorialMeta(product: Omit<Product, "id">) {
     product.suggestedPriceHigh ||
     product.pricingReason ||
     product.pricingSearchQuery ||
-    product.pricingReviewedAt
+    product.pricingReviewedAt ||
+    product.secondaryGender ||
+    product.secondarySize ||
+    product.displaySize
   );
   if (!hasDetails && !hasInventoryMeta) return product.editorialStory?.trim() || null;
   return `${PRODUCT_META_PREFIX}${JSON.stringify({
@@ -77,6 +86,9 @@ function editorialMeta(product: Omit<Product, "id">) {
     pricingReason: product.pricingReason?.trim() || undefined,
     pricingSearchQuery: product.pricingSearchQuery?.trim() || undefined,
     pricingReviewedAt: product.pricingReviewedAt,
+    secondaryGender: product.secondaryGender,
+    secondarySize: product.secondarySize?.trim() || undefined,
+    displaySize: product.displaySize?.trim() || undefined,
   })}`;
 }
 
@@ -136,6 +148,9 @@ export function rowToProduct(row: ProductRow): Product {
     pricingReason: meta.pricingReason,
     pricingSearchQuery: meta.pricingSearchQuery,
     pricingReviewedAt: meta.pricingReviewedAt,
+    secondaryGender: meta.secondaryGender,
+    secondarySize: meta.secondarySize,
+    displaySize: meta.displaySize,
     imageUrls: row.image_urls ?? [],
     vintedTitle: row.vinted_title ?? undefined,
     vintedDescription: row.vinted_description ?? undefined,

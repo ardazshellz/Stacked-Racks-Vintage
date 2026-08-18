@@ -5,6 +5,7 @@ export const ERAS = ["60s", "70s", "80s", "90s", "00s", "2010s", "2020s"] as con
 export type Fit = "Regular" | "Fitted" | "Baggy" | "Oversized";
 export type PricingStatus = "standard" | "needs_review" | "approved";
 export type ListingStatus = "live" | "draft";
+export type ProductGender = "Mens" | "Womens";
 
 export interface GarmentDetails {
   colour?: string;
@@ -20,7 +21,10 @@ export interface Product {
   name: string;
   brand: string;
   size: string;
-  gender: "Mens" | "Womens";
+  gender: ProductGender;
+  secondaryGender?: ProductGender;
+  secondarySize?: string;
+  displaySize?: string;
   price: number;
   category: string;
   badge: "NEW" | "RARE";
@@ -70,6 +74,35 @@ export function displayGender(gender: string) {
   if (gender === "Mens") return "Men's";
   if (gender === "Womens") return "Women's";
   return gender;
+}
+
+/** One stock item may be discoverable in both departments without duplicating inventory. */
+export function productMatchesGender(product: Product, gender: ProductGender) {
+  return product.gender === gender || product.secondaryGender === gender;
+}
+
+export function productSizes(product: Product, gender?: ProductGender) {
+  if (gender === product.gender) return [product.size];
+  if (gender && gender === product.secondaryGender) return product.secondarySize ? [product.secondarySize] : [];
+  return [...new Set([product.size, product.secondarySize].filter((size): size is string => Boolean(size)))];
+}
+
+export function productMatchesSize(product: Product, size: string, gender?: ProductGender) {
+  return productSizes(product, gender).includes(size);
+}
+
+export function productGenderLabel(product: Product) {
+  return product.secondaryGender
+    ? `${displayGender(product.gender)} + ${displayGender(product.secondaryGender)}`
+    : displayGender(product.gender);
+}
+
+export function productSizeLabel(product: Product) {
+  if (product.displaySize?.trim()) return product.displaySize.trim();
+  if (product.secondaryGender && product.secondarySize) {
+    return `${displayGender(product.gender)} ${product.size} / ${displayGender(product.secondaryGender)} ${product.secondarySize}`;
+  }
+  return product.size;
 }
 
 export const SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;

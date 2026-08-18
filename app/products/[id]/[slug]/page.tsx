@@ -7,7 +7,7 @@ import Navbar from "@/components/Navbar";
 import ProductGallery from "@/components/ProductGallery";
 import { getPublicProduct, getPublicProducts } from "@/lib/server/catalog";
 import { productPath, productSlug } from "@/lib/product-url";
-import { displayGender, getVintedItemUrl } from "@/lib/products";
+import { getVintedItemUrl, productGenderLabel, productSizeLabel } from "@/lib/products";
 
 export const dynamic = "force-dynamic";
 
@@ -75,13 +75,13 @@ export default async function ProductPage({ params }: Props) {
         <ProductGallery images={product.imageUrls ?? []} name={product.name} productId={String(product.id)} price={product.price} />
         <section className="min-w-0 max-w-full lg:sticky lg:top-28">
           <div className="flex items-center gap-2 mb-3">
-            <span className="border border-[#E8500A]/60 bg-[#E8500A]/10 px-2.5 py-1.5 text-[#E8500A] text-[10px] font-black tracking-[0.14em] uppercase">{displayGender(product.gender)}</span>
+            <span className="border border-[#E8500A]/60 bg-[#E8500A]/10 px-2.5 py-1.5 text-[#E8500A] text-[10px] font-black tracking-[0.14em] uppercase">{productGenderLabel(product)}</span>
             <span className="text-[#999] text-[10px] font-bold tracking-[0.16em] uppercase">{product.category}</span>
           </div>
           {vintedItemUrl ? <a href={vintedItemUrl} target="_blank" rel="noopener noreferrer" className="block text-white hover:text-[#F5C300] transition-colors" aria-label={`View ${product.name} on Vinted`}><h1 className="text-3xl sm:text-4xl font-black leading-tight mb-3" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h1></a> : <h1 className="text-white text-3xl sm:text-4xl font-black leading-tight mb-3" style={{ fontFamily: "var(--font-playfair-display), serif" }}>{product.name}</h1>}
-          <p className="text-[#bbb] mb-6">{product.brand} · Tagged size {product.size}</p>
+          <p className="text-[#bbb] mb-6">{product.brand} · Fits {productSizeLabel(product)}</p>
           <div className="space-y-3 text-[#ccc] text-sm leading-relaxed mb-6">{product.description.split("\n").filter(Boolean).map((line) => <p key={line}>{line}</p>)}</div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">{[["Size", product.size], ["Era", product.era], ["Condition", product.condition], ["Fit", product.fit]].map(([label, value]) => <div key={label} className="bg-[#151515] border border-white/10 p-3"><p className="text-[#999] text-xs uppercase mb-1">{label}</p><p className="font-bold">{value}</p></div>)}</div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">{[["Size", productSizeLabel(product)], ["Era", product.era], ["Condition", product.condition], ["Fit", product.fit]].map(([label, value]) => <div key={label} className="bg-[#151515] border border-white/10 p-3"><p className="text-[#999] text-xs uppercase mb-1">{label}</p><p className="font-bold">{value}</p></div>)}</div>
           {measurements.length > 0 && <div className="border border-white/10 p-4 mb-6"><p className="font-black text-xs uppercase tracking-widest mb-3">Measurements · laid flat</p><div className="grid grid-cols-3 gap-3">{measurements.map(([label, value]) => <div key={label}><p className="text-[#999] text-xs">{label}</p><p className="font-bold">{value}</p></div>)}</div></div>}
           {details?.flaws && <div className="border border-white/10 p-4 mb-6"><p className="text-[#999] text-xs uppercase mb-1">Condition notes</p><p className="text-sm">{details.flaws}</p></div>}
           <div className="flex min-w-0 flex-col gap-4 border-y border-white/10 py-5 mb-5 sm:flex-row sm:items-end sm:justify-between"><div className="min-w-0"><p className="text-[#999] text-xs">{product.stock > 0 ? "In stock · one-off piece" : "This piece has sold"}</p><p className="text-[#999] text-xs mt-1">Tracked UK delivery · 14-day returns</p></div><p className="shrink-0 text-[#E8500A] text-3xl font-black">£{product.price.toFixed(2)}</p></div>

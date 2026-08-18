@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { isNew, SIZES, FITS, ERAS, getBrandsInStock, CATEGORIES } from "@/lib/products";
+import { isNew, SIZES, FITS, ERAS, getBrandsInStock, CATEGORIES, productMatchesGender, productMatchesSize } from "@/lib/products";
 import { useProducts } from "@/hooks/useProducts";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
@@ -136,7 +136,7 @@ export default function HomePageClient({ initialProducts }: { initialProducts: P
   const products = liveProducts.length ? liveProducts : initialProducts;
   const inStockBrands = getBrandsInStock(products);
   const availableProducts = products.filter((product) => product.stock > 0);
-  const availableSizes = SIZES.filter((size) => availableProducts.some((product) => product.size === size));
+  const availableSizes = SIZES.filter((size) => availableProducts.some((product) => productMatchesSize(product, size)));
   const availableEras = ERAS.filter((era) => availableProducts.some((product) => product.era === era));
   const availableCategories = CATEGORIES.filter((category) => availableProducts.some((product) => product.category === category));
   const availableFits = FITS.filter((fit) => availableProducts.some((product) => product.fit === fit));
@@ -166,8 +166,8 @@ export default function HomePageClient({ initialProducts }: { initialProducts: P
   const filtered = products.filter((p) => {
     if (showNew && !isNew(p)) return false;
     if (showMarquee && p.badge !== "RARE") return false;
-    const genderMatch = selectedGender === "All" || p.gender === selectedGender;
-    const sizeMatch = selectedSizes.length === 0 || selectedSizes.includes(p.size);
+    const genderMatch = selectedGender === "All" || productMatchesGender(p, selectedGender);
+    const sizeMatch = selectedSizes.length === 0 || selectedSizes.some((size) => productMatchesSize(p, size, selectedGender === "All" ? undefined : selectedGender));
     const brandMatch = selectedBrands.length === 0 || selectedBrands.includes(p.brand);
     const catMatch = selectedCategories.length === 0 || selectedCategories.includes(p.category);
     const fitMatch = selectedFits.length === 0 || selectedFits.includes(p.fit);
@@ -187,8 +187,8 @@ export default function HomePageClient({ initialProducts }: { initialProducts: P
   const renderSidebarContent = () => {
     const sectionCounts = {
       newIn: products.filter(isNew).length,
-      mens: products.filter((p) => p.gender === "Mens" && p.stock > 0).length,
-      womens: products.filter((p) => p.gender === "Womens" && p.stock > 0).length,
+      mens: products.filter((p) => productMatchesGender(p, "Mens") && p.stock > 0).length,
+      womens: products.filter((p) => productMatchesGender(p, "Womens") && p.stock > 0).length,
       marquee: products.filter((p) => p.badge === "RARE" && p.stock > 0).length,
     };
 
