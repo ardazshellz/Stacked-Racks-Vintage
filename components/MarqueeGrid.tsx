@@ -104,7 +104,7 @@ export default function MarqueeGrid({ products, compact }: Props) {
                       {websiteProductTitle(product.name)}
                     </h3>
                     <p className="text-[#d2d2d2] text-sm font-semibold leading-snug tracking-wide mb-3">
-                      {product.brand} · Size {productSizeLabel(product)}
+                      {product.brand} · Fits {productSizeLabel(product)}
                     </p>
 
                     {/* Editorial story */}

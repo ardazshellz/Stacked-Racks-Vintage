@@ -131,8 +131,8 @@ function Sidebar(props: SidebarProps) {
 
         <div className="border-t border-white/5 mb-7" />
 
-        {/* Order: Size → Brand → Category → Fit */}
-        <ChipRow label="Size" items={availableSizes} selected={selectedSizes} onToggle={onToggleSize} pill />
+        {/* Order: Fits → Brand → Category → Fit */}
+        <ChipRow label="Fits" items={availableSizes} selected={selectedSizes} onToggle={onToggleSize} pill />
         <div className="border-t border-white/5 mb-7" />
         <ChipRow label="Brand" items={allBrands} selected={selectedBrands} onToggle={onToggleBrand} />
         <div className="border-t border-white/5 mb-7" />
@@ -308,7 +308,7 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
 
   const activeChips = [
     ...(selectedGender !== "All" ? [selectedGender] : []),
-    ...selectedSizes.map((s) => `Size ${s}`),
+    ...selectedSizes.map((s) => `Fits ${s}`),
     ...selectedBrands,
     ...selectedCategories,
     ...selectedFits.map((f) => `Fit: ${f}`),
@@ -397,7 +397,7 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
                   <button
                     onClick={() => {
                       if (chip === "Mens" || chip === "Womens") setSelectedGender("All");
-                      else if (chip.startsWith("Size ")) setSelectedSizes((p) => p.filter((s) => `Size ${s}` !== chip));
+                      else if (chip.startsWith("Fits ")) setSelectedSizes((p) => p.filter((s) => `Fits ${s}` !== chip));
                       else if (chip.startsWith("Fit: ")) setSelectedFits((p) => p.filter((f) => `Fit: ${f}` !== chip));
                       else setSelectedCategories((p) => p.filter((c) => c !== chip));
                     }}

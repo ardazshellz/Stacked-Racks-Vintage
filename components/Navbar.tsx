@@ -40,7 +40,7 @@ function buildNavItems(inStockBrands: string[]): NavItem[] {
           ],
         },
         {
-          heading: "Size",
+          heading: "Fits",
           items: ["XS", "S", "M", "L", "XL", "XXL"].map((s) => ({
             label: s,
             href: `/shop?new=true&size=${s}`,
@@ -63,7 +63,7 @@ function buildNavItems(inStockBrands: string[]): NavItem[] {
           })),
         },
         {
-          heading: "Size",
+          heading: "Fits",
           items: ["S", "M", "L", "XL", "XXL"].map((s) => ({
             label: s,
             href: `/shop?gender=Mens&size=${s}`,
@@ -84,7 +84,7 @@ function buildNavItems(inStockBrands: string[]): NavItem[] {
           })),
         },
         {
-          heading: "Size",
+          heading: "Fits",
           items: ["XS", "S", "M", "L", "XL", "XXL"].map((s) => ({
             label: s,
             href: `/shop?gender=Womens&size=${s}`,

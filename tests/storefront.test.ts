@@ -27,6 +27,7 @@ test("product slugs safely handle punctuation", () => {
 test("website titles hide a trailing department and size without changing other names", () => {
   assert.equal(websiteProductTitle("Puma Performance White Polo Shirt – Men's M"), "Puma Performance White Polo Shirt");
   assert.equal(websiteProductTitle("SSC Napoli Polo – Men's XS / Women's M"), "SSC Napoli Polo");
+  assert.equal(websiteProductTitle("Vintage Timberwolves Garnett #21 Champion Jersey – Men’s XL"), "Vintage Timberwolves Garnett #21 Champion Jersey");
   assert.equal(websiteProductTitle("90s Nike Track Jacket"), "90s Nike Track Jacket");
 });
 

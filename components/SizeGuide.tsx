@@ -58,7 +58,7 @@ export default function SizeGuide({ onClose }: Props) {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-white/8">
-                {["Size", "Chest (in)", "Chest (cm)", "Waist (in)", "Waist (cm)"].map((h) => (
+                {["Fits", "Chest (in)", "Chest (cm)", "Waist (in)", "Waist (cm)"].map((h) => (
                   <th
                     key={h}
                     className="px-4 py-3 text-left text-[9px] font-black text-[#E8500A] uppercase tracking-[0.2em] whitespace-nowrap"

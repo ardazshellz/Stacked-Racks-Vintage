@@ -46,7 +46,7 @@ export default function ProductCard({ product, onClick }: Props) {
             <span className="min-w-0 truncate text-[#888] text-[9px] font-bold tracking-[0.12em] uppercase">{product.category}</span>
           </div>
           <h3 className={`text-sm font-semibold leading-snug mb-1.5 line-clamp-2 ${isSoldOut ? "text-white/50" : "text-white group-hover:text-[#E8500A]"}`}>{displayTitle}</h3>
-          <p className={`text-[13px] sm:text-sm font-semibold leading-snug tracking-wide ${isSoldOut ? "text-[#777]" : "text-[#d2d2d2]"}`}><span>{product.brand}</span><span className="text-[#777] mx-1.5">·</span><span>Size {productSizeLabel(product)}</span></p>
+          <p className={`text-[13px] sm:text-sm font-semibold leading-snug tracking-wide ${isSoldOut ? "text-[#777]" : "text-[#d2d2d2]"}`}><span>{product.brand}</span><span className="text-[#777] mx-1.5">·</span><span>Fits {productSizeLabel(product)}</span></p>
         </div>
       </button>
 

@@ -252,9 +252,9 @@ export default function HomePageClient({ initialProducts }: { initialProducts: P
 
       <div className="border-t border-white/5" />
 
-      {/* Size */}
+      {/* Fits */}
       <div>
-        <p className="text-[#E8500A] text-[10px] font-black tracking-[0.25em] uppercase mb-3">Size</p>
+        <p className="text-[#E8500A] text-[10px] font-black tracking-[0.25em] uppercase mb-3">Fits</p>
         <div className="flex flex-wrap gap-1.5">
           {availableSizes.map((s) => {
             const active = selectedSizes.includes(s);
