@@ -8,6 +8,25 @@ type GeminiPart =
   | { text: string }
   | { inlineData: { mimeType: string; data: string } };
 
+type GeminiResult = {
+  error?: { message?: string };
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> };
+  }>;
+};
+
+const DEFAULT_GEMINI_MODELS = [
+  "gemini-3.5-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
+];
+
+const TRANSIENT_GEMINI_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+function geminiModels() {
+  return [...new Set([process.env.GEMINI_MODEL?.trim(), ...DEFAULT_GEMINI_MODELS].filter(Boolean))] as string[];
+}
+
 const OUTPUT_FIELDS = [
   "websiteTitle",
   "websiteDescription",
@@ -164,55 +183,76 @@ Return ONLY valid JSON:
     { text: prompt },
   ];
 
-  let response: Response;
-  try {
-    response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-goog-api-key": apiKey,
-        },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts }],
-          generationConfig: {
-            maxOutputTokens: 2_500,
-            thinkingConfig: {
-              thinkingLevel: "minimal",
-            },
-            responseFormat: {
-              text: {
-                mimeType: "APPLICATION_JSON",
-                schema: LISTING_SCHEMA,
-              },
-            },
-          },
-        }),
-        signal: AbortSignal.timeout(30_000),
+  const requestBody = JSON.stringify({
+    contents: [{ role: "user", parts }],
+    generationConfig: {
+      maxOutputTokens: 2_500,
+      thinkingConfig: {
+        thinkingLevel: "minimal",
       },
-    );
-  } catch (error) {
-    console.error("Gemini listing request failed:", error);
-    return NextResponse.json(
-      { error: "The free AI listing service is temporarily unavailable. Please try again." },
-      { status: 502 },
-    );
+      responseFormat: {
+        text: {
+          mimeType: "APPLICATION_JSON",
+          schema: LISTING_SCHEMA,
+        },
+      },
+    },
+  });
+
+  let result: GeminiResult | null = null;
+  let lastStatus = 502;
+  let lastMessage = "";
+
+  for (const model of geminiModels()) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-goog-api-key": apiKey,
+          },
+          body: requestBody,
+          signal: AbortSignal.timeout(30_000),
+        },
+      );
+      const responseBody = (await response.json().catch(() => null)) as GeminiResult | null;
+      if (response.ok) {
+        result = responseBody;
+        if (model !== DEFAULT_GEMINI_MODELS[0]) {
+          console.info("Gemini listing generation used fallback model:", model);
+        }
+        break;
+      }
+
+      lastStatus = response.status;
+      lastMessage = String(responseBody?.error?.message ?? "");
+      console.error("Gemini listing generation failed:", model, response.status, lastMessage);
+      if (!TRANSIENT_GEMINI_STATUSES.has(response.status)) break;
+    } catch (error) {
+      lastStatus = 502;
+      lastMessage = error instanceof Error ? error.message : String(error);
+      console.error("Gemini listing request failed:", model, lastMessage);
+    }
   }
 
-  const result = await response.json().catch(() => null);
-  if (!response.ok) {
-    const message = String(result?.error?.message ?? "");
-    console.error("Gemini listing generation failed:", response.status, message);
-    if (response.status === 429) {
+  if (!result) {
+    if (lastStatus === 401 || lastStatus === 403) {
       return NextResponse.json(
-        { error: "The free AI daily limit has been reached. Please try again later." },
+        { error: "The AI listing key is invalid or restricted. Check the Gemini API key in Vercel." },
+        { status: 503 },
+      );
+    }
+    if (lastStatus === 429) {
+      return NextResponse.json(
+        { error: "All AI listing models have reached their current quota. Please try again later." },
         { status: 429 },
       );
     }
     return NextResponse.json(
-      { error: "The free AI listing service is temporarily unavailable. Please try again." },
-      { status: 502 },
+      { error: "The AI listing models are currently busy. Please retry in a minute." },
+      { status: 503 },
     );
   }
 
