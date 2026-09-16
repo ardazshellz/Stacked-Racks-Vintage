@@ -595,7 +595,7 @@ export default function AdminPage() {
           material: data.suggestedMaterial || current.garmentDetails?.material,
           flaws: data.visibleFlaws || current.garmentDetails?.flaws,
         },
-        price: current.price > 0 ? current.price : suggestedPriceHigh ?? suggestedPriceLow ?? current.price,
+        price: current.price > 0 ? current.price : suggestedPriceLow ?? suggestedPriceHigh ?? current.price,
         pricingStatus: needsPricingReview ? "needs_review" : "standard",
         suggestedPriceLow,
         suggestedPriceHigh,
