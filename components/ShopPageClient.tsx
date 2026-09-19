@@ -90,7 +90,7 @@ function Sidebar(props: SidebarProps) {
 
   return (
     <aside className="w-full lg:w-56 xl:w-64 shrink-0">
-      <div className="lg:sticky lg:top-[140px]">
+      <div className="sidebar-scroll lg:sticky lg:top-[140px] lg:max-h-[calc(100vh-160px)] lg:overflow-y-auto lg:overscroll-contain lg:pr-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2

@@ -39,8 +39,8 @@ export default function TrustStrip() {
                 {icon}
               </div>
               <div>
-                <p className="text-white text-sm font-bold tracking-wide">{title}</p>
-                <p className="text-[#555] text-[11px] mt-0.5 tracking-wide">{sub}</p>
+                <p className="font-display text-white text-xl font-extrabold uppercase tracking-[0.03em] leading-none">{title}</p>
+                <p className="font-plexmono text-[#888] text-[11px] mt-1.5 tracking-[0.06em] uppercase">{sub}</p>
               </div>
             </div>
           ))}
