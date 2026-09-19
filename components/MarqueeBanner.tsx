@@ -11,11 +11,11 @@ function MarqueeRow() {
   return (
     <>
       {ITEMS.map((item) => (
-        <span key={item} className="inline-flex items-center gap-8 mx-8">
-          <span className="text-white/60 text-lg font-black">✦</span>
-          <span className="text-white text-[13px] sm:text-sm font-black tracking-[0.25em] uppercase">
+        <span key={item} className="inline-flex items-center">
+          <span className="font-display text-[#0a0a0a] text-[20px] sm:text-[22px] font-extrabold tracking-[0.06em] uppercase">
             {item}
           </span>
+          <span aria-hidden="true" className="mx-6 sm:mx-7 h-[9px] w-[9px] rotate-45 bg-[#0a0a0a]" />
         </span>
       ))}
     </>
@@ -24,7 +24,7 @@ function MarqueeRow() {
 
 export default function MarqueeBanner() {
   return (
-    <div className="bg-[#E8500A] overflow-hidden py-3.5 select-none">
+    <div className="bg-[#F5C300] border-b border-[#0a0a0a] overflow-hidden py-2 select-none">
       <div className="animate-info-ticker flex w-max whitespace-nowrap shrink-0">
         <MarqueeRow />
         <span aria-hidden="true" className="contents"><MarqueeRow /></span>
