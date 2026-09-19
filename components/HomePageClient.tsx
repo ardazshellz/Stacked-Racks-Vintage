@@ -63,23 +63,22 @@ const FAQ_ITEMS = [
 function FAQSection() {
   const [open, setOpen] = useState<number | null>(null);
   return (
-    <section className="bg-[#080808] border-t border-white/5 py-16 px-4 sm:px-6 lg:px-8">
+    <section className="bg-[#080808] border-t border-white/5 py-16 sm:py-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
-        <p className="text-[#E8500A] text-[10px] font-black tracking-[0.3em] uppercase mb-3 text-center">FAQ</p>
-        <h2
-          className="text-white text-2xl sm:text-3xl font-black tracking-wider text-center mb-10"
-          style={{ fontFamily: "var(--font-playfair-display), serif" }}
-        >
-          Common Questions
+        <p className="font-plexmono text-[#F5C300] text-[11px] sm:text-xs font-medium tracking-[0.14em] uppercase mb-3">FAQ</p>
+        <h2 className="font-display text-white text-4xl sm:text-5xl font-extrabold uppercase leading-[0.9] mb-8 sm:mb-10">
+          Common questions
         </h2>
         <div className="space-y-2">
           {FAQ_ITEMS.map((item, i) => (
-            <div key={i} className="border border-white/8 overflow-hidden">
+            <div key={i} className={`border overflow-hidden transition-colors ${open === i ? "border-[#E8500A]/60 bg-[#111]" : "border-white/10"}`}>
               <button
                 onClick={() => setOpen(open === i ? null : i)}
-                className="w-full flex items-center justify-between px-5 py-4 text-left group"
+                aria-expanded={open === i}
+                aria-controls={`faq-panel-${i}`}
+                className="w-full flex items-center justify-between px-5 py-4 min-h-[56px] text-left group"
               >
-                <span className="text-white text-sm font-bold tracking-wide group-hover:text-[#E8500A] transition-colors pr-4">
+                <span className={`text-[15px] font-semibold tracking-wide transition-colors pr-4 ${open === i ? "text-[#E8500A]" : "text-white group-hover:text-[#F5C300]"}`}>
                   {item.q}
                 </span>
                 <svg
@@ -90,8 +89,8 @@ function FAQSection() {
                 </svg>
               </button>
               {open === i && (
-                <div className="px-5 pb-5 border-t border-white/5">
-                  <p className="text-[#aaa] text-sm leading-relaxed pt-4">{item.a}</p>
+                <div id={`faq-panel-${i}`} className="px-5 pb-5 border-t border-white/5">
+                  <p className="text-[#c8c8c8] text-[15px] leading-relaxed pt-4">{item.a}</p>
                 </div>
               )}
             </div>
@@ -487,8 +486,8 @@ export default function HomePageClient({ initialProducts }: { initialProducts: P
         {/* Sidebar + grid */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex gap-10">
-            <aside className="hidden lg:block w-44 xl:w-52 shrink-0">
-              <div className="sticky top-[108px]">
+            <aside className="hidden lg:block w-48 xl:w-56 shrink-0">
+              <div className="sidebar-scroll sticky top-[108px] max-h-[calc(100vh-124px)] overflow-y-auto overscroll-contain pr-3" tabIndex={0} aria-label="Filters">
                 {renderSidebarContent()}
               </div>
             </aside>
