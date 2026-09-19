@@ -2,6 +2,8 @@
 
 @theme inline {
   --font-serif: var(--font-playfair-display), "Playfair Display", serif;
+  --font-display: var(--font-big-shoulders), "Arial Narrow", Impact, sans-serif;
+  --font-plexmono: var(--font-plex-mono), ui-monospace, Menlo, monospace;
   --color-brand-orange: #E8500A;
   --color-brand-yellow: #F5C300;
   --color-brand-bg: #0a0a0a;

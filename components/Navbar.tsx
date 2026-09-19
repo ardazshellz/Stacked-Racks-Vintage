@@ -147,18 +147,15 @@ export default function Navbar({ products: suppliedProducts }: { products?: Prod
 
           {/* ── Logo ── */}
           <Link href="/" aria-label="Stacked Racks Vintage Home" className="min-w-0 shrink">
-            <span
-              className="font-black tracking-wider leading-none"
-              style={{ fontFamily: "var(--font-playfair-display), serif" }}
-            >
-              <span className="text-[#E8500A] text-base sm:text-xl">STACKED</span>
-              <span className="text-[#F5C300] text-base sm:text-xl ml-1.5 sm:ml-2">RACKS</span>
-              <span className="hidden min-[470px]:inline text-white/60 text-base sm:text-xl ml-1.5 sm:ml-2">VINTAGE</span>
+            <span className="font-display font-black tracking-[0.02em] leading-none uppercase">
+              <span className="text-[#E8500A] text-[22px] sm:text-[24px] xl:text-[27px]">STACKED</span>
+              <span className="text-[#F5C300] text-[22px] sm:text-[24px] xl:text-[27px] ml-1.5 sm:ml-2">RACKS</span>
+              <span className="hidden min-[400px]:inline lg:hidden xl:inline text-white text-[22px] sm:text-[24px] xl:text-[27px] ml-1.5 sm:ml-2">VINTAGE</span>
             </span>
           </Link>
 
           {/* ── Desktop nav ── */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden lg:flex items-center gap-1">
             {navItems.map((item) => (
               <div
                 key={item.label}
@@ -224,12 +221,13 @@ export default function Navbar({ products: suppliedProducts }: { products?: Prod
               href="https://instagram.com/stacked_racks_vintage"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-white/50 hover:text-white transition-colors group"
+              aria-label="Instagram"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-white/50 hover:text-white transition-colors group"
             >
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 shrink-0">
                 <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
               </svg>
-              <span className="text-xs font-bold tracking-wider uppercase">Instagram</span>
+              <span className="hidden xl:inline text-xs font-bold tracking-wider uppercase">Instagram</span>
             </a>
 
             {/* Vinted */}
@@ -237,23 +235,24 @@ export default function Navbar({ products: suppliedProducts }: { products?: Prod
               href="https://www.vinted.co.uk/member/59714764-stackedracks"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-white/50 hover:text-[#F5C300] transition-colors"
+              aria-label="Vinted"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-white/50 hover:text-[#F5C300] transition-colors"
             >
               <span className="text-base font-black leading-none">V</span>
-              <span className="text-xs font-bold tracking-wider uppercase">Vinted</span>
+              <span className="hidden xl:inline text-xs font-bold tracking-wider uppercase">Vinted</span>
             </a>
 
             {/* Contact */}
             <a
               href="/contact"
-              className="hidden md:flex items-center px-3 py-1.5 text-xs font-bold tracking-wider uppercase text-white/50 hover:text-[#E8500A] transition-colors border border-white/10 hover:border-[#E8500A]/40 ml-1"
+              className="hidden lg:flex items-center px-3 py-1.5 text-xs font-bold tracking-wider uppercase text-white/50 hover:text-[#E8500A] transition-colors border border-white/10 hover:border-[#E8500A]/40 ml-1"
             >
               Contact
             </a>
 
             {/* Hamburger */}
             <button
-              className="md:hidden shrink-0 text-white p-1.5 flex flex-col justify-center items-center w-9 h-9"
+              className="lg:hidden shrink-0 text-white p-1.5 flex flex-col justify-center items-center w-9 h-9"
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-label="Toggle menu"
               aria-expanded={mobileOpen}
@@ -267,7 +266,7 @@ export default function Navbar({ products: suppliedProducts }: { products?: Prod
       </div>
 
       {/* ── Mobile menu ── */}
-      <div className={`md:hidden bg-[#111] border-t border-white/10 overflow-y-auto transition-all duration-300 ${mobileOpen ? "max-h-[calc(100vh-92px)] opacity-100" : "max-h-0 opacity-0"}`}>
+      <div className={`lg:hidden bg-[#111] border-t border-white/10 overflow-y-auto transition-all duration-300 ${mobileOpen ? "max-h-[calc(100vh-92px)] opacity-100" : "max-h-0 opacity-0"}`}>
         <CartLink mobile />
         {/* Social links row */}
         <div className="flex items-center gap-6 px-6 py-4 border-b border-white/5">
