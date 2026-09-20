@@ -20,7 +20,7 @@ export default function CartLink({ mobile = false }: { mobile?: boolean }) {
 
   return (
     <Link
-      href="/checkout?cart=true"
+      href="/cart"
       className={mobile
         ? "flex items-center justify-between px-6 py-4 text-sm font-bold text-white uppercase tracking-widest border-b border-white/5"
         : "flex shrink-0 items-center gap-1.5 px-1.5 sm:px-3 py-1.5 text-xs font-bold tracking-wider uppercase text-white/70 hover:text-[#E8500A] transition-colors"}
