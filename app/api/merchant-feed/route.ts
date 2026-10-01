@@ -32,5 +32,5 @@ export async function GET() {
   <description>One-off vintage clothing from London</description>
   ${items}
 </channel></rss>`;
-  return new Response(feed, { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=900, s-maxage=900" } });
+  return new Response(feed, { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "no-store" } });
 }
