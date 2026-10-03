@@ -4,7 +4,7 @@ import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Legal",
-  description: "Legal information, returns and policies for Stacked Racks Vintage Ltd.",
+  description: "Legal information, returns and policies for Stacked Racks Vintage.",
   alternates: { canonical: "/legal" },
 };
 
@@ -37,14 +37,14 @@ export default function LegalPage() {
           >
             Terms & Policies
           </h1>
-          <p className="text-[#555] text-sm">Last updated: 9 August 2026</p>
+          <p className="text-[#555] text-sm">Last updated: 3 October 2026</p>
         </div>
 
         <div className="border-t border-white/5 pt-12">
 
-          <Section title="Company Information">
-            <p>Stacked Racks Vintage Ltd is a company registered in England and Wales.</p>
-            <p>Registered office: 114 Durnsford Road, London, England, SW19 8HQ.</p>
+          <Section title="Business Information">
+            <p>Stacked Racks Vintage is run by a sole trader based in London, England.</p>
+            <p>Business address: 114 Durnsford Road, London, England, SW19 8HQ.</p>
             <p>
               We sell authentic second-hand and vintage clothing. Website purchases are
               processed securely by Stripe; selected items may also be available through our
@@ -122,7 +122,7 @@ export default function LegalPage() {
           <Section title="Intellectual Property">
             <p>
               All content on this website — including text, graphics, and brand identity — is
-              owned by Stacked Racks Vintage Ltd and may not be reproduced without permission.
+              owned by Stacked Racks Vintage and may not be reproduced without permission.
             </p>
             <p>
               Brand names referenced in product listings (e.g. Nike, Adidas, Burberry) are the

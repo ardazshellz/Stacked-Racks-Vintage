@@ -67,10 +67,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           "@context": "https://schema.org",
           "@type": "OnlineStore",
           name: "Stacked Racks Vintage",
-          legalName: "STACKED RACKS VINTAGE LTD",
+          legalName: "Stacked Racks Vintage",
           url: "https://stackedracksvintage.co.uk",
           email: "stackedracksvintage@gmail.com",
-          identifier: "15999498",
           address: { "@type": "PostalAddress", streetAddress: "114 Durnsford Road", addressLocality: "London", postalCode: "SW19 8HQ", addressCountry: "GB" },
           sameAs: ["https://instagram.com/stacked_racks_vintage", "https://www.vinted.co.uk/member/59714764-stackedracks"],
         }).replace(/</g, "\\u003c") }} />

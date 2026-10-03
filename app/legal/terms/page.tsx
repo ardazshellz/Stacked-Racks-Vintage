@@ -4,7 +4,7 @@ import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Terms & Conditions",
-  description: "Terms and conditions for purchasing from Stacked Racks Vintage Ltd.",
+  description: "Terms and conditions for purchasing from Stacked Racks Vintage.",
   alternates: { canonical: "/legal/terms" },
 };
 
@@ -31,13 +31,13 @@ export default function TermsPage() {
             style={{ fontFamily: "var(--font-playfair-display), serif" }}>
             Terms & Conditions
           </h1>
-          <p className="text-[#888] text-sm">Last updated: 9 August 2026 · Stacked Racks Vintage Ltd</p>
+          <p className="text-[#888] text-sm">Last updated: 3 October 2026 · Stacked Racks Vintage</p>
         </div>
 
         <div className="border-t border-white/5 pt-10">
 
           <Section title="1. Company Information">
-            <p>Stacked Racks Vintage Ltd is registered in England and Wales under company number 15999498. Registered office: 114 Durnsford Road, London, England, SW19 8HQ.</p>
+            <p>Stacked Racks Vintage is run by a sole trader based in London, England. Business address: 114 Durnsford Road, London, England, SW19 8HQ.</p>
             <p>By accessing this website and purchasing from us, you agree to these terms and conditions in full.</p>
           </Section>
 
@@ -69,11 +69,11 @@ export default function TermsPage() {
           </Section>
 
           <Section title="6. Intellectual Property">
-            <p>All website content — including text, design, graphics and branding — is owned by Stacked Racks Vintage Ltd and may not be reproduced, copied or distributed without our prior written permission.</p>
+            <p>All website content — including text, design, graphics and branding — is owned by Stacked Racks Vintage and may not be reproduced, copied or distributed without our prior written permission.</p>
           </Section>
 
           <Section title="7. Limitation of Liability">
-            <p>To the maximum extent permitted by law, Stacked Racks Vintage Ltd is not liable for any indirect, incidental or consequential damages arising from your use of our website or products.</p>
+            <p>To the maximum extent permitted by law, Stacked Racks Vintage is not liable for any indirect, incidental or consequential damages arising from your use of our website or products.</p>
             <p>Our total liability to you in connection with any purchase shall not exceed the total amount paid for that purchase.</p>
             <p>Nothing in these terms excludes or limits our liability for death or personal injury caused by negligence, fraud, or any other matter that cannot be excluded by law.</p>
           </Section>
