@@ -66,16 +66,35 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!sameOrigin(req)) return NextResponse.json({ error: "Invalid request" }, { status: 403 });
-  const body = (await req.json()) as { id?: string; payment_status?: string; fulfilment_status?: string; tracking_number?: string; notes?: string };
+  const body = (await req.json()) as { id?: string; payment_status?: string; fulfilment_status?: string; tracking_number?: string; notes?: string; price?: number; cost_price?: number };
   if (!body.id) return NextResponse.json({ error: "Missing order id" }, { status: 400 });
   const allowedStatuses = new Set(["paid", "packing", "dispatched", "delivered", "returned", "refunded"]);
-  const changes: Record<string, string | boolean> = { updated_at: new Date().toISOString() };
+  const changes: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (body.payment_status) changes.payment_status = body.payment_status.toLowerCase();
   if (body.fulfilment_status && allowedStatuses.has(body.fulfilment_status)) changes.fulfilment_status = body.fulfilment_status;
   if (typeof body.tracking_number === "string") changes.tracking_number = body.tracking_number.trim().slice(0, 100);
   if (typeof body.notes === "string") changes.notes = body.notes;
   if (body.fulfilment_status === "dispatched") changes.dispatched_at = new Date().toISOString();
   const supabase = getSupabaseAdmin();
+  const price = body.price === undefined ? undefined : Number(body.price);
+  const costPrice = body.cost_price === undefined ? undefined : Number(body.cost_price);
+  if ([price, costPrice].some((value) => value !== undefined && (!Number.isFinite(value) || value < 0))) {
+    return NextResponse.json({ error: "Prices must be numbers of 0 or more" }, { status: 400 });
+  }
+  if (price !== undefined || costPrice !== undefined) {
+    const { data: current, error: currentError } = await supabase.from("orders").select("postage, items").eq("id", body.id).single();
+    if (currentError || !current) return NextResponse.json({ error: currentError?.message ?? "Order not found" }, { status: 404 });
+    const items = Array.isArray(current.items) && current.items.length ? current.items : [{}];
+    if (items.length > 1) return NextResponse.json({ error: "Prices can only be edited on single-item orders" }, { status: 400 });
+    const item = { ...items[0] };
+    if (price !== undefined) {
+      changes.price = price;
+      changes.total = price + Number(current.postage || 0);
+      item.price = price;
+    }
+    if (costPrice !== undefined) item.costPrice = costPrice;
+    changes.items = [item];
+  }
   const { data, error } = await supabase.from("orders").update(changes).eq("id", body.id).select("*").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   await supabase.from("admin_audit_log").insert({ action: "order.updated", target_type: "order", target_id: body.id, details: changes });
