@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { Product } from "@/lib/products";
+import { publicProduct, type Product } from "@/lib/products";
 import { productToRow, rowToProduct, type ProductRow } from "@/lib/product-db";
 import { isAdminRequest } from "@/lib/server/admin-auth";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
@@ -42,23 +42,7 @@ export async function GET() {
         .filter((row) => admin || !row.reserved_until || new Date(row.reserved_until).getTime() <= Date.now())
         .map((row) => rowToProduct(row))
         .filter((product) => admin || product.listingStatus !== "draft")
-        .map((product) => {
-          return admin ? product : {
-            ...product,
-            sku: undefined,
-            costPrice: undefined,
-            storageLocation: undefined,
-            source: undefined,
-            costTaxYear: undefined,
-            listingStatus: undefined,
-            pricingStatus: undefined,
-            suggestedPriceLow: undefined,
-            suggestedPriceHigh: undefined,
-            pricingReason: undefined,
-            pricingSearchQuery: undefined,
-            pricingReviewedAt: undefined,
-          };
-        }),
+        .map((product) => (admin ? product : publicProduct(product))),
       ...settings,
     });
   } catch (error) {

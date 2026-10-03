@@ -91,7 +91,7 @@ export default function Hero() {
           </h1>
 
           <p className="animate-fade-in-up-delay-2 mt-6 max-w-[46ch] text-[#D8D2C7] text-base sm:text-lg leading-relaxed">
-            Unique &amp; rare football shirts, band tees, workwear and sports jerseys. Fresh pieces land every fortnight, and free UK shipping kicks in over £50.
+            Unique &amp; rare football shirts, band tees, workwear and sports jerseys. New pieces are added weekly, and free UK shipping kicks in over £50.
           </p>
 
           {/* CTAs */}
@@ -146,7 +146,7 @@ export default function Hero() {
             className="col-span-2 flex items-center gap-3 border-t border-white/20 px-5 sm:px-6 py-3.5 font-plexmono text-[12px] tracking-[0.06em] uppercase text-white hover:bg-white/[0.03] transition-colors"
           >
             <span aria-hidden="true" className="text-[#F5C300] tracking-[0.2em] text-sm">★★★★★</span>
-            <span>2,500+ verified reviews on Vinted</span>
+            <span>2,500+ reviews on Vinted · rated 4.8</span>
           </a>
         </div>
       </div>

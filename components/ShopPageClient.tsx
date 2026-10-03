@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Product, SIZES, FITS, CATEGORIES, displayGender, getBrandsInStock, isNew, productMatchesGender, productMatchesSize } from "@/lib/products";
 import { useProducts } from "@/hooks/useProducts";
 import Navbar from "@/components/Navbar";
+import RecentlySold from "@/components/RecentlySold";
 import ProductCard from "@/components/ProductCard";
 import ProductModal from "@/components/ProductModal";
 import Footer from "@/components/Footer";
@@ -252,6 +253,7 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
     arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
 
   const filtered = products.filter((p) => {
+    if (p.stock <= 0) return false;
     if (newOnly && !isNew(p)) return false;
     if (rareOnly && p.badge !== "RARE") return false;
     if (typeFilter && p.rareBadge !== typeFilter) return false;
@@ -448,6 +450,7 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
                 ))}
               </div>
             )}
+            <RecentlySold products={products} onSelect={setSelectedProduct} />
 
             <div className="mt-12 text-center border border-white/8 py-10 px-4">
               <p className="text-[#aaa] text-sm mb-1">Looking for more?</p>

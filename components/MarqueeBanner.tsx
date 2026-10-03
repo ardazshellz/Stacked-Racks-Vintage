@@ -1,10 +1,9 @@
 const ITEMS = [
-  "LATEST 14-DAY DROPS",
+  "NEW PIECES ADDED WEEKLY",
   "FREE UK SHIPPING OVER £50",
   "5,000+ SALES",
-  "2,500+ FIVE-STAR REVIEWS",
+  "2,500+ VINTED REVIEWS · 4.8★",
   "LONDON-BASED",
-  "LONDON-BASED LTD",
 ];
 
 function MarqueeRow() {

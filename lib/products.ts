@@ -55,6 +55,25 @@ export interface Product {
   pricingReviewedAt?: string;
 }
 
+/** Removes owner-only fields (costs, sources, pricing notes) before a product reaches buyers. */
+export function publicProduct(product: Product): Product {
+  return {
+    ...product,
+    sku: undefined,
+    costPrice: undefined,
+    storageLocation: undefined,
+    source: undefined,
+    costTaxYear: undefined,
+    listingStatus: undefined,
+    pricingStatus: undefined,
+    suggestedPriceLow: undefined,
+    suggestedPriceHigh: undefined,
+    pricingReason: undefined,
+    pricingSearchQuery: undefined,
+    pricingReviewedAt: undefined,
+  };
+}
+
 /** Returns a safe public Vinted item URL, never a profile or non-Vinted link. */
 export function getVintedItemUrl(product: Pick<Product, "vintedUrl">) {
   const value = product.vintedUrl?.trim();

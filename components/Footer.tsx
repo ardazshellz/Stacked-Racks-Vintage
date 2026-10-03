@@ -45,9 +45,9 @@ export default function Footer() {
         <div className="grid grid-cols-2 sm:grid-cols-4 border border-white/10 mb-8 max-w-3xl mx-auto">
           {[
             { stat: "5,000+", label: "Sales" },
-            { stat: "2,500+", label: "5★ Reviews" },
-            { stat: "2.5K",  label: "Followers" },
-            { stat: "London", label: "Based · Ltd" },
+            { stat: "2,500+", label: "Vinted Reviews" },
+            { stat: "1.4K",  label: "Followers" },
+            { stat: "London", label: "Based" },
           ].map(({ stat, label }, i) => (
             <div key={stat} className={`px-4 py-5 text-center border-white/10 ${i % 2 === 1 ? "border-l" : ""} ${i > 0 ? "sm:border-l" : ""} ${i > 1 ? "border-t sm:border-t-0" : ""}`}>
               <div className="font-display text-[#F5C300] text-4xl font-black leading-[0.9] tabular-nums">{stat}</div>
