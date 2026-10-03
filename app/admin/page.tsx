@@ -5,7 +5,7 @@ import Image from "next/image";
 import EmailMarketing from "@/components/admin/EmailMarketing";
 import PhotoEditor from "@/components/admin/PhotoEditor";
 import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard";
-import { accountRows, isRecordedSale, orderPurchaseCost, parseMoney, saleStage, toCsv, toTsv } from "@/lib/sales";
+import { accountRows, isRecordedSale, orderBoughtFrom, orderCostTaxYear, orderPurchaseCost, orderTax, parseMoney, saleStage, taxSummary, taxYear, toCsv, toTsv } from "@/lib/sales";
 import {
   ALL_BRANDS,
   CATEGORIES,
@@ -48,6 +48,8 @@ interface OrderRow {
     brand?: string;
     price?: number | string;
     costPrice?: number | string;
+    boughtFrom?: string;
+    costTaxYear?: string;
   }>;
 }
 
@@ -244,6 +246,12 @@ function aiPrice(value: unknown) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : undefined;
 }
 
+// Tax years offered in pickers: 2023-24 up to the current one.
+function taxYearOptions() {
+  const current = Number(taxYear(new Date().toISOString()).slice(0, 4));
+  return Array.from({ length: current - 2023 + 1 }, (_, index) => taxYear(`${2023 + index}-06-01`));
+}
+
 function downloadCsv(text: string) {
   const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
@@ -369,6 +377,7 @@ export default function AdminPage() {
   const soldStockCost = paidOrders.reduce((sum, order) => sum + orderPurchaseCost(order, products), 0);
   const grossProfitBeforeFees = paidOrders.reduce((sum, order) => sum + Number(order.price) - orderPurchaseCost(order, products), 0);
   const accountRowList = accountRows(orders, products, exportFrom, exportTo);
+  const taxRows = taxSummary(orders, products);
   const managedProducts = useMemo(() => {
     const query = productSearch.trim().toLowerCase();
     const sorted = products.filter((product) => product.listingStatus !== "draft").sort((a, b) =>
@@ -440,7 +449,7 @@ export default function AdminPage() {
     await loadDashboard();
   };
 
-  const saveOrderPrices = async (order: OrderRow, changes: { price?: number; cost_price?: number }) => {
+  const saveOrderPrices = async (order: OrderRow, changes: { price?: number; cost_price?: number; bought_from?: string; cost_tax_year?: string }) => {
     const response = await fetch("/api/admin-orders", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: order.id, ...changes }) });
     const data = await response.json();
     if (!response.ok) return setDataError(data.error ?? "Could not update prices");
@@ -801,13 +810,24 @@ export default function AdminPage() {
             {copyNote && <p className="text-[#F5C300] text-[10px] mb-2">{copyNote}</p>}
             {copyFallback && <textarea readOnly value={copyFallback} onFocus={(event) => event.target.select()} autoFocus className="w-full h-32 mb-4 bg-[#171717] border border-white/10 p-2 text-xs text-white" />}
             <p className="text-[#666] text-[10px] mb-4">HMRC CSV and Google Sheets copy include confirmed sales only (marked delivered), with what you paid and gross profit before fees.</p>
+            {taxRows.length > 0 && <div className="bg-[#111] border border-white/8 mb-6 overflow-x-auto">
+              <p className="px-4 pt-4 text-[#F5C300] text-[10px] font-black uppercase tracking-[0.2em]">Tax calculation (estimate at 20%)</p>
+              <p className="px-4 pt-1 text-[#777] text-[10px]">Confirmed sales only. Same-year costs are deducted; items bought in an earlier tax year are taxed on the full price and their cost is listed under the year it was bought. An estimate only: no personal allowance or other rates; check with an accountant.</p>
+              <table className="w-full min-w-[720px] text-left mt-2">
+                <thead><tr className="border-b border-white/10">{["Tax year", "Confirmed sales", "Revenue", "Costs deducted", "Tax estimate (20%)", "Costs to claim this year"].map((heading) => <th key={heading} className="px-4 py-2 text-[#888] text-[9px] tracking-[0.18em] uppercase">{heading}</th>)}</tr></thead>
+                <tbody>{taxRows.map((row) => <tr key={row.year} className="border-b border-white/5"><td className="px-4 py-2 font-bold">{row.year}</td><td className="px-4 py-2">{row.sales}</td><td className="px-4 py-2">{money(row.revenue)}</td><td className="px-4 py-2">{money(row.costsDeducted)}</td><td className="px-4 py-2 text-[#F5C300] font-black">{money(row.tax)}</td><td className="px-4 py-2">{money(row.costsToClaim)}</td></tr>)}</tbody>
+              </table>
+            </div>}
             <div className="bg-[#111] border border-white/8 overflow-x-auto">
-              <table className="w-full min-w-[1320px] text-left">
-                <thead><tr className="border-b border-white/10">{["Date", "Order", "Customer", "Item", "Source", "Payment", "Fulfilment", "Item cost", "Gross profit", "Total"].map((heading) => <th key={heading} className="px-4 py-3 text-[#888] text-[9px] tracking-[0.18em] uppercase">{heading}</th>)}</tr></thead>
+              <table className="w-full min-w-[1560px] text-left">
+                <thead><tr className="border-b border-white/10">{["Date", "Order", "Customer", "Item", "Source", "Payment", "Fulfilment", "Item cost", "Bought", "Gross profit", "Tax est.", "Total"].map((heading) => <th key={heading} className="px-4 py-3 text-[#888] text-[9px] tracking-[0.18em] uppercase">{heading}</th>)}</tr></thead>
                 <tbody>{filteredOrders.map((order) => {
                   const purchaseCost = orderPurchaseCost(order, products);
                   const toConfirm = saleStage(order) === "to_confirm";
-                  return <tr key={order.id} className="border-b border-white/5 hover:bg-white/[0.02]"><td className="px-4 py-3 text-[#999] text-xs">{new Date(order.date_of_sale).toLocaleDateString("en-GB")}</td><td className="px-4 py-3 text-[#E8500A] text-xs font-bold">{order.id}</td><td className="px-4 py-3"><p className="text-sm font-semibold">{order.customer_name}</p><p className="text-[#888] text-[10px]">{order.customer_email}</p></td><td className="px-4 py-3"><p className="text-sm">{order.item_name}</p><p className="text-[#888] text-[10px]">{order.brand}</p></td><td className="px-4 py-3 text-[#999] text-xs uppercase">{order.source}</td><td className="px-4 py-3"><span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[9px] uppercase">{order.payment_status}</span></td><td className="px-4 py-3"><select aria-label={`Fulfilment status for ${order.id}`} value={order.fulfilment_status ?? (order.payment_status === "paid" ? "paid" : order.payment_status)} onChange={(event) => void updateOrder(order, event.target.value)} className="bg-[#171717] border border-white/10 text-white text-[10px] uppercase px-2 py-2"><option value="paid">Paid</option><option value="packing">Packing</option><option value="dispatched">Dispatched</option><option value="delivered">Delivered</option><option value="returned">Returned</option><option value="refunded">Refunded</option></select>{order.tracking_number && <p className="text-[#F5C300] text-[9px] mt-1 max-w-32 truncate" title={order.tracking_number}>{order.tracking_number}</p>}{toConfirm && <div className="flex gap-1 mt-1">{order.fulfilment_status !== "dispatched" && <button onClick={() => void updateOrder(order, "dispatched")} className="border border-white/15 px-2 py-1 text-[9px] uppercase">Posted</button>}<button onClick={() => void updateOrder(order, "delivered")} className="bg-[#F5C300] text-[#0a0a0a] px-2 py-1 text-[9px] font-black uppercase">Confirm sold</button></div>}</td><td className="px-4 py-3 text-[#aaa] font-bold">{toConfirm ? <input aria-label={`Bought price for ${order.id}`} key={`${order.id}-cost-${purchaseCost}`} type="number" min="0" step="0.01" defaultValue={purchaseCost} onBlur={(event) => { const value = parseMoney(event.target.value); if (value !== null && value !== purchaseCost) void saveOrderPrices(order, { cost_price: value }); }} className="w-20 bg-[#171717] border border-white/10 px-2 py-1 text-white text-xs" /> : money(purchaseCost)}</td><td className="px-4 py-3 text-[#F5C300] font-black">{money(Number(order.price) - purchaseCost)}</td><td className="px-4 py-3 font-black">{toConfirm ? <input aria-label={`Sold price for ${order.id}`} key={`${order.id}-price-${order.price}`} type="number" min="0" step="0.01" defaultValue={Number(order.price)} onBlur={(event) => { const value = parseMoney(event.target.value); if (value !== null && value !== Number(order.price)) void saveOrderPrices(order, { price: value }); }} className="w-20 bg-[#171717] border border-white/10 px-2 py-1 text-white text-xs" /> : money(order.total)}</td></tr>;
+                  const boughtFrom = orderBoughtFrom(order, products);
+                  const costYear = orderCostTaxYear(order, products);
+                  const editableBought = order.payment_status === "paid" && (order.items?.length ?? 0) <= 1;
+                  return <tr key={order.id} className="border-b border-white/5 hover:bg-white/[0.02]"><td className="px-4 py-3 text-[#999] text-xs">{new Date(order.date_of_sale).toLocaleDateString("en-GB")}</td><td className="px-4 py-3 text-[#E8500A] text-xs font-bold">{order.id}</td><td className="px-4 py-3"><p className="text-sm font-semibold">{order.customer_name}</p><p className="text-[#888] text-[10px]">{order.customer_email}</p></td><td className="px-4 py-3"><p className="text-sm">{order.item_name}</p><p className="text-[#888] text-[10px]">{order.brand}</p></td><td className="px-4 py-3 text-[#999] text-xs uppercase">{order.source}</td><td className="px-4 py-3"><span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[9px] uppercase">{order.payment_status}</span></td><td className="px-4 py-3"><select aria-label={`Fulfilment status for ${order.id}`} value={order.fulfilment_status ?? (order.payment_status === "paid" ? "paid" : order.payment_status)} onChange={(event) => void updateOrder(order, event.target.value)} className="bg-[#171717] border border-white/10 text-white text-[10px] uppercase px-2 py-2"><option value="paid">Paid</option><option value="packing">Packing</option><option value="dispatched">Dispatched</option><option value="delivered">Delivered</option><option value="returned">Returned</option><option value="refunded">Refunded</option></select>{order.tracking_number && <p className="text-[#F5C300] text-[9px] mt-1 max-w-32 truncate" title={order.tracking_number}>{order.tracking_number}</p>}{toConfirm && <div className="flex gap-1 mt-1">{order.fulfilment_status !== "dispatched" && <button onClick={() => void updateOrder(order, "dispatched")} className="border border-white/15 px-2 py-1 text-[9px] uppercase">Posted</button>}<button onClick={() => void updateOrder(order, "delivered")} className="bg-[#F5C300] text-[#0a0a0a] px-2 py-1 text-[9px] font-black uppercase">Confirm sold</button></div>}</td><td className="px-4 py-3 text-[#aaa] font-bold">{toConfirm ? <input aria-label={`Bought price for ${order.id}`} key={`${order.id}-cost-${purchaseCost}`} type="number" min="0" step="0.01" defaultValue={purchaseCost} onBlur={(event) => { const value = parseMoney(event.target.value); if (value !== null && value !== purchaseCost) void saveOrderPrices(order, { cost_price: value }); }} className="w-20 bg-[#171717] border border-white/10 px-2 py-1 text-white text-xs" /> : money(purchaseCost)}</td><td className="px-4 py-3">{editableBought ? <div className="grid gap-1"><input aria-label={`Bought from for ${order.id}`} key={`${order.id}-from-${boughtFrom}`} defaultValue={boughtFrom} placeholder="Bought from" onBlur={(event) => { const value = event.target.value.trim(); if (value !== boughtFrom) void saveOrderPrices(order, { bought_from: value }); }} className="w-32 bg-[#171717] border border-white/10 px-2 py-1 text-white text-xs" /><select aria-label={`Cost tax year for ${order.id}`} value={costYear} onChange={(event) => void saveOrderPrices(order, { cost_tax_year: event.target.value })} className="w-32 bg-[#171717] border border-white/10 px-2 py-1 text-white text-xs"><option value="">Cost year?</option>{taxYearOptions().map((year) => <option key={year} value={year}>{year}</option>)}</select></div> : <p className="text-xs text-[#aaa]">{boughtFrom || "—"}<br />{costYear}</p>}</td><td className="px-4 py-3 text-[#F5C300] font-black">{money(Number(order.price) - purchaseCost)}</td><td className="px-4 py-3 text-[#F5C300] text-xs font-bold">{saleStage(order) === "other" ? "—" : money(orderTax(order, products))}</td><td className="px-4 py-3 font-black">{toConfirm ? <input aria-label={`Sold price for ${order.id}`} key={`${order.id}-price-${order.price}`} type="number" min="0" step="0.01" defaultValue={Number(order.price)} onBlur={(event) => { const value = parseMoney(event.target.value); if (value !== null && value !== Number(order.price)) void saveOrderPrices(order, { price: value }); }} className="w-20 bg-[#171717] border border-white/10 px-2 py-1 text-white text-xs" /> : money(order.total)}</td></tr>;
                 })}</tbody>
               </table>
               {!filteredOrders.length && <p className="text-[#555] text-center py-14">No sales recorded yet.</p>}
@@ -912,7 +932,7 @@ export default function AdminPage() {
                 </div>
                 <div className="border border-white/8 bg-[#161616] p-4">
                   <p className="text-[#F5C300] text-[10px] font-black tracking-[0.18em] uppercase mb-3">Private inventory details</p>
-                  <div className="grid sm:grid-cols-3 gap-3"><Field label="SKU" value={form.sku ?? ""} onChange={(value) => setForm({ ...form, sku: value })} placeholder="SR-0001" /><Field label="Storage location" value={form.storageLocation ?? ""} onChange={(value) => setForm({ ...form, storageLocation: value })} placeholder="Rail A / Box 3" /><Field label="Source" value={form.source ?? ""} onChange={(value) => setForm({ ...form, source: value })} placeholder="Wholesaler / kilo sale" /></div>
+                  <div className="grid sm:grid-cols-3 gap-3"><Field label="SKU" value={form.sku ?? ""} onChange={(value) => setForm({ ...form, sku: value })} placeholder="SR-0001" /><Field label="Storage location" value={form.storageLocation ?? ""} onChange={(value) => setForm({ ...form, storageLocation: value })} placeholder="Rail A / Box 3" /><Field label="Bought from (supplier)" value={form.source ?? ""} onChange={(value) => setForm({ ...form, source: value })} placeholder="Fleek / Ben Whitley / charity shop" /><Select label="Cost tax year" value={form.costTaxYear ?? ""} options={["", ...taxYearOptions()]} optionLabel={(option) => option || "Not set"} onChange={(value) => setForm({ ...form, costTaxYear: value || undefined })} /></div>
                   <p className="text-[#888] text-[10px] mt-3">Only visible in admin. The amount you paid is saved privately with the listing, added to completed orders and included in the HMRC CSV.</p>
                 </div>
                 <Field label="Website title" value={form.name} onChange={(value) => setForm({ ...form, name: value })} suggestions={LISTING_WORDS} />

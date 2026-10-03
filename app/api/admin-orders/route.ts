@@ -3,7 +3,7 @@ import { isAdminRequest } from "@/lib/server/admin-auth";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
 import nodemailer from "nodemailer";
 import { sameOrigin } from "@/lib/server/request-security";
-import { parseMoney } from "@/lib/sales";
+import { isTaxYear, parseMoney } from "@/lib/sales";
 
 function escapeHtml(value: unknown) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ?? character);
@@ -67,7 +67,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!sameOrigin(req)) return NextResponse.json({ error: "Invalid request" }, { status: 403 });
-  const body = (await req.json()) as { id?: string; payment_status?: string; fulfilment_status?: string; tracking_number?: string; notes?: string; price?: number; cost_price?: number };
+  const body = (await req.json()) as { id?: string; payment_status?: string; fulfilment_status?: string; tracking_number?: string; notes?: string; price?: number; cost_price?: number; bought_from?: string; cost_tax_year?: string };
   if (!body.id) return NextResponse.json({ error: "Missing order id" }, { status: 400 });
   const allowedStatuses = new Set(["paid", "packing", "dispatched", "delivered", "returned", "refunded"]);
   const changes: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -79,10 +79,13 @@ export async function PATCH(req: Request) {
   const supabase = getSupabaseAdmin();
   const price = body.price === undefined ? undefined : parseMoney(body.price);
   const costPrice = body.cost_price === undefined ? undefined : parseMoney(body.cost_price);
+  if (body.cost_tax_year !== undefined && body.cost_tax_year !== "" && !isTaxYear(body.cost_tax_year)) {
+    return NextResponse.json({ error: "Cost tax year must look like 2024-25" }, { status: 400 });
+  }
   if (price === null || costPrice === null) {
     return NextResponse.json({ error: "Prices must be numbers of 0 or more" }, { status: 400 });
   }
-  if (price !== undefined || costPrice !== undefined) {
+  if (price !== undefined || costPrice !== undefined || body.bought_from !== undefined || body.cost_tax_year !== undefined) {
     const { data: current, error: currentError } = await supabase.from("orders").select("postage, items").eq("id", body.id).single();
     if (currentError || !current) return NextResponse.json({ error: currentError?.message ?? "Order not found" }, { status: 404 });
     const items = Array.isArray(current.items) && current.items.length ? current.items : [{}];
@@ -94,6 +97,8 @@ export async function PATCH(req: Request) {
       item.price = price;
     }
     if (costPrice !== undefined) item.costPrice = costPrice;
+    if (typeof body.bought_from === "string") item.boughtFrom = body.bought_from.trim().slice(0, 100);
+    if (typeof body.cost_tax_year === "string") item.costTaxYear = body.cost_tax_year;
     changes.items = [item];
   }
   const { data, error } = await supabase.from("orders").update(changes).eq("id", body.id).select("*").single();
