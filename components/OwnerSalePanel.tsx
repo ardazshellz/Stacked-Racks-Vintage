@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { saleStage } from "@/lib/sales";
+import { saleStage, taxYear } from "@/lib/sales";
 
 type PanelOrder = { id: string; item_id?: string; source: string; payment_status: string; fulfilment_status?: string; price: number | string; date_of_sale: string };
 
@@ -10,11 +10,14 @@ const INPUT = "w-full bg-[#171717] border border-white/15 px-3 py-2 text-white t
 const STAGE_LABEL = { to_confirm: "Sold – to be confirmed", sold: "Sold – confirmed", other: "Refunded / returned" } as const;
 
 // Rendered only for the signed-in owner (the product page checks the admin cookie on the server).
-export default function OwnerSalePanel({ productId, price, costPrice, sold }: { productId: string; price: number; costPrice?: number; sold: boolean }) {
+export default function OwnerSalePanel({ productId, price, costPrice, boughtFrom: initialBoughtFrom, costTaxYear: initialCostTaxYear, sold }: { productId: string; price: number; costPrice?: number; boughtFrom?: string; costTaxYear?: string; sold: boolean }) {
   const router = useRouter();
   const [bought, setBought] = useState(costPrice ? String(costPrice) : "");
   const [soldPrice, setSoldPrice] = useState(String(price));
   const [channel, setChannel] = useState<"vinted" | "other">("vinted");
+  const currentTaxYear = taxYear(new Date().toISOString());
+  const [boughtFrom, setBoughtFrom] = useState(initialBoughtFrom ?? "");
+  const [costTaxYear, setCostTaxYear] = useState(initialCostTaxYear || currentTaxYear);
   const [order, setOrder] = useState<PanelOrder | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -47,7 +50,7 @@ export default function OwnerSalePanel({ productId, price, costPrice, sold }: { 
   };
 
   const markSold = async () => {
-    const data = await send("/api/admin-vinted-sale", "POST", { productId, purchasePrice: Number(bought), soldPrice: Number(soldPrice), channel });
+    const data = await send("/api/admin-vinted-sale", "POST", { productId, purchasePrice: Number(bought), soldPrice: Number(soldPrice), channel, boughtFrom, costTaxYear });
     if (data) router.refresh();
   };
 
@@ -63,6 +66,10 @@ export default function OwnerSalePanel({ productId, price, costPrice, sold }: { 
       <div className="grid grid-cols-2 gap-2">
         <label className="text-[#aaa] text-xs">Bought £<input type="number" min="0" step="0.01" value={bought} onChange={(event) => setBought(event.target.value)} className={INPUT} /></label>
         <label className="text-[#aaa] text-xs">Sold £<input type="number" min="0" step="0.01" value={soldPrice} onChange={(event) => setSoldPrice(event.target.value)} className={INPUT} /></label>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="text-[#aaa] text-xs">Bought from<input value={boughtFrom} onChange={(event) => setBoughtFrom(event.target.value)} placeholder="Fleek / charity shop" className={INPUT} /></label>
+        <label className="text-[#aaa] text-xs">Cost tax year<select value={costTaxYear} onChange={(event) => setCostTaxYear(event.target.value)} className={INPUT}>{Array.from({ length: Number(currentTaxYear.slice(0, 4)) - 2023 + 1 }, (_, index) => taxYear(`${2023 + index}-06-01`)).map((year) => <option key={year} value={year}>{year}</option>)}</select></label>
       </div>
       <label className="text-[#aaa] text-xs">Sold on<select value={channel} onChange={(event) => setChannel(event.target.value as "vinted" | "other")} className={INPUT}><option value="vinted">Vinted</option><option value="other">Other (in person, Depop…)</option></select></label>
       <button disabled={busy || bought === "" || !(Number(soldPrice) > 0)} onClick={() => void markSold()} className="min-h-11 bg-[#F5C300] text-[#0a0a0a] font-black text-xs uppercase tracking-wider disabled:opacity-40">Sold – to be confirmed</button>
