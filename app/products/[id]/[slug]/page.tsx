@@ -4,9 +4,11 @@ import { notFound, permanentRedirect } from "next/navigation";
 import AddToCartButton from "@/components/AddToCartButton";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
+import OwnerSalePanel from "@/components/OwnerSalePanel";
 import ProductGallery from "@/components/ProductGallery";
 import SizeGuideLink from "@/components/SizeGuideLink";
 import { getPublicProduct, getPublicProducts } from "@/lib/server/catalog";
+import { isAdminRequest } from "@/lib/server/admin-auth";
 import { productPath, productSlug } from "@/lib/product-url";
 import { getVintedItemUrl, productGenderLabel, productSizeLabel, websiteProductTitle } from "@/lib/products";
 
@@ -40,6 +42,7 @@ export default async function ProductPage({ params }: Props) {
   if (slug !== productSlug(product.name)) permanentRedirect(productPath(product));
 
   const products = await getPublicProducts().catch(() => [product]);
+  const isOwner = await isAdminRequest().catch(() => false);
   const details = product.garmentDetails;
   const vintedItemUrl = getVintedItemUrl(product);
   const displayTitle = websiteProductTitle(product.name);
@@ -89,6 +92,7 @@ export default async function ProductPage({ params }: Props) {
             <div className="flex flex-wrap items-center gap-3"><span className="inline-flex min-h-12 min-w-24 items-center justify-center border-2 border-[#EDE8DF] bg-[#EDE8DF] px-4 font-bold text-[#0a0a0a]">{productSizeLabel(product)}</span><SizeGuideLink /></div>
           </div>
           {product.stock > 0 ? <div className="mt-5 grid gap-2.5"><AddToCartButton product={product} className="w-full min-h-[52px] bg-[#E8500A] text-[#0a0a0a] font-bold text-base tracking-[0.08em] uppercase hover:bg-[#FF6A24] transition-colors" /><Link href={`/checkout?item=${product.id}`} className="min-h-[52px] border-2 border-[#F5C300] text-[#F5C300] flex items-center justify-center font-bold text-base tracking-[0.08em] uppercase hover:bg-[#F5C300] hover:text-[#0a0a0a] transition-colors">Buy now</Link></div> : <Link href="/shop" className="mt-5 min-h-[52px] flex items-center justify-center border border-white/20 text-white font-bold uppercase text-sm tracking-widest">Browse available pieces</Link>}
+          {isOwner && <OwnerSalePanel productId={String(product.id)} price={product.price} costPrice={product.costPrice} sold={product.stock <= 0} />}
           {vintedItemUrl && <a href={vintedItemUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex min-h-12 items-center text-[#a39b90] hover:text-white text-[15px]">View this item on Vinted</a>}
         </section>
       </div>
