@@ -49,6 +49,7 @@ export async function GET() {
             costPrice: undefined,
             storageLocation: undefined,
             source: undefined,
+            costTaxYear: undefined,
             listingStatus: undefined,
             pricingStatus: undefined,
             suggestedPriceLow: undefined,

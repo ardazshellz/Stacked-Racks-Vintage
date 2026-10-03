@@ -104,3 +104,25 @@ test("taxSummary totals confirmed sales per sale year and earlier-year costs to 
   assert.deepEqual(y2627, { year: "2026-27", sales: 2, revenue: 50, costsDeducted: 6.85, tax: 8.63, costsToClaim: 0 });
   assert.deepEqual(y2425, { year: "2024-25", sales: 0, revenue: 0, costsDeducted: 0, tax: 0, costsToClaim: 15 });
 });
+
+test("a cost year after the sale year is not treated as earlier", () => {
+  assert.equal(taxEstimate(27, 15, "2025-26", "2026-27"), 2.4);
+});
+
+test("taxYear uses UK time: 00:30 BST on 6 April is the new tax year", () => {
+  assert.equal(taxYear("2026-04-05T23:30:00+00:00"), "2026-27");
+  assert.equal(taxYear("2026-04-05T22:30:00Z"), "2025-26");
+});
+
+test("multi-item orders are taxed per item with each item's own cost year", () => {
+  const order = { ...base, fulfilment_status: "delivered", price: 50, total: 50, items: [
+    { id: "a", price: 30, costPrice: 15, costTaxYear: "2024-25" },
+    { id: "b", price: 20, costPrice: 5, costTaxYear: "2026-27" },
+  ] };
+  const row = accountRows([order], [])[0];
+  assert.equal(row[12], "mixed");
+  assert.equal(row[14], "9.00");
+  const summary = taxSummary([order], []);
+  assert.deepEqual(summary.find((line) => line.year === "2026-27"), { year: "2026-27", sales: 1, revenue: 50, costsDeducted: 5, tax: 9, costsToClaim: 0 });
+  assert.equal(summary.find((line) => line.year === "2024-25")?.costsToClaim, 15);
+});

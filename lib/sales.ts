@@ -50,7 +50,14 @@ export function orderPurchaseCost(order: SaleOrder, products: CostProduct[]) {
 
 // UK tax year runs 6 April to 5 April: 3 Oct 2026 is in "2026-27", 5 Apr 2026 in "2025-26".
 export function taxYear(date: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(date ?? ""));
+  let text = String(date ?? "");
+  if (/T\d{2}:\d{2}/.test(text)) {
+    // Timestamps are read in UK time, so 00:30 BST on 6 April counts as the new tax year.
+    const parsed = new Date(text);
+    if (Number.isNaN(parsed.getTime())) return "";
+    text = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(parsed);
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(text);
   if (!match) return "";
   const [year, month, day] = match.slice(1).map(Number);
   const start = month > 4 || (month === 4 && day >= 6) ? year : year - 1;
@@ -79,7 +86,29 @@ const round2 = (value: number) => Math.round(value * 100) / 100;
 
 // Zakery's 20% estimate: a cost bought in an earlier tax year belongs to that year's return, so the whole sale price is taxed.
 export function taxEstimate(price: number, cost: number, saleYear: string, costYear: string) {
-  return round2(0.2 * (costYear && costYear !== saleYear ? price : price - cost));
+  return round2(0.2 * (costYear && costYear < saleYear ? price : price - cost));
+}
+
+interface SaleLine { price: number; cost: number; costYear: string }
+
+// Single-item orders use the order's figures; baskets are split per item so each keeps its own cost year.
+function orderLines(order: SaleOrder, products: CostProduct[]): SaleLine[] {
+  const items = Array.isArray(order.items) ? order.items : [];
+  if (items.length <= 1) return [{ price: Number(order.price), cost: orderPurchaseCost(order, products), costYear: orderCostTaxYear(order, products) }];
+  return items.map((item) => {
+    const product = products.find((candidate) => String(candidate.id) === String(item.id));
+    return { price: Number(item.price ?? 0), cost: Number(item.costPrice ?? product?.costPrice ?? 0), costYear: item.costTaxYear || product?.costTaxYear || "" };
+  });
+}
+
+export function orderTax(order: SaleOrder, products: CostProduct[]) {
+  const saleYear = taxYear(order.date_of_sale);
+  return round2(orderLines(order, products).reduce((sum, line) => sum + taxEstimate(line.price, line.cost, saleYear, line.costYear), 0));
+}
+
+function orderCostYearLabel(order: SaleOrder, products: CostProduct[]) {
+  const years = [...new Set(orderLines(order, products).map((line) => line.costYear))];
+  return years.length > 1 ? "mixed" : years[0];
 }
 
 export function taxSummary(orders: SaleOrder[], products: CostProduct[]) {
@@ -87,15 +116,14 @@ export function taxSummary(orders: SaleOrder[], products: CostProduct[]) {
   const row = (year: string) => years.get(year) ?? years.set(year, { year, sales: 0, revenue: 0, costsDeducted: 0, tax: 0, costsToClaim: 0 }).get(year)!;
   for (const order of orders.filter((candidate) => saleStage(candidate) === "sold")) {
     const saleYear = taxYear(order.date_of_sale);
-    const costYear = orderCostTaxYear(order, products);
-    const price = Number(order.price);
-    const cost = orderPurchaseCost(order, products);
     const sale = row(saleYear);
     sale.sales += 1;
-    sale.revenue = round2(sale.revenue + price);
-    sale.tax = round2(sale.tax + taxEstimate(price, cost, saleYear, costYear));
-    if (costYear && costYear !== saleYear) row(costYear).costsToClaim = round2(row(costYear).costsToClaim + cost);
-    else sale.costsDeducted = round2(sale.costsDeducted + cost);
+    sale.revenue = round2(sale.revenue + Number(order.price));
+    sale.tax = round2(sale.tax + orderTax(order, products));
+    for (const line of orderLines(order, products)) {
+      if (line.costYear && line.costYear < saleYear) row(line.costYear).costsToClaim = round2(row(line.costYear).costsToClaim + line.cost);
+      else sale.costsDeducted = round2(sale.costsDeducted + line.cost);
+    }
   }
   return [...years.values()].sort((a, b) => b.year.localeCompare(a.year));
 }
@@ -120,7 +148,6 @@ export function accountRows(orders: SaleOrder[], products: CostProduct[], from =
       const price = Number(order.price);
       const cost = orderPurchaseCost(order, products);
       const saleYear = taxYear(order.date_of_sale);
-      const costYear = orderCostTaxYear(order, products);
       return [
         new Date(order.date_of_sale).toLocaleDateString("en-GB"),
         order.id,
@@ -134,9 +161,9 @@ export function accountRows(orders: SaleOrder[], products: CostProduct[], from =
         Number(order.total).toFixed(2),
         order.customer_name,
         orderBoughtFrom(order, products),
-        costYear,
+        orderCostYearLabel(order, products),
         saleYear,
-        taxEstimate(price, cost, saleYear, costYear).toFixed(2),
+        orderTax(order, products).toFixed(2),
       ];
     });
 }
