@@ -21,7 +21,7 @@ export default function ProductGallery({ images, name, productId, price }: { ima
   }
 
   const thumbs = images.length > 1 && <div className="flex min-w-0 gap-2.5 overflow-x-auto pb-1 max-lg:order-2 lg:flex-col lg:overflow-visible" aria-label="Product photos">
-    {images.map((image, index) => <button type="button" key={`${image}-${index}`} onClick={() => setActive(index)} className={`relative aspect-[3/4] w-16 shrink-0 border-2 lg:w-[76px] ${index === active ? "border-[#E8500A]" : "border-white/15 hover:border-white/40"}`} aria-label={`Show photo ${index + 1} of ${images.length}`} aria-current={index === active}><Image src={image} alt="" fill sizes="76px" className="object-cover" /></button>)}
+    {images.map((image, index) => <button type="button" key={`${image}-${index}`} onClick={() => setActive(index)} className={`relative aspect-[3/4] w-16 shrink-0 border-2 lg:w-[76px] ${index === active ? "border-[#E8500A]" : "border-white/15 hover:border-white/40"}`} aria-label={`Show photo ${index + 1} of ${images.length}`} aria-current={index === active}><Image src={image} alt="" fill sizes="76px" loading="eager" className="object-cover" /></button>)}
   </div>;
 
   return (
