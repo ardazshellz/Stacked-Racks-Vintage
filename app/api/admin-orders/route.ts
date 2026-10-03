@@ -3,6 +3,7 @@ import { isAdminRequest } from "@/lib/server/admin-auth";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
 import nodemailer from "nodemailer";
 import { sameOrigin } from "@/lib/server/request-security";
+import { parseMoney } from "@/lib/sales";
 
 function escapeHtml(value: unknown) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character] ?? character);
@@ -76,9 +77,9 @@ export async function PATCH(req: Request) {
   if (typeof body.notes === "string") changes.notes = body.notes;
   if (body.fulfilment_status === "dispatched") changes.dispatched_at = new Date().toISOString();
   const supabase = getSupabaseAdmin();
-  const price = body.price === undefined ? undefined : Number(body.price);
-  const costPrice = body.cost_price === undefined ? undefined : Number(body.cost_price);
-  if ([price, costPrice].some((value) => value !== undefined && (!Number.isFinite(value) || value < 0))) {
+  const price = body.price === undefined ? undefined : parseMoney(body.price);
+  const costPrice = body.cost_price === undefined ? undefined : parseMoney(body.cost_price);
+  if (price === null || costPrice === null) {
     return NextResponse.json({ error: "Prices must be numbers of 0 or more" }, { status: 400 });
   }
   if (price !== undefined || costPrice !== undefined) {

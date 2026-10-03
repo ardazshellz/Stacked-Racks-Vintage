@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { accountRows, orderPurchaseCost, saleStage, toCsv, toTsv, type SaleOrder } from "../lib/sales.ts";
+import { accountRows, isRecordedSale, orderPurchaseCost, parseMoney, saleStage, toCsv, toTsv, type SaleOrder } from "../lib/sales.ts";
 
 const base: SaleOrder = { id: "VINTED-1", item_id: "p1", source: "vinted", item_name: "Carhartt Jacket", brand: "Carhartt", price: 27, postage: 0, total: 27, customer_name: "Vinted buyer", payment_status: "paid", fulfilment_status: "paid", date_of_sale: "2026-10-03T10:00:00Z", items: [{ id: "p1", costPrice: 15 }] };
 
@@ -40,4 +40,21 @@ test("TSV flattens tabs/newlines and guards formulas", () => {
   const cells = toTsv(rows).split("\t");
   assert.equal(toTsv(rows).split("\n").length, 1);
   assert.equal(cells[2], "'=HYPERLINK(1) bad name");
+});
+
+test("parseMoney rejects empty and invalid values instead of saving £0", () => {
+  assert.equal(parseMoney(""), null);
+  assert.equal(parseMoney("   "), null);
+  assert.equal(parseMoney(null), null);
+  assert.equal(parseMoney(-1), null);
+  assert.equal(parseMoney("abc"), null);
+  assert.equal(parseMoney(0), 0);
+  assert.equal(parseMoney("27.5"), 27.5);
+});
+
+test("isRecordedSale covers Vinted and direct sales linked to a product", () => {
+  assert.equal(isRecordedSale({ source: "vinted", item_id: "p1" }), true);
+  assert.equal(isRecordedSale({ source: "manual", item_id: "p1" }), true);
+  assert.equal(isRecordedSale({ source: "manual", item_id: "" }), false);
+  assert.equal(isRecordedSale({ source: "stripe", item_id: "p1" }), false);
 });

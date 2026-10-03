@@ -94,3 +94,15 @@ export function toTsv(rows: string[][]) {
   const cell = (value: string) => (isNumber(value) ? value : guard(value.replace(/[\t\r\n]+/g, " ").trim()));
   return rows.map((row) => row.map(cell).join("\t")).join("\n");
 }
+
+// Money input from a form or request: empty, missing, negative or non-numeric is null (never silently £0).
+export function parseMoney(value: unknown): number | null {
+  if (value === null || value === undefined || (typeof value === "string" && value.trim() === "")) return null;
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount : null;
+}
+
+// A sale recorded against a product from the admin (Vinted or direct), as opposed to a website checkout.
+export function isRecordedSale(order: { source: string; item_id?: string }) {
+  return ["vinted", "manual"].includes(order.source) && Boolean(order.item_id);
+}
