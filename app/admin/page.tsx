@@ -5,6 +5,7 @@ import Image from "next/image";
 import EmailMarketing from "@/components/admin/EmailMarketing";
 import PhotoEditor from "@/components/admin/PhotoEditor";
 import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard";
+import { accountRows, orderPurchaseCost, saleStage, toCsv, toTsv } from "@/lib/sales";
 import {
   ALL_BRANDS,
   CATEGORIES,
@@ -243,57 +244,8 @@ function aiPrice(value: unknown) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : undefined;
 }
 
-function csvCell(value: unknown) {
-  const text = String(value ?? "");
-  const excelSafeText = /^[=+\-@]/.test(text) ? `'${text}` : text;
-  return `"${excelSafeText.replaceAll('"', '""')}"`;
-}
-
-function orderPurchaseCost(order: OrderRow, products: Product[]) {
-  const itemSnapshots = Array.isArray(order.items) ? order.items : [];
-  if (itemSnapshots.some((item) => item.costPrice !== undefined)) {
-    return itemSnapshots.reduce((sum, item) => sum + Number(item.costPrice || 0), 0);
-  }
-
-  const productIds = String(order.item_id ?? "").split(",").map((id) => id.trim()).filter(Boolean);
-  const productsById = products.filter((product) => productIds.includes(String(product.id)));
-  if (productsById.length) {
-    return productsById.reduce((sum, product) => sum + Number(product.costPrice || 0), 0);
-  }
-
-  const itemNames = String(order.item_name ?? "").split(" | ").map((name) => name.trim().toLowerCase());
-  return products
-    .filter((product) => itemNames.includes(product.name.trim().toLowerCase()))
-    .reduce((sum, product) => sum + Number(product.costPrice || 0), 0);
-}
-
-function salesChannel(source: string) {
-  const normalisedSource = String(source ?? "").trim().toLowerCase();
-  if (normalisedSource === "vinted") return "Vinted";
-  if (normalisedSource === "stripe" || normalisedSource === "website") return "Stacked Racks Website";
-  if (normalisedSource === "manual") return "Manual sale";
-  return source || "Unknown";
-}
-
-function downloadHmrcCsv(orders: OrderRow[], products: Product[]) {
-  const headers = ["Date", "Order ID", "Item", "Brand", "Sales Channel", "Sale Price", "Item Purchase Cost", "Gross Profit Before Fees", "Postage", "Total", "Customer Name"];
-  const rows = orders.map((order) => [
-    new Date(order.date_of_sale).toLocaleDateString("en-GB"),
-    order.id,
-    csvCell(order.item_name),
-    csvCell(order.brand),
-    csvCell(salesChannel(order.source)),
-    Number(order.price).toFixed(2),
-    orderPurchaseCost(order, products).toFixed(2),
-    (Number(order.price) - orderPurchaseCost(order, products)).toFixed(2),
-    Number(order.postage).toFixed(2),
-    Number(order.total).toFixed(2),
-    csvCell(order.customer_name),
-  ]);
-  const blob = new Blob([`\uFEFF${[headers.join(","), ...rows.map((row) => row.join(","))].join("\n")}`], {
-    type: "text/csv;charset=utf-8",
-  });
-  const url = URL.createObjectURL(blob);
+function downloadCsv(text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url;
   link.download = `stacked-racks-hmrc-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -316,6 +268,9 @@ export default function AdminPage() {
   const [dataError, setDataError] = useState("");
   const [search, setSearch] = useState("");
   const [exportFrom, setExportFrom] = useState("");
+  const [stageFilter, setStageFilter] = useState<"to_confirm" | "sold" | "all">("to_confirm");
+  const [copyNote, setCopyNote] = useState("");
+  const [copyFallback, setCopyFallback] = useState("");
   const [exportTo, setExportTo] = useState("");
   const [showManualSale, setShowManualSale] = useState(false);
   const [thirtyDaysAgo] = useState(() => Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -396,9 +351,12 @@ export default function AdminPage() {
 
   const filteredOrders = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return orders;
-    return orders.filter((order) => `${order.id} ${order.customer_name} ${order.item_name} ${order.brand}`.toLowerCase().includes(query));
-  }, [orders, search]);
+    const staged = stageFilter === "all" ? orders : orders.filter((order) => saleStage(order) === stageFilter);
+    if (!query) return staged;
+    return staged.filter((order) => `${order.id} ${order.customer_name} ${order.item_name} ${order.brand}`.toLowerCase().includes(query));
+  }, [orders, search, stageFilter]);
+  const toConfirmCount = orders.filter((order) => saleStage(order) === "to_confirm").length;
+  const soldCount = orders.filter((order) => saleStage(order) === "sold").length;
 
   const paidOrders = orders.filter((order) => order.payment_status === "paid");
   const revenue = paidOrders.reduce((sum, order) => sum + Number(order.total), 0);
@@ -410,12 +368,7 @@ export default function AdminPage() {
   const inventoryCost = products.filter((product) => product.stock > 0).reduce((sum, product) => sum + (Number(product.costPrice) || 0) * product.stock, 0);
   const soldStockCost = paidOrders.reduce((sum, order) => sum + orderPurchaseCost(order, products), 0);
   const grossProfitBeforeFees = paidOrders.reduce((sum, order) => sum + Number(order.price) - orderPurchaseCost(order, products), 0);
-  const exportableOrders = orders.filter((order) => {
-    const orderDate = new Date(order.date_of_sale).getTime();
-    const afterStart = !exportFrom || orderDate >= new Date(`${exportFrom}T00:00:00`).getTime();
-    const beforeEnd = !exportTo || orderDate <= new Date(`${exportTo}T23:59:59`).getTime();
-    return order.payment_status === "paid" && afterStart && beforeEnd;
-  });
+  const accountRowList = accountRows(orders, products, exportFrom, exportTo);
   const managedProducts = useMemo(() => {
     const query = productSearch.trim().toLowerCase();
     const sorted = products.filter((product) => product.listingStatus !== "draft").sort((a, b) =>
@@ -485,6 +438,25 @@ export default function AdminPage() {
     const data = await response.json();
     if (!response.ok) return setDataError(data.error ?? "Could not update order");
     await loadDashboard();
+  };
+
+  const saveOrderPrices = async (order: OrderRow, changes: { price?: number; cost_price?: number }) => {
+    const response = await fetch("/api/admin-orders", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: order.id, ...changes }) });
+    const data = await response.json();
+    if (!response.ok) return setDataError(data.error ?? "Could not update prices");
+    await loadDashboard();
+  };
+
+  const copyForSheets = async () => {
+    const text = toTsv(accountRowList);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyFallback("");
+      setCopyNote(`Copied ${accountRowList.length} rows. Paste under the last row of your Google Sheet.`);
+    } catch {
+      setCopyFallback(text);
+      setCopyNote("Copy blocked by the browser: select the text below and copy it.");
+    }
   };
 
   const movePhoto = (index: number, direction: -1 | 1) => {
@@ -817,20 +789,25 @@ export default function AdminPage() {
               {[{ label: "Paid orders", value: paidOrders.length }, { label: "All-time revenue", value: money(revenue) }, { label: "Last 30 days", value: money(recentRevenue) }, { label: "Average order", value: money(averageOrder) }, { label: "Needs packing", value: pendingFulfilment }, { label: "Unsold stock cost", value: money(inventoryCost) }, { label: "Sold stock cost", value: money(soldStockCost) }, { label: "Gross profit before fees", value: money(grossProfitBeforeFees) }].map((stat) => <div key={stat.label} className="bg-[#111] border border-white/8 p-5"><p className="text-[#888] text-[9px] uppercase tracking-[0.2em] mb-2">{stat.label}</p><p className="text-2xl font-black">{stat.value}</p></div>)}
             </div>
             <div className="flex flex-wrap gap-3 items-center mb-4">
+              <div className="flex gap-2">{([["to_confirm", `To be confirmed (${toConfirmCount})`], ["sold", `Sold (${soldCount})`], ["all", "All"]] as const).map(([value, label]) => <button key={value} onClick={() => setStageFilter(value)} className={`px-3 py-2.5 text-[10px] font-black tracking-wider uppercase border ${stageFilter === value ? "bg-[#F5C300] text-[#0a0a0a] border-[#F5C300]" : "border-white/10 text-[#aaa]"}`}>{label}</button>)}</div>
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customer, item or order…" className={`${INPUT} sm:max-w-xs`} />
               <button onClick={() => setShowManualSale(true)} className="bg-[#E8500A] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Record Vinted sale</button>
               <label className="text-[#aaa] text-[9px] uppercase tracking-wider">From <input type="date" value={exportFrom} onChange={(event) => setExportFrom(event.target.value)} className="ml-1 bg-[#171717] border border-white/10 px-2 py-2 text-white" /></label>
               <label className="text-[#aaa] text-[9px] uppercase tracking-wider">To <input type="date" value={exportTo} onChange={(event) => setExportTo(event.target.value)} className="ml-1 bg-[#171717] border border-white/10 px-2 py-2 text-white" /></label>
-              <button onClick={() => downloadHmrcCsv(exportableOrders, products)} className="border border-[#F5C300]/40 text-[#F5C300] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Export {exportableOrders.length} to HMRC CSV</button>
+              <button onClick={() => downloadCsv(toCsv(accountRowList))} className="border border-[#F5C300]/40 text-[#F5C300] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Export {accountRowList.length} confirmed to HMRC CSV</button>
+              <button onClick={() => void copyForSheets()} className="border border-[#F5C300]/40 text-[#F5C300] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Copy {accountRowList.length} for Google Sheets</button>
               <button onClick={loadDashboard} className="border border-white/10 text-[#888] px-4 py-2.5 text-[10px] font-black tracking-wider uppercase">Refresh</button>
             </div>
-            <p className="text-[#666] text-[10px] mb-4">HMRC CSV now includes what you paid for each item and gross profit before platform, payment and other business expenses.</p>
+            {copyNote && <p className="text-[#F5C300] text-[10px] mb-2">{copyNote}</p>}
+            {copyFallback && <textarea readOnly value={copyFallback} onFocus={(event) => event.target.select()} autoFocus className="w-full h-32 mb-4 bg-[#171717] border border-white/10 p-2 text-xs text-white" />}
+            <p className="text-[#666] text-[10px] mb-4">HMRC CSV and Google Sheets copy include confirmed sales only (marked delivered), with what you paid and gross profit before fees.</p>
             <div className="bg-[#111] border border-white/8 overflow-x-auto">
               <table className="w-full min-w-[1320px] text-left">
                 <thead><tr className="border-b border-white/10">{["Date", "Order", "Customer", "Item", "Source", "Payment", "Fulfilment", "Item cost", "Gross profit", "Total"].map((heading) => <th key={heading} className="px-4 py-3 text-[#888] text-[9px] tracking-[0.18em] uppercase">{heading}</th>)}</tr></thead>
                 <tbody>{filteredOrders.map((order) => {
                   const purchaseCost = orderPurchaseCost(order, products);
-                  return <tr key={order.id} className="border-b border-white/5 hover:bg-white/[0.02]"><td className="px-4 py-3 text-[#999] text-xs">{new Date(order.date_of_sale).toLocaleDateString("en-GB")}</td><td className="px-4 py-3 text-[#E8500A] text-xs font-bold">{order.id}</td><td className="px-4 py-3"><p className="text-sm font-semibold">{order.customer_name}</p><p className="text-[#888] text-[10px]">{order.customer_email}</p></td><td className="px-4 py-3"><p className="text-sm">{order.item_name}</p><p className="text-[#888] text-[10px]">{order.brand}</p></td><td className="px-4 py-3 text-[#999] text-xs uppercase">{order.source}</td><td className="px-4 py-3"><span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[9px] uppercase">{order.payment_status}</span></td><td className="px-4 py-3"><select aria-label={`Fulfilment status for ${order.id}`} value={order.fulfilment_status ?? (order.payment_status === "paid" ? "paid" : order.payment_status)} onChange={(event) => void updateOrder(order, event.target.value)} className="bg-[#171717] border border-white/10 text-white text-[10px] uppercase px-2 py-2"><option value="paid">Paid</option><option value="packing">Packing</option><option value="dispatched">Dispatched</option><option value="delivered">Delivered</option><option value="returned">Returned</option><option value="refunded">Refunded</option></select>{order.tracking_number && <p className="text-[#F5C300] text-[9px] mt-1 max-w-32 truncate" title={order.tracking_number}>{order.tracking_number}</p>}</td><td className="px-4 py-3 text-[#aaa] font-bold">{money(purchaseCost)}</td><td className="px-4 py-3 text-[#F5C300] font-black">{money(Number(order.price) - purchaseCost)}</td><td className="px-4 py-3 font-black">{money(order.total)}</td></tr>;
+                  const toConfirm = saleStage(order) === "to_confirm";
+                  return <tr key={order.id} className="border-b border-white/5 hover:bg-white/[0.02]"><td className="px-4 py-3 text-[#999] text-xs">{new Date(order.date_of_sale).toLocaleDateString("en-GB")}</td><td className="px-4 py-3 text-[#E8500A] text-xs font-bold">{order.id}</td><td className="px-4 py-3"><p className="text-sm font-semibold">{order.customer_name}</p><p className="text-[#888] text-[10px]">{order.customer_email}</p></td><td className="px-4 py-3"><p className="text-sm">{order.item_name}</p><p className="text-[#888] text-[10px]">{order.brand}</p></td><td className="px-4 py-3 text-[#999] text-xs uppercase">{order.source}</td><td className="px-4 py-3"><span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[9px] uppercase">{order.payment_status}</span></td><td className="px-4 py-3"><select aria-label={`Fulfilment status for ${order.id}`} value={order.fulfilment_status ?? (order.payment_status === "paid" ? "paid" : order.payment_status)} onChange={(event) => void updateOrder(order, event.target.value)} className="bg-[#171717] border border-white/10 text-white text-[10px] uppercase px-2 py-2"><option value="paid">Paid</option><option value="packing">Packing</option><option value="dispatched">Dispatched</option><option value="delivered">Delivered</option><option value="returned">Returned</option><option value="refunded">Refunded</option></select>{order.tracking_number && <p className="text-[#F5C300] text-[9px] mt-1 max-w-32 truncate" title={order.tracking_number}>{order.tracking_number}</p>}{toConfirm && <div className="flex gap-1 mt-1">{order.fulfilment_status !== "dispatched" && <button onClick={() => void updateOrder(order, "dispatched")} className="border border-white/15 px-2 py-1 text-[9px] uppercase">Posted</button>}<button onClick={() => void updateOrder(order, "delivered")} className="bg-[#F5C300] text-[#0a0a0a] px-2 py-1 text-[9px] font-black uppercase">Confirm sold</button></div>}</td><td className="px-4 py-3 text-[#aaa] font-bold">{toConfirm ? <input aria-label={`Bought price for ${order.id}`} key={`${order.id}-cost-${purchaseCost}`} type="number" min="0" step="0.01" defaultValue={purchaseCost} onBlur={(event) => { const value = Number(event.target.value); if (Number.isFinite(value) && value >= 0 && value !== purchaseCost) void saveOrderPrices(order, { cost_price: value }); }} className="w-20 bg-[#171717] border border-white/10 px-2 py-1 text-white text-xs" /> : money(purchaseCost)}</td><td className="px-4 py-3 text-[#F5C300] font-black">{money(Number(order.price) - purchaseCost)}</td><td className="px-4 py-3 font-black">{toConfirm ? <input aria-label={`Sold price for ${order.id}`} key={`${order.id}-price-${order.price}`} type="number" min="0" step="0.01" defaultValue={Number(order.price)} onBlur={(event) => { const value = Number(event.target.value); if (Number.isFinite(value) && value >= 0 && value !== Number(order.price)) void saveOrderPrices(order, { price: value }); }} className="w-20 bg-[#171717] border border-white/10 px-2 py-1 text-white text-xs" /> : money(order.total)}</td></tr>;
                 })}</tbody>
               </table>
               {!filteredOrders.length && <p className="text-[#555] text-center py-14">No sales recorded yet.</p>}
