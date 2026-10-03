@@ -76,6 +76,7 @@ export default function Footer() {
         <div className="text-center text-[#888] text-[11px] tracking-wide space-y-1 border-t border-white/8 pt-6">
           <p>Business address: 114 Durnsford Road, London, England, SW19 8HQ</p>
           <p>© 2026 Stacked Racks Vintage · All Rights Reserved</p>
+          <p className="text-[10px] text-[#666]">Zakery Shelley, sole trader, trading as Stacked Racks Vintage</p>
         </div>
       </div>
     </footer>
