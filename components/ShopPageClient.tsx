@@ -9,6 +9,7 @@ import RecentlySold from "@/components/RecentlySold";
 import ProductCard from "@/components/ProductCard";
 import ProductModal from "@/components/ProductModal";
 import Footer from "@/components/Footer";
+import CustomerReviews from "@/components/CustomerReviews";
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -474,6 +475,7 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
         <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
       )}
 
+      <CustomerReviews />
       <Footer />
     </div>
   );
