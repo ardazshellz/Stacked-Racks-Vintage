@@ -1,5 +1,9 @@
 const REVIEWS = [
   {
+    name: "olliesfashions",
+    text: "Absolutely unbelievable seller! Genuinely one of the nicest guys I’ve ever dealt with on Vinted. The polo is absolutely PERFECT, such a beautiful, genuine item and even better than I expected. Amazing communication, amazing service, amazing guy. An absolute legend and genuinely a credit to Vinted. Couldn’t recommend him enough — 100% buying from him again!",
+  },
+  {
     name: "georgielawrence",
     text: "Amazing, item just as described and fast delivery! Would definitely buy from here again!",
   },
