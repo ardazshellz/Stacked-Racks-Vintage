@@ -10,7 +10,7 @@ import SizeGuideLink from "@/components/SizeGuideLink";
 import { getPublicProduct, getPublicProducts } from "@/lib/server/catalog";
 import { isAdminRequest } from "@/lib/server/admin-auth";
 import { productPath, productSlug } from "@/lib/product-url";
-import { getVintedItemUrl, productGenderLabel, productSizeLabel, websiteProductTitle } from "@/lib/products";
+import { getVintedItemUrl, publicProduct, productGenderLabel, productSizeLabel, websiteProductTitle } from "@/lib/products";
 
 export const dynamic = "force-dynamic";
 
@@ -37,12 +37,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductPage({ params }: Props) {
   const { id, slug } = await params;
-  const product = await getPublicProduct(id).catch(() => null);
+  const isOwner = await isAdminRequest().catch(() => false);
+  const product = await getPublicProduct(id, isOwner).catch(() => null);
   if (!product) notFound();
   if (slug !== productSlug(product.name)) permanentRedirect(productPath(product));
 
-  const products = await getPublicProducts().catch(() => [product]);
-  const isOwner = await isAdminRequest().catch(() => false);
+  const products = await getPublicProducts().catch(() => [publicProduct(product)]);
   const details = product.garmentDetails;
   const vintedItemUrl = getVintedItemUrl(product);
   const displayTitle = websiteProductTitle(product.name);

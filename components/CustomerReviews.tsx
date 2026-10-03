@@ -33,7 +33,7 @@ export default function CustomerReviews() {
       <div className="mx-auto max-w-7xl">
         <div className="px-4 sm:px-6 lg:px-8">
           <p className="mb-3 text-center text-[10px] font-black uppercase tracking-[0.3em] text-[#E8500A]">
-            5-Star Vinted Feedback
+            Vinted Feedback · Rated 4.8
           </p>
           <h2
             id="customer-reviews-heading"

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { calculatePostage, FREE_SHIPPING_THRESHOLD, STANDARD_POSTAGE } from "../lib/shipping.ts";
 import { productPath, productSlug } from "../lib/product-url.ts";
 import { correctMarketingText, discountedPrices, generateCampaignDraft, normalizePromotionCode } from "../lib/promotions.ts";
-import { productGenderLabel, productMatchesGender, productMatchesSize, productSizeLabel, websiteProductTitle, type Product } from "../lib/products.ts";
+import { productGenderLabel, productMatchesGender, productMatchesSize, productSizeLabel, publicProduct, websiteProductTitle, type Product } from "../lib/products.ts";
 
 test("postage is charged below £50", () => {
   assert.equal(calculatePostage(FREE_SHIPPING_THRESHOLD - 0.01), STANDARD_POSTAGE);
@@ -76,4 +76,10 @@ test("one dual-fit product appears in both departments without duplicating stock
   assert.equal(product.stock, 1);
   assert.equal(productGenderLabel(product), "Men's + Women's");
   assert.equal(productSizeLabel(product), "Men's XS / Women's M");
+});
+
+test("public products never carry purchase costs or sources", () => {
+  const shown = publicProduct({ id: "1", name: "Tee", price: 20, costPrice: 8, source: "Fleek", costTaxYear: "2024-25", sku: "SRV-1" } as Product);
+  assert.equal(shown.price, 20);
+  assert.equal(JSON.stringify(shown).match(/costPrice|Fleek|2024-25|SRV-1/), null);
 });

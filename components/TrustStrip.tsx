@@ -6,7 +6,7 @@ const SIGNALS = [
       </svg>
     ),
     title: "Verified Seller",
-    sub: "2,500+ Five-Star Reviews",
+    sub: "2,500+ Vinted Reviews · Rated 4.8★",
   },
   {
     icon: (

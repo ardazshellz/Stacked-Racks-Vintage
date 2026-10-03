@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     template: "%s | Stacked Racks Vintage",
   },
   description:
-    "Unique & Rare Vintage Clothing from the 80s, 90s & 00s. London-based limited company with 5,000+ sales and 2,500+ five-star reviews. Shop Nike, Adidas, Burberry and more.",
+    "Unique & Rare Vintage Clothing from the 80s, 90s & 00s. London-based seller with 5,000+ sales and 2,500+ Vinted reviews (rated 4.8). Shop Nike, Adidas, Burberry and more.",
   keywords:
     "vintage clothing, 90s fashion, 80s fashion, streetwear, London vintage, rare vintage, Burberry, Nike, Adidas, Champion, vintage jackets, vintage shop London",
   openGraph: {
