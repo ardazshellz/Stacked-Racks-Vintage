@@ -3,6 +3,7 @@ import { productToRow, rowToProduct, type ProductRow } from "@/lib/product-db";
 import { isAdminRequest } from "@/lib/server/admin-auth";
 import { sameOrigin } from "@/lib/server/request-security";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
+import { isTaxYear } from "@/lib/sales";
 
 export async function POST(req: Request) {
   if (!(await isAdminRequest())) {
@@ -15,6 +16,8 @@ export async function POST(req: Request) {
     purchasePrice?: number;
     soldPrice?: number;
     channel?: string;
+    boughtFrom?: string;
+    costTaxYear?: string;
   };
   const channel = body.channel === "other" ? "other" : "vinted";
   const productId = String(body.productId ?? "").trim();
@@ -22,6 +25,9 @@ export async function POST(req: Request) {
   const soldPrice = Number(body.soldPrice);
   if (!productId || !Number.isFinite(purchasePrice) || purchasePrice < 0 || !Number.isFinite(soldPrice) || soldPrice <= 0) {
     return NextResponse.json({ error: "Product, purchase price and sold price are required" }, { status: 400 });
+  }
+  if (body.costTaxYear && !isTaxYear(body.costTaxYear)) {
+    return NextResponse.json({ error: "Cost tax year must look like 2024-25" }, { status: 400 });
   }
 
   const supabase = getSupabaseAdmin();
@@ -52,7 +58,9 @@ export async function POST(req: Request) {
   const originalProduct = rowToProduct(originalRow);
   const { id: _id, ...productDetails } = originalProduct;
   void _id;
-  const soldProduct = { ...productDetails, costPrice: purchasePrice, stock: 0 };
+  const boughtFrom = String(body.boughtFrom ?? originalProduct.source ?? "").trim().slice(0, 100);
+  const costTaxYear = body.costTaxYear || originalProduct.costTaxYear || "";
+  const soldProduct = { ...productDetails, costPrice: purchasePrice, source: boughtFrom || undefined, costTaxYear: costTaxYear || undefined, stock: 0 };
   const { error: stockError } = await supabase
     .from("products")
     .update({
@@ -87,6 +95,8 @@ export async function POST(req: Request) {
       brand: originalProduct.brand,
       price: soldPrice,
       costPrice: purchasePrice,
+      boughtFrom,
+      costTaxYear,
     }],
     date_of_sale: new Date().toISOString(),
   };

@@ -14,6 +14,7 @@ function parseEditorialMeta(value: string | null) {
       costPrice?: number;
       storageLocation?: string;
       source?: string;
+      costTaxYear?: string;
       vintedUrl?: string;
       listingStatus?: Product["listingStatus"];
       pricingStatus?: Product["pricingStatus"];
@@ -33,6 +34,7 @@ function parseEditorialMeta(value: string | null) {
       costPrice: meta.costPrice,
       storageLocation: meta.storageLocation,
       source: meta.source,
+      costTaxYear: meta.costTaxYear,
       vintedUrl: meta.vintedUrl,
       listingStatus: meta.listingStatus,
       pricingStatus: meta.pricingStatus,
@@ -58,6 +60,7 @@ function editorialMeta(product: Omit<Product, "id">) {
     product.costPrice ||
     product.storageLocation ||
     product.source ||
+    product.costTaxYear ||
     product.vintedUrl ||
     product.listingStatus ||
     product.pricingStatus ||
@@ -78,6 +81,7 @@ function editorialMeta(product: Omit<Product, "id">) {
     costPrice: Number(product.costPrice) || undefined,
     storageLocation: product.storageLocation?.trim() || undefined,
     source: product.source?.trim() || undefined,
+    costTaxYear: product.costTaxYear?.trim() || undefined,
     vintedUrl: product.vintedUrl?.trim() || undefined,
     listingStatus: product.listingStatus,
     pricingStatus: product.pricingStatus,
@@ -140,6 +144,7 @@ export function rowToProduct(row: ProductRow): Product {
     costPrice: meta.costPrice,
     storageLocation: meta.storageLocation,
     source: meta.source,
+    costTaxYear: meta.costTaxYear,
     vintedUrl: meta.vintedUrl,
     listingStatus: meta.listingStatus,
     pricingStatus: meta.pricingStatus,

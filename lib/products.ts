@@ -45,6 +45,7 @@ export interface Product {
   costPrice?: number;
   storageLocation?: string;
   source?: string;
+  costTaxYear?: string;
   listingStatus?: ListingStatus;
   pricingStatus?: PricingStatus;
   suggestedPriceLow?: number;
