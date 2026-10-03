@@ -22,8 +22,9 @@ export async function GET() {
     <g:brand>${xml(product.brand)}</g:brand>
     <g:identifier_exists>no</g:identifier_exists>
     <g:age_group>adult</g:age_group>
-    <g:gender>${product.gender === "Mens" ? "male" : "female"}</g:gender>
-    <g:size>${xml(product.size)}</g:size>
+    <g:gender>${product.secondaryGender ? "unisex" : product.gender === "Mens" ? "male" : "female"}</g:gender>
+    <g:size>${xml(product.size)}</g:size>${product.garmentDetails?.colour ? `
+    <g:color>${xml(product.garmentDetails.colour)}</g:color>` : ""}
   </item>`).join("\n");
   const feed = `<?xml version="1.0" encoding="UTF-8"?>
 <rss xmlns:g="http://base.google.com/ns/1.0" version="2.0"><channel>
