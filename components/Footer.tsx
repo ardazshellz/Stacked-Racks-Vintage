@@ -74,9 +74,8 @@ export default function Footer() {
         </div>
 
         <div className="text-center text-[#888] text-[11px] tracking-wide space-y-1 border-t border-white/8 pt-6">
-          <p>STACKED RACKS VINTAGE LTD · Company no. 15999498 · Registered in England and Wales</p>
-          <p>Registered office: 114 Durnsford Road, London, England, SW19 8HQ</p>
-          <p>© 2026 Stacked Racks Vintage Ltd · All Rights Reserved</p>
+          <p>Business address: 114 Durnsford Road, London, England, SW19 8HQ</p>
+          <p>© 2026 Stacked Racks Vintage · All Rights Reserved</p>
         </div>
       </div>
     </footer>
