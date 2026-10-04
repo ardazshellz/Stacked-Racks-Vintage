@@ -1,26 +1,12 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { generateCampaignDraft, normalizePromotionCode } from "@/lib/promotions";
+import { campaignHtml } from "@/lib/email-html";
 import { isAdminRequest } from "@/lib/server/admin-auth";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
 import { subscriberToken } from "@/lib/server/subscriber-token";
 
 export const runtime = "nodejs";
-
-function escapeHtml(value: unknown) {
-  return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-}
-
-function campaignHtml(body: string, previewText: string, unsubscribeUrl: string) {
-  const content = escapeHtml(body)
-    .replaceAll("https://stackedracksvintage.co.uk/shop", "__SR_SHOP_LINK__")
-    .replaceAll("https://www.vinted.co.uk/member/59714764-stackedracks", "__SR_VINTED_LINK__")
-    .replaceAll("https://stackedracksvintage.co.uk", '<a href="https://stackedracksvintage.co.uk" style="color:#F5C300">stackedracksvintage.co.uk</a>')
-    .replaceAll("__SR_SHOP_LINK__", '<a href="https://stackedracksvintage.co.uk/shop" style="color:#F5C300">Shop the latest drop →</a>')
-    .replaceAll("__SR_VINTED_LINK__", '<a href="https://www.vinted.co.uk/member/59714764-stackedracks" style="color:#F5C300">Stacked Racks on Vinted</a>')
-    .replaceAll("\n", "<br>");
-  return `<div style="display:none;max-height:0;overflow:hidden">${escapeHtml(previewText)}</div><div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0a0a0a;color:#fff;padding:32px"><p style="color:#E8500A;font-size:12px;letter-spacing:2px;text-transform:uppercase">Stacked Racks Vintage</p><div style="font-size:16px;line-height:1.7;color:#ddd">${content}</div><p style="margin-top:32px;color:#666;font-size:12px">You are receiving this because you joined the Stacked Racks email list. <a href="${unsubscribeUrl}" style="color:#aaa">Unsubscribe</a>.</p></div>`;
-}
 
 async function mailer() {
   const gmailPass = process.env.GMAIL_APP_PASSWORD;
