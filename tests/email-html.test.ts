@@ -32,9 +32,26 @@ test("body and preview text are escaped before link markup is added", () => {
 
 test("full-width table and cell carry the near-black background", () => {
   const html = campaignHtml("Hello", "", unsubscribeUrl);
-  assert.match(html, /<table[^>]*width="100%"[^>]*bgcolor="#0A0A0A"[^>]*style="[^"]*background-color:#0A0A0A"/);
+  assert.match(html, /<table[^>]*width="100%"[^>]*bgcolor="#0A0A0A"[^>]*style="[^"]*background-color:#0A0A0A;background-image:linear-gradient\(#0A0A0A,#0A0A0A\)/);
   assert.match(html, /<td[^>]*bgcolor="#0A0A0A"[^>]*style="background-color:#0A0A0A;/);
   assert.match(html, /max-width:600px/);
+});
+
+test("all email types emit the Gmail dark-mode document and keep preview first", () => {
+  const examples = [dropEmailHtml(drop), campaignHtml("Hello", "Preview <safe>", unsubscribeUrl), welcomeEmailHtml("CODE", unsubscribeUrl)];
+  for (const html of examples) {
+    assert.ok(html.startsWith("<!doctype html>"));
+    assert.match(html, /<meta name="color-scheme" content="light dark">/);
+    assert.match(html, /<meta name="supported-color-schemes" content="light dark">/);
+    assert.match(html, /<body class="body"[^>]*background-image:linear-gradient\(#0A0A0A,#0A0A0A\)/);
+    assert.match(html, /u \+ \.body \.gmail-blend-screen \{ background:#000; mix-blend-mode:screen; \}/);
+    assert.match(html, /u \+ \.body \.gmail-blend-difference \{ background:#000; mix-blend-mode:difference; \}/);
+    assert.match(html, /<div class="gmail-blend-screen"><div class="gmail-blend-difference">/);
+    assert.match(html, /bgcolor="#E8500A"[^>]*background-image:linear-gradient\(#E8500A,#E8500A\)/);
+    assert.match(html, /border-image:linear-gradient\(#E8500A,#E8500A\) 1/);
+    assert.ok(html.indexOf('style="display:none;max-height:0;overflow:hidden"') < html.indexOf('<table role="presentation"'));
+  }
+  assert.match(examples[1], /Preview &lt;safe&gt;/);
 });
 
 const drop = {
@@ -49,7 +66,7 @@ test("drop email uses the reference colours, layout and item details", () => {
   assert.match(html, /bgcolor="#0A0A0A"/);
   assert.match(html, /max-width:600px/);
   assert.match(html, /border-left:5px solid #E8500A/);
-  assert.match(html, /color:#F5C300[^>]*>NEW DROP/);
+  assert.match(html, /color:#F5C300[^>]*><div class="gmail-blend-screen"><div class="gmail-blend-difference">NEW DROP/);
   assert.match(html, /padding:38px 16px 38px/);
   assert.match(html, /src="https:\/\/stackedracksvintage\.co\.uk\/email-wordmark\.png"[^>]*alt="Stacked Racks Vintage"[^>]*width="300"/);
   assert.match(html, /SUNDAY 4 OCTOBER/);
@@ -75,7 +92,7 @@ test("drop item cards show the size on its own line without repeating it in the 
     items: [{ ...drop.items[0], name: "Metallica Vintage T-Shirt – Men's S / Women's M", size: "Men's S / Women's M" }],
   });
   assert.match(html, /alt="Metallica Vintage T-Shirt"/);
-  assert.match(html, />Metallica Vintage T-Shirt<\/td><\/tr><tr><td[^>]*>Men's S \/ Women's M<\/td>/);
+  assert.match(html, /Metallica Vintage T-Shirt<\/div><\/div><\/td><\/tr><tr><td[^>]*>\s*<div class="gmail-blend-screen"><div class="gmail-blend-difference">Men's S \/ Women's M/);
   assert.doesNotMatch(html, /Metallica Vintage T-Shirt – Men's S/);
 });
 
@@ -85,6 +102,24 @@ test("promo appears only when enabled", () => {
   const html = dropEmailHtml({ ...drop, promotion: { enabled: true, percentOff: 10, code: "DROP<10" } });
   assert.match(html, /10% OFF THE DROP/);
   assert.match(html, /Use code <strong>DROP&lt;10<\/strong> at checkout/);
+  assert.match(html, /bgcolor="#F5C300"[^>]*background-image:linear-gradient\(#F5C300,#F5C300\)/);
+});
+
+test("three valid items occupy two fixed two-column rows with an empty last cell", () => {
+  const items = [
+    { id: "one", name: "First", size: "S", price: 10, imageUrls: ["https://example.com/first.jpg"] },
+    { id: "two", name: "Second", size: "M", price: 20 },
+    { id: "three", name: "Third", size: "L", price: 30 },
+  ];
+  for (const html of [dropEmailHtml({ ...drop, items }), campaignHtml("Hello", "", unsubscribeUrl, items), welcomeEmailHtml("CODE", unsubscribeUrl, items)]) {
+    assert.equal((html.match(/<tr class="item-row">/g) ?? []).length, 2);
+    assert.equal((html.match(/<td class="item-card" width="50%"/g) ?? []).length, 3);
+    assert.match(html, /<tr class="item-row">[\s\S]*?First[\s\S]*?Second[\s\S]*?<\/tr><tr class="item-row">[\s\S]*?Third/);
+    assert.match(html, /<td width="12" bgcolor="#0A0A0A"/);
+    assert.match(html, /table-layout:fixed/);
+    assert.doesNotMatch(html, /@media|display:block!important/);
+    assert.match(html, /width="260" style="display:block;width:100%;max-width:260px;height:auto/);
+  }
 });
 
 test("item URLs use validated ids and unsafe image or unsubscribe URLs are omitted", () => {
