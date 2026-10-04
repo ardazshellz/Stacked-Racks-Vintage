@@ -1,27 +1,66 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { usePathname } from "next/navigation";
 
 const SUBSCRIBED_KEY = "sr_email_subscribed";
+const DISMISSED_KEY = "sr_email_popup_dismissed";
+const EXCLUDED_ROUTES = ["/admin", "/checkout", "/cart", "/order-confirmation", "/order-status", "/unsubscribe", "/legal"];
 
 export default function EmailPopup() {
+  const pathname = usePathname();
+  const excluded = EXCLUDED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
   const [visible, setVisible] = useState(false);
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const open = () => {
-      // Only suppress if they've already subscribed
-      if (!localStorage.getItem(SUBSCRIBED_KEY)) setVisible(true);
+      if (!excluded && !localStorage.getItem(SUBSCRIBED_KEY)) setVisible(true);
     };
     document.addEventListener("sr:open-email-popup", open);
     return () => document.removeEventListener("sr:open-email-popup", open);
-  }, []);
+  }, [excluded]);
 
-  // Just close — no permanent dismissal, so banner click opens it again
-  const dismiss = () => setVisible(false);
+  useEffect(() => {
+    if (excluded) {
+      const timer = window.setTimeout(() => setVisible(false), 0);
+      return () => window.clearTimeout(timer);
+    }
+    if (localStorage.getItem(SUBSCRIBED_KEY) || sessionStorage.getItem(DISMISSED_KEY)) return;
+    const timer = window.setTimeout(() => {
+      if (!localStorage.getItem(SUBSCRIBED_KEY) && !sessionStorage.getItem(DISMISSED_KEY)) setVisible(true);
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [excluded]);
+
+  useEffect(() => {
+    if (!visible || excluded) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        sessionStorage.setItem(DISMISSED_KEY, "1");
+        setVisible(false);
+      } else if (event.key === "Tab") {
+        const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? []);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => { document.removeEventListener("keydown", onKeyDown); previousFocus?.focus(); };
+  }, [visible, excluded]);
+
+  const dismiss = useCallback(() => { sessionStorage.setItem(DISMISSED_KEY, "1"); setVisible(false); }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,21 +84,22 @@ export default function EmailPopup() {
     }
   };
 
-  if (!visible) return null;
+  if (!visible || excluded) return null;
 
   return (
     <div
       className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && dismiss()}
     >
-      <div className="bg-[#111] border border-white/10 w-full max-w-sm shadow-2xl relative overflow-hidden">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="email-popup-title" className="bg-[#111] border border-white/10 w-full max-w-sm shadow-2xl relative overflow-hidden">
         {/* Orange top accent */}
         <div className="h-1 bg-[#E8500A]" />
 
         {/* Close */}
         <button
+          ref={closeRef}
           onClick={dismiss}
-          className="absolute top-3 right-3 text-[#555] hover:text-white w-7 h-7 flex items-center justify-center transition-colors z-10"
+          className="absolute top-2 right-2 text-[#aaa] hover:text-white w-10 h-10 flex items-center justify-center transition-colors z-10"
           aria-label="Close"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
@@ -72,10 +112,11 @@ export default function EmailPopup() {
             <>
               <p className="text-[#E8500A] text-[9px] font-black tracking-[0.3em] uppercase mb-2">Exclusive Offer</p>
               <h2
+                id="email-popup-title"
                 className="text-white text-xl font-black tracking-wide mb-1 leading-tight"
                 style={{ fontFamily: "var(--font-playfair-display), serif" }}
               >
-                10% Off Your First Order
+                10% OFF YOUR FIRST ORDER
               </h2>
               <p className="text-[#aaa] text-xs leading-relaxed mb-5">
                 Sign up and we&apos;ll send your discount code straight away. Be first to hear about new drops and archive pieces.
@@ -117,6 +158,7 @@ export default function EmailPopup() {
                 </div>
                 <p className="text-[#E8500A] text-[9px] font-black tracking-[0.3em] uppercase mb-2">Check Your Inbox</p>
                 <h2
+                  id="email-popup-title"
                   className="text-white text-xl font-black tracking-wide mb-3"
                   style={{ fontFamily: "var(--font-playfair-display), serif" }}
                 >

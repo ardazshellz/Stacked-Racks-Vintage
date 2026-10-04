@@ -1,6 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { welcomeEmailHtml } from "@/lib/email-html";
+import { productSizeLabel } from "@/lib/products";
+import { loadPublicEmailProducts } from "@/lib/server/email-products";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
 import { sameOrigin, withinRateLimit } from "@/lib/server/request-security";
 import { subscriberToken } from "@/lib/server/subscriber-token";
@@ -57,21 +60,21 @@ export async function POST(req: Request) {
     auth: { user: gmailUser, pass: gmailPass },
   });
 
+  let latestItems: Parameters<typeof welcomeEmailHtml>[2] = [];
+  try {
+    latestItems = (await loadPublicEmailProducts()).items
+      .slice(0, 6)
+      .map((item) => ({ id: item.id, name: item.name, size: productSizeLabel(item), price: item.price, imageUrls: item.imageUrls }));
+  } catch (error) {
+    console.error("Welcome email items load failed:", error);
+  }
+
   try {
     await transporter.sendMail({
       from: `"Stacked Racks Vintage" <${gmailUser}>`,
       to: email,
       subject: "Your 10% off code — Stacked Racks Vintage",
-      html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;background:#0a0a0a;color:#fff;padding:32px">
-        <p style="color:#E8500A;font-size:12px;letter-spacing:2px;text-transform:uppercase">Stacked Racks Vintage</p>
-        <h1>Your 10% off code</h1>
-        <p style="color:#aaa">Thanks for signing up. Enter this code in the discount-code box on our checkout page.</p>
-        <div style="background:#111;border:1px solid #E8500A;padding:20px;text-align:center;margin:24px 0">
-          <strong style="color:#E8500A;font-size:28px;letter-spacing:5px">${subscriberCode}</strong>
-        </div>
-        <p><a href="https://stackedracksvintage.co.uk/shop" style="color:#F5C300">Browse the latest drop →</a></p>
-        <p style="color:#666;font-size:12px">You received this because you requested a first-order discount at stackedracksvintage.co.uk. <a href="${unsubscribeUrl}" style="color:#aaa">Unsubscribe</a>.</p>
-      </div>`,
+      html: welcomeEmailHtml(subscriberCode, unsubscribeUrl, latestItems),
     });
   } catch (error) {
     console.error("Signup email failed:", error);
