@@ -4,12 +4,12 @@ import { campaignHtml, dropEmailHtml, validDropItemId, welcomeEmailHtml } from "
 
 const unsubscribeUrl = "https://stackedracksvintage.co.uk/unsubscribe";
 
-test("product URLs become complete yellow item links", () => {
+test("product URLs become complete orange item links", () => {
   const first = "https://stackedracksvintage.co.uk/products/abc-123/";
   const second = "https://stackedracksvintage.co.uk/products/DEF_456/blue-top";
   const html = campaignHtml(`${first}\n${second}`, "Preview", unsubscribeUrl);
-  assert.match(html, /<a href="https:\/\/stackedracksvintage\.co\.uk\/products\/abc-123\/" style="color:#F5C300">View item →<\/a>/);
-  assert.match(html, /<a href="https:\/\/stackedracksvintage\.co\.uk\/products\/DEF_456\/blue-top" style="color:#F5C300">View item →<\/a>/);
+  assert.match(html, /<a href="https:\/\/stackedracksvintage\.co\.uk\/products\/abc-123\/" style="color:#E8500A">View item →<\/a>/);
+  assert.match(html, /<a href="https:\/\/stackedracksvintage\.co\.uk\/products\/DEF_456\/blue-top" style="color:#E8500A">View item →<\/a>/);
   assert.equal((html.match(/View item →/g) ?? []).length, 2);
   assert.doesNotMatch(html, /stackedracksvintage\.co\.uk<\/a>\/products/);
 });
@@ -55,7 +55,7 @@ test("all email types emit the Gmail dark-mode document and keep preview first",
 });
 
 const drop = {
-  items: [{ id: "abc-123", name: "Nike <script>alert(1)</script>", size: "Men's M / Women's L", price: 45, imageUrls: ["https://example.com/shirt.jpg?x=1&y=2"] }],
+  items: [{ id: "abc-123", name: "Nike <script>alert(1)</script>", size: "Men's M / Women's L", brand: "Nike", gender: "Mens" as const, secondaryGender: "Womens" as const, category: "T-Shirts & Tops", price: 45, imageUrls: ["https://example.com/shirt.jpg?x=1&y=2"] }],
   intro: "Fresh <b>pieces</b>",
   dateLine: "SUNDAY 4 OCTOBER",
   unsubscribeUrl: "https://stackedracksvintage.co.uk/unsubscribe?token=a&source=drop",
@@ -66,8 +66,8 @@ test("drop email uses the reference colours, layout and item details", () => {
   assert.match(html, /bgcolor="#0A0A0A"/);
   assert.match(html, /max-width:600px/);
   assert.match(html, /border-left:5px solid #E8500A/);
-  assert.match(html, /color:#F5C300[^>]*><div class="gmail-blend-screen"><div class="gmail-blend-difference">NEW DROP/);
-  assert.match(html, /padding:38px 16px 38px/);
+  assert.match(html, /src="https:\/\/stackedracksvintage\.co\.uk\/email\/new-drop\.png" alt="NEW DROP" width="294"/);
+  assert.match(html, /padding:38px 16px/);
   assert.match(html, /src="https:\/\/stackedracksvintage\.co\.uk\/email-wordmark\.png"[^>]*alt="Stacked Racks Vintage"[^>]*width="300"/);
   assert.match(html, /SUNDAY 4 OCTOBER/);
   assert.match(html, /1 piece/);
@@ -81,7 +81,7 @@ test("drop item text, intro, image URL and unsubscribe URL are escaped", () => {
   assert.doesNotMatch(html, /<script>|<b>pieces<\/b>/);
   assert.match(html, /Nike &lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.match(html, /Fresh &lt;b&gt;pieces&lt;\/b&gt;/);
-  assert.match(html, /Men's M \/ Women's L/);
+  assert.match(html, /Fits Men's M \/ Women's L/);
   assert.match(html, /src="https:\/\/example\.com\/shirt\.jpg\?x=1&amp;y=2"/);
   assert.match(html, /href="https:\/\/stackedracksvintage\.co\.uk\/unsubscribe\?token=a&amp;source=drop"/);
 });
@@ -89,10 +89,11 @@ test("drop item text, intro, image URL and unsubscribe URL are escaped", () => {
 test("drop item cards show the size on its own line without repeating it in the title", () => {
   const html = dropEmailHtml({
     ...drop,
-    items: [{ ...drop.items[0], name: "Metallica Vintage T-Shirt – Men's S / Women's M", size: "Men's S / Women's M" }],
+    items: [{ ...drop.items[0], name: "Metallica Vintage T-Shirt – Men's S / Women's M", brand: "Metallica", size: "Men's S / Women's M" }],
   });
   assert.match(html, /alt="Metallica Vintage T-Shirt"/);
-  assert.match(html, /Metallica Vintage T-Shirt<\/div><\/div><\/td><\/tr><tr><td[^>]*>\s*<div class="gmail-blend-screen"><div class="gmail-blend-difference">Men's S \/ Women's M/);
+  assert.match(html, /color:#E8500A[^>]*>Metallica Vintage T-Shirt<\/td>/);
+  assert.match(html, /Metallica · Fits Men's S \/ Women's M/);
   assert.doesNotMatch(html, /Metallica Vintage T-Shirt – Men's S/);
 });
 
@@ -101,8 +102,36 @@ test("promo appears only when enabled", () => {
   assert.doesNotMatch(dropEmailHtml({ ...drop, promotion: { enabled: false, percentOff: 10, code: "DROP10" } }), /OFF THE DROP|Use code/);
   const html = dropEmailHtml({ ...drop, promotion: { enabled: true, percentOff: 10, code: "DROP<10" } });
   assert.match(html, /10% OFF THE DROP/);
-  assert.match(html, /Use code <strong>DROP&lt;10<\/strong> at checkout/);
-  assert.match(html, /bgcolor="#F5C300"[^>]*background-image:linear-gradient\(#F5C300,#F5C300\)/);
+  assert.match(html, /Use code <strong style="color:#E8500A">DROP&lt;10<\/strong> at checkout/);
+  assert.match(html, /border:2px solid #E8500A/);
+  assert.doesNotMatch(html, /bgcolor="#F5C300"|background-color:#F5C300/);
+});
+
+test("coloured content stays outside blend wrappers in every email", () => {
+  const examples = [
+    dropEmailHtml({ ...drop, promotion: { enabled: true, percentOff: 10, code: "ILOVEYOU" } }),
+    campaignHtml("Visit https://stackedracksvintage.co.uk/shop", "", unsubscribeUrl, [drop.items[0]]),
+    welcomeEmailHtml("ILOVEYOU", unsubscribeUrl, [drop.items[0]]),
+  ];
+  for (const html of examples) {
+    const wrapped = [...html.matchAll(/<(div|span) class="gmail-blend-screen"><\1 class="gmail-blend-difference">([\s\S]*?)<\/\1><\/\1>/g)];
+    assert.ok(wrapped.length > 0);
+    for (const [, , content] of wrapped) assert.doesNotMatch(content, /color:#(?:E8500A|F5C300|0A0A0A)/i);
+    assert.doesNotMatch(html, /bgcolor="#F5C300"|background-color:#F5C300/);
+  }
+  assert.match(examples[0], /color:#E8500A;font-size:17px;padding-top:9px">1 piece<\/div>/);
+  assert.match(examples[1], /style="color:#E8500A">Shop the latest drop →<\/a>/);
+});
+
+test("cards show website metadata and an outlined orange button", () => {
+  const html = dropEmailHtml(drop);
+  assert.match(html, /class="item-card"[^>]*bgcolor="#111111"[^>]*border:1px solid #E8500A/);
+  assert.match(html, /border:1px solid #E8500A;color:#E8500A[^>]*>MEN'S \+ WOMEN'S<\/span>/);
+  assert.match(html, /T-SHIRTS &amp; TOPS/);
+  assert.match(html, /color:#E8500A;font-family:Arial,sans-serif;font-size:15px[^>]*>Nike &lt;script&gt;/);
+  assert.match(html, /Nike · Fits Men's M \/ Women's L/);
+  assert.match(html, /color:#E8500A;font-family:Arial,sans-serif;font-size:20px[^>]*>£45\.00/);
+  assert.match(html, /href="https:\/\/stackedracksvintage\.co\.uk\/products\/abc-123\/" style="display:block;border:1px solid #E8500A;background-color:#0A0A0A[^>]*>VIEW ITEM<\/a>/);
 });
 
 test("three valid items occupy two fixed two-column rows with an empty last cell", () => {
@@ -118,7 +147,7 @@ test("three valid items occupy two fixed two-column rows with an empty last cell
     assert.match(html, /<td width="12" bgcolor="#0A0A0A"/);
     assert.match(html, /table-layout:fixed/);
     assert.doesNotMatch(html, /@media|display:block!important/);
-    assert.match(html, /width="260" style="display:block;width:100%;max-width:260px;height:auto/);
+    assert.match(html, /width="260" style="display:block;width:100%;height:auto/);
   }
 });
 
@@ -131,7 +160,7 @@ test("item URLs use validated ids and unsafe image or unsubscribe URLs are omitt
   assert.match(html, /href="https:\/\/stackedracksvintage\.co\.uk\/products\/abc-123\/"/);
   assert.match(html, /href="https:\/\/stackedracksvintage\.co\.uk\/products\/42\/"/);
   assert.doesNotMatch(html, /products\/\.\.\/bad|javascript:|>Bad<|>Unsubscribe</);
-  assert.equal((html.match(/View item →/g) ?? []).length, 2);
+  assert.equal((html.match(/>VIEW ITEM<\/a>/g) ?? []).length, 2);
   assert.equal(validDropItemId("abc_DEF-123"), true);
   assert.equal(validDropItemId("a/b"), false);
   assert.equal(validDropItemId(0), false);
@@ -147,15 +176,15 @@ test("campaign uses the shared wordmark, ordered cards and recipient unsubscribe
   assert.ok(html.indexOf("Second shirt") < html.indexOf("First shirt"));
   assert.match(html, /New &lt;pieces&gt; today/);
   assert.match(html, /unsubscribe\?token=a&amp;x=1/);
-  assert.equal((html.match(/View item →/g) ?? []).length, 2);
+  assert.equal((html.match(/>VIEW ITEM<\/a>/g) ?? []).length, 2);
 });
 
 test("welcome email includes escaped code and latest drop cards", () => {
   const html = welcomeEmailHtml("RACKS-<10>", unsubscribeUrl, [drop.items[0]]);
   assert.match(html, /email-wordmark\.png/);
-  assert.match(html, /Your 10% off code/);
+  assert.match(html, /src="https:\/\/stackedracksvintage\.co\.uk\/email\/your-10-off-code\.png" alt="YOUR 10% OFF CODE" width="535"/);
   assert.match(html, /RACKS-&lt;10&gt;/);
-  assert.match(html, /LATEST DROP/);
+  assert.match(html, /src="https:\/\/stackedracksvintage\.co\.uk\/email\/latest-drop\.png" alt="LATEST DROP" width="355"/);
   assert.match(html, /Nike &lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.match(html, /£45\.00/);
   assert.doesNotMatch(html, /<script>/);
@@ -164,5 +193,5 @@ test("welcome email includes escaped code and latest drop cards", () => {
 test("welcome email still renders code when there are no items", () => {
   const html = welcomeEmailHtml("RACKS-ABC", unsubscribeUrl);
   assert.match(html, /RACKS-ABC/);
-  assert.doesNotMatch(html, /LATEST DROP/);
+  assert.doesNotMatch(html, /latest-drop\.png/);
 });

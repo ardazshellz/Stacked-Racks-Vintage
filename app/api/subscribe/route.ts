@@ -64,7 +64,7 @@ export async function POST(req: Request) {
   try {
     latestItems = (await loadPublicEmailProducts()).items
       .slice(0, 6)
-      .map((item) => ({ id: item.id, name: item.name, size: productSizeLabel(item), price: item.price, imageUrls: item.imageUrls }));
+      .map((item) => ({ id: item.id, name: item.name, size: productSizeLabel(item), price: item.price, imageUrls: item.imageUrls, gender: item.gender, secondaryGender: item.secondaryGender, category: item.category, brand: item.brand }));
   } catch (error) {
     console.error("Welcome email items load failed:", error);
   }
