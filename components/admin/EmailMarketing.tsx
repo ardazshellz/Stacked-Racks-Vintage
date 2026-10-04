@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { dropEmailHtml } from "@/lib/email-html";
+import { campaignHtml, dropEmailHtml, type DropEmailItem } from "@/lib/email-html";
 import { isNew, productMatchesGender, productSizeLabel, type Product } from "@/lib/products";
 import { normalizePromotionCode } from "@/lib/promotions";
 
@@ -22,11 +22,6 @@ function ukIsoDate() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
-function releaseNote(value: string) {
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", dateStyle: "medium" }).format(date) : value;
-}
-
 function exportSubscribers(subscribers: Subscriber[]) {
   const lines = ["Email,Joined,Source,Status,Discount redeemed", ...subscribers.map((subscriber) => [subscriber.email, new Date(subscriber.consented_at).toLocaleDateString("en-GB"), subscriber.consent_source, subscriber.unsubscribed_at ? "Unsubscribed" : "Active", subscriber.discount_redeemed_at ? "Yes" : "No"].map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))];
   const url = URL.createObjectURL(new Blob([`\uFEFF${lines.join("\n")}`], { type: "text/csv;charset=utf-8" }));
@@ -42,13 +37,13 @@ export default function EmailMarketing() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [items, setItems] = useState<Product[]>([]);
-  const [scheduledReleases, setScheduledReleases] = useState<Record<string, string>>({});
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [itemFilter, setItemFilter] = useState<ItemFilter>("All");
   const [drop, setDrop] = useState({ subject: "New drop: 0 one-off vintage pieces", intro: "Fresh one-off vintage pieces have landed. Pick your favourites before they go.", dateLine: ukDate(), promotionEnabled: false, percentOff: 10, code: "DROP10", testEmail: "zakeryshelley1997@gmail.com" });
   const [subjectEdited, setSubjectEdited] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [campaignPreviewOpen, setCampaignPreviewOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -66,7 +61,7 @@ export default function EmailMarketing() {
       const nextSubscribers: Subscriber[] = data.subscribers ?? [];
       const nextItems: Product[] = data.items ?? [];
       setSubscribers(nextSubscribers); setPromotions(data.promotions ?? []); setCampaigns(data.campaigns ?? []);
-      setItems(nextItems); setScheduledReleases(data.scheduledReleases ?? {});
+      setItems(nextItems);
       const active = new Set(nextSubscribers.filter((subscriber) => !subscriber.unsubscribed_at).map((subscriber) => subscriber.email));
       const available = new Set(nextItems.map((item) => String(item.id)));
       setSelectedEmails((current) => current.filter((email) => active.has(email)));
@@ -95,7 +90,7 @@ export default function EmailMarketing() {
     const sevenDaysAgo = new Date(`${today}T00:00:00Z`);
     sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6);
     const earliest = sevenDaysAgo.toISOString().slice(0, 10);
-    return items.filter((item) => {
+    return items.filter((item) => item.stock > 0 && item.listingStatus !== "draft").filter((item) => {
       const date = item.listedDate?.slice(0, 10);
       switch (itemFilter) {
         case "Posted today": return date === today;
@@ -105,12 +100,14 @@ export default function EmailMarketing() {
         case "Marquee": return item.badge === "RARE";
         default: return true;
       }
-    });
+    }).sort((a, b) => Date.parse(b.listedDate) - Date.parse(a.listedDate));
   }, [items, itemFilter]);
+  const emailItems: DropEmailItem[] = selectedItems.map((item) => ({ id: item.id, name: item.name, size: productSizeLabel(item), price: item.price, imageUrls: item.imageUrls }));
   const dropSubject = subjectEdited ? drop.subject : `New drop: ${selectedItems.length} one-off vintage pieces`;
   const dropCode = normalizePromotionCode(drop.code);
   const dropError = selectedItemIds.length < 1 ? "Select at least one item." : selectedItemIds.length > 12 ? "Select no more than 12 items." : selectedEmails.length < 1 ? "Select at least one subscribed email." : selectedEmails.length > 200 ? "Select no more than 200 subscribers." : !dropSubject.trim() ? "Enter a subject." : !drop.dateLine.trim() ? "Enter a date line." : drop.promotionEnabled && (!Number.isInteger(drop.percentOff) || drop.percentOff < 1 || drop.percentOff > 90 || dropCode.length < 4) ? "Enter a discount from 1–90% and a valid code of at least 4 characters." : "";
-  const previewHtml = previewOpen && selectedItems.length ? dropEmailHtml({ items: selectedItems.map((item) => ({ id: item.id, name: item.name, size: productSizeLabel(item), price: item.price, imageUrls: item.imageUrls })), intro: drop.intro, dateLine: drop.dateLine, promotion: { enabled: drop.promotionEnabled, percentOff: drop.percentOff, code: dropCode }, unsubscribeUrl: "https://stackedracksvintage.co.uk/unsubscribe" }) : "";
+  const previewHtml = previewOpen && selectedItems.length ? dropEmailHtml({ items: emailItems, intro: drop.intro.trim().slice(0, 1000), dateLine: drop.dateLine.trim().slice(0, 100), promotion: { enabled: drop.promotionEnabled, percentOff: drop.percentOff, code: dropCode }, unsubscribeUrl: "https://stackedracksvintage.co.uk/unsubscribe" }) : "";
+  const campaignPreviewHtml = campaignPreviewOpen ? campaignHtml(draft.body.trim().slice(0, 12000), draft.previewText.trim().slice(0, 160), "https://stackedracksvintage.co.uk/unsubscribe", emailItems) : "";
 
   const post = async (payload: Record<string, unknown>) => {
     setBusy(true); setError(""); setMessage("");
@@ -144,7 +141,7 @@ export default function EmailMarketing() {
 
   const generate = async () => {
     const selected = promotions.find((promotion) => promotion.code === draft.promotionCode);
-    const data = await post({ action: "generate", ...draft, percentOff: selected?.percent_off ?? 0 });
+    const data = await post({ action: "generate", ...draft, recommendedItems: selectedItems.map((item) => item.name).join("\n"), percentOff: selected?.percent_off ?? 0 });
     if (!data) return;
     setDraft((current) => ({ ...current, ...data.draft }));
     setMessage("Draft generated. Edit anything you like before saving or sending.");
@@ -152,7 +149,7 @@ export default function EmailMarketing() {
 
   const send = async () => {
     if (!window.confirm(`Send this email to ${activeSubscribers.length} active subscriber${activeSubscribers.length === 1 ? "" : "s"}?`)) return;
-    const data = await post({ action: "send", confirm: "SEND", ...draft });
+    const data = await post({ action: "send", confirm: "SEND", ...draft, itemIds: selectedItemIds });
     if (!data) return;
     setMessage(`Campaign finished: ${data.sentCount} sent${data.failedCount ? `, ${data.failedCount} failed` : ""}.`);
     await load();
@@ -178,7 +175,7 @@ export default function EmailMarketing() {
     await load();
   };
   const toggleEmail = (email: string) => setSelectedEmails((current) => current.includes(email) ? current.filter((value) => value !== email) : [...current, email]);
-  const toggleItem = (id: string) => setSelectedItemIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+  const toggleItem = (id: string) => setSelectedItemIds((current) => current.includes(id) ? current.filter((value) => value !== id) : current.length < 12 ? [...current, id] : current);
 
   return <section className="space-y-6">
     <div className="grid sm:grid-cols-3 gap-3">
@@ -186,7 +183,7 @@ export default function EmailMarketing() {
     </div>
     {(error || message) && <div className={`border p-4 text-sm ${error ? "border-red-500/30 bg-red-500/10 text-red-300" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"}`}>{error || message}</div>}
 
-    <div className="grid xl:grid-cols-[1fr_390px] gap-6 items-start">
+    <div>
       <div className="bg-[#111] border border-white/8 p-5 sm:p-6 space-y-5">
         <div><p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">New drop email</p><h2 className="text-xl font-black">Build a drop from your stock</h2><p className="text-[#777] text-xs mt-1">Choose stock and subscribers, preview the email, then send a test.</p></div>
         <div className="border border-white/10 p-4 space-y-3"><label className="flex items-center gap-3 text-sm font-bold"><input type="checkbox" checked={drop.promotionEnabled} onChange={(event) => setDrop((current) => ({ ...current, promotionEnabled: event.target.checked }))} className="accent-[#E8500A]" /> Include a checkout promotion</label>{drop.promotionEnabled && <><div className="grid sm:grid-cols-2 gap-3"><label><span className={LABEL}>Discount %</span><input type="number" min="1" max="90" step="1" value={drop.percentOff} onChange={(event) => setDrop((current) => ({ ...current, percentOff: Number(event.target.value) }))} className={INPUT} /></label><label><span className={LABEL}>Code</span><input value={drop.code} onChange={(event) => setDrop((current) => ({ ...current, code: event.target.value }))} onBlur={() => setDrop((current) => ({ ...current, code: normalizePromotionCode(current.code) }))} className={INPUT} /></label></div><p className="text-[#777] text-xs">The code will be activated when you send the drop to subscribers.</p></>}</div>
@@ -198,7 +195,6 @@ export default function EmailMarketing() {
         {dropError && <p className="text-[#F5C300] text-xs" role="status">{dropError}</p>}
         <button onClick={() => void sendDrop()} disabled={busy || loading || Boolean(dropError)} className="bg-[#E8500A] disabled:opacity-40 px-5 py-3 text-xs font-black uppercase tracking-wider">Send to {selectedEmails.length} selected</button>
       </div>
-      <aside className="bg-[#111] border border-white/8 p-5 space-y-4"><div><h3 className="font-black">{selectedItemIds.length} items selected</h3><p className="text-[#777] text-xs mt-1">Choose 1–12 in-stock items.</p></div><div className="flex flex-wrap gap-2" role="group" aria-label="Filter items">{FILTERS.map((filter) => <button key={filter} onClick={() => setItemFilter(filter)} aria-pressed={itemFilter === filter} className={`px-2.5 py-1.5 text-[10px] font-bold border ${itemFilter === filter ? "border-[#E8500A] text-[#E8500A]" : "border-white/15 text-[#999]"}`}>{filter}</button>)}</div>{loading ? <p className="text-[#777] text-xs">Loading items…</p> : <div className="max-h-[650px] overflow-y-auto space-y-2">{visibleItems.map((item) => { const id = String(item.id); const release = scheduledReleases[id]; return <label key={id} className="flex items-center gap-3 border border-white/8 p-2 cursor-pointer"><input type="checkbox" checked={selectedItemIds.includes(id)} disabled={!selectedItemIds.includes(id) && selectedItemIds.length >= 12} onChange={() => toggleItem(id)} className="accent-[#E8500A] shrink-0" /><div className="w-14 h-16 bg-[#222] shrink-0 overflow-hidden">{item.imageUrls?.[0] && <img src={item.imageUrls[0]} alt="" className="w-full h-full object-cover" />}</div><span className="min-w-0 flex-1"><span className="block text-xs font-bold truncate">{item.name}</span><span className="block text-[10px] text-[#999] mt-1">{productSizeLabel(item)} · £{item.price.toFixed(2)} {item.badge === "RARE" && <span className="text-[#F5C300] font-black">· RARE</span>}</span>{release && new Date(release).getTime() > Date.now() && <span className="block text-[10px] text-[#F5C300] mt-1">Releases {releaseNote(release)}</span>}</span></label>; })}{!visibleItems.length && <p className="text-[#777] text-xs py-5 text-center">No items match this filter.</p>}</div>}</aside>
     </div>
 
     <div className="bg-[#111] border border-white/8 p-5 sm:p-6">
@@ -212,16 +208,29 @@ export default function EmailMarketing() {
       <div className="bg-[#111] border border-white/8 p-5 sm:p-6 space-y-4">
         <div><p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">Campaign studio</p><h2 className="text-xl font-black">Generate an email from keywords</h2><p className="text-[#777] text-xs mt-1">This generator is included in the site and does not use a paid AI service.</p></div>
         <label><span className={LABEL}>Keywords / theme</span><textarea rows={2} lang="en-GB" spellCheck value={draft.keywords} onChange={(event) => setDraft({ ...draft, keywords: event.target.value })} placeholder="New Nike tees, 90s streetwear, weekend drop" className={INPUT} /></label>
-        <label><span className={LABEL}>Recommended items</span><textarea rows={3} lang="en-GB" spellCheck value={draft.recommendedItems} onChange={(event) => setDraft({ ...draft, recommendedItems: event.target.value })} placeholder="One item per line, or short product names separated by commas" className={INPUT} /></label>
         <label><span className={LABEL}>Promotion to include (optional)</span><select value={draft.promotionCode} onChange={(event) => setDraft({ ...draft, promotionCode: event.target.value })} className={INPUT}><option value="">No promotion</option>{promotions.filter((promotion) => promotion.active).map((promotion) => <option key={promotion.code} value={promotion.code}>{promotion.code} — {promotion.percent_off}% off</option>)}</select></label>
         <button onClick={() => void generate()} disabled={busy || !draft.keywords.trim()} className="bg-[#F5C300] disabled:opacity-40 text-black font-black text-xs tracking-[0.16em] uppercase px-5 py-3">Generate email draft</button>
         <div className="border-t border-white/8 pt-4 space-y-4"><label><span className={LABEL}>Subject</span><input lang="en-GB" spellCheck value={draft.subject} onChange={(event) => setDraft({ ...draft, subject: event.target.value })} className={INPUT} /></label><label><span className={LABEL}>Inbox preview</span><input lang="en-GB" spellCheck value={draft.previewText} onChange={(event) => setDraft({ ...draft, previewText: event.target.value })} className={INPUT} /></label><label><span className={LABEL}>Email message</span><textarea rows={16} lang="en-GB" spellCheck value={draft.body} onChange={(event) => setDraft({ ...draft, body: event.target.value })} className={INPUT} /></label></div>
-        <div className="flex flex-wrap gap-3"><button onClick={async () => { const data = await post({ action: "save-draft", ...draft }); if (data) { setMessage("Email saved as a draft."); await load(); } }} disabled={busy || !draft.subject || !draft.body} className="border border-white/15 text-white px-4 py-3 text-xs font-bold">Save draft</button><button onClick={async () => { const data = await post({ action: "send-test", ...draft }); if (data) setMessage(`Test sent to ${data.sentTo}.`); }} disabled={busy || !draft.subject || !draft.body} className="border border-[#F5C300]/40 text-[#F5C300] px-4 py-3 text-xs font-bold">Send test email</button><button onClick={() => void send()} disabled={busy || !draft.subject || !draft.body || !activeSubscribers.length} className="bg-[#E8500A] disabled:opacity-40 px-5 py-3 text-xs font-black uppercase tracking-wider">Send to {activeSubscribers.length} active subscribers</button></div>
+        <div className="flex flex-wrap gap-3"><button onClick={async () => { const data = await post({ action: "save-draft", ...draft }); if (data) { setMessage("Email saved as a draft."); await load(); } }} disabled={busy || !draft.subject || !draft.body} className="border border-white/15 text-white px-4 py-3 text-xs font-bold">Save draft</button><button onClick={() => setCampaignPreviewOpen(true)} disabled={!draft.body.trim()} className="border border-white/15 disabled:opacity-40 text-white px-4 py-3 text-xs font-bold">Preview</button><button onClick={async () => { const data = await post({ action: "send-test", ...draft, itemIds: selectedItemIds }); if (data) setMessage(`Test sent to ${data.sentTo}.`); }} disabled={busy || !draft.subject || !draft.body} className="border border-[#F5C300]/40 text-[#F5C300] px-4 py-3 text-xs font-bold">Send test email</button><button onClick={() => void send()} disabled={busy || !draft.subject || !draft.body || !activeSubscribers.length} className="bg-[#E8500A] disabled:opacity-40 px-5 py-3 text-xs font-black uppercase tracking-wider">Send to {activeSubscribers.length} active subscribers</button></div>
+        {campaignPreviewOpen && <div><div className="flex items-center justify-between mb-2"><h3 className="text-sm font-black">Campaign preview</h3><button onClick={() => setCampaignPreviewOpen(false)} className="text-[#999] text-xs underline">Close</button></div><iframe title="Campaign email preview" sandbox="" srcDoc={campaignPreviewHtml} className="w-full h-[640px] border border-white/10 bg-[#0A0A0A]" /></div>}
       </div>
 
       <aside className="space-y-6">
-        <div className="bg-[#111] border border-white/8 p-5 space-y-3"><div><p className="text-[#F5C300] text-[9px] font-black tracking-[0.2em] uppercase mb-2">Checkout promotions</p><h3 className="font-black">Create a promo code</h3></div><label><span className={LABEL}>Code</span><input value={promo.code} onChange={(event) => setPromo({ ...promo, code: event.target.value.toUpperCase() })} placeholder="WEEKEND15" className={INPUT} /></label><div className="grid grid-cols-2 gap-3"><label><span className={LABEL}>Discount %</span><input type="number" min="1" max="100" value={promo.percentOff} onChange={(event) => setPromo({ ...promo, percentOff: Number(event.target.value) })} className={INPUT} /></label><label><span className={LABEL}>Maximum uses</span><input type="number" min="1" value={promo.maxRedemptions} onChange={(event) => setPromo({ ...promo, maxRedemptions: event.target.value })} placeholder="Unlimited" className={INPUT} /></label></div><label><span className={LABEL}>Expiry (optional)</span><input type="datetime-local" value={promo.expiresAt} onChange={(event) => setPromo({ ...promo, expiresAt: event.target.value })} className={INPUT} /></label><label><span className={LABEL}>Private note</span><input value={promo.description} onChange={(event) => setPromo({ ...promo, description: event.target.value })} placeholder="August newsletter" className={INPUT} /></label><button onClick={() => void createPromotion()} disabled={busy || promo.code.length < 4} className="w-full bg-[#F5C300] disabled:opacity-40 text-black py-3 text-xs font-black uppercase tracking-wider">Make code work at checkout</button>{promotions.length > 0 && <div className="border-t border-white/8 pt-3 space-y-2">{promotions.slice(0, 6).map((promotion) => <div key={promotion.code} className={`flex items-center justify-between gap-3 text-xs ${promotion.active ? "" : "opacity-45"}`}><div><span className={`font-bold ${promotion.active ? "text-[#F5C300]" : "text-[#999] line-through"}`}>{promotion.code} · {promotion.percent_off}%</span><span className="text-[#777] ml-2">{promotion.redemption_count}{promotion.max_redemptions ? `/${promotion.max_redemptions}` : ""} uses</span>{!promotion.active && <span className="block text-red-300 text-[9px] mt-1 uppercase tracking-wider">Cancelled</span>}</div>{promotion.active && <button onClick={() => void cancelPromotion(promotion)} disabled={busy} className="shrink-0 border border-red-500/30 text-red-300 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider hover:bg-red-500/10">Cancel</button>}</div>)}</div>}</div>
         <div className="bg-[#111] border border-white/8 p-5"><h3 className="font-black mb-3">Recent campaigns</h3><div className="space-y-3">{campaigns.slice(0, 6).map((campaign) => <div key={campaign.id} className="border-b border-white/8 pb-3"><p className="text-sm font-bold">{campaign.subject}</p><p className="text-[#777] text-[10px] mt-1 uppercase">{campaign.status} · {campaign.sent_count} sent · {new Date(campaign.created_at).toLocaleDateString("en-GB")}</p></div>)}{!campaigns.length && <p className="text-[#666] text-xs">No campaigns yet.</p>}</div></div>
+        <div className="bg-[#111] border border-white/8 p-5 space-y-4">
+          <div className="flex items-start justify-between gap-3"><div><h3 className="font-black">Items to be included</h3><p className="text-[#777] text-xs mt-1">The selected order is used in the drop and campaign emails. Maximum 12.</p></div><button type="button" onClick={() => setSelectedItemIds([])} disabled={!selectedItemIds.length} className="text-[#E8500A] disabled:opacity-40 text-xs font-bold underline">Clear</button></div>
+          <p className="text-[#F5C300] text-xs font-bold" role="status">{selectedItemIds.length} selected</p>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filter items">{FILTERS.map((filter) => <button key={filter} type="button" onClick={() => setItemFilter(filter)} aria-pressed={itemFilter === filter} className={`px-2.5 py-1.5 text-[10px] font-bold border ${itemFilter === filter ? "border-[#E8500A] text-[#E8500A]" : "border-white/15 text-[#999]"}`}>{filter}</button>)}</div>
+          {loading ? <p className="text-[#777] text-xs">Loading items…</p> : <div className="grid grid-cols-2 gap-2 max-h-[700px] overflow-y-auto">{visibleItems.map((item) => {
+            const id = String(item.id);
+            const order = selectedItemIds.indexOf(id) + 1;
+            return <button key={id} type="button" onClick={() => toggleItem(id)} disabled={!order && selectedItemIds.length >= 12} aria-pressed={Boolean(order)} aria-label={`${order ? `Remove ${item.name}, selected ${order}` : `Add ${item.name}`} from email`} className={`relative text-left border p-2 disabled:opacity-40 ${order ? "border-[#E8500A] bg-[#E8500A]/10" : "border-white/10 hover:border-white/30"}`}>
+              <span className="relative block aspect-[4/5] bg-[#222] overflow-hidden">{item.imageUrls?.[0] ? <img src={item.imageUrls[0]} alt="" className="w-full h-full object-cover" /> : <span className="flex h-full items-center justify-center text-[#666] text-xs">No photo</span>}{order > 0 && <span className="absolute top-2 left-2 flex items-center justify-center w-7 h-7 rounded-full bg-[#E8500A] text-white text-xs font-black">{order}</span>}</span>
+              <span className="block text-xs font-bold mt-2 line-clamp-2">{item.name}</span><span className="block text-[10px] text-[#999] mt-1">{productSizeLabel(item)} · £{item.price.toFixed(2)}</span>
+            </button>;
+          })}{!visibleItems.length && <p className="col-span-2 text-[#777] text-xs py-5 text-center">No items match this filter.</p>}</div>}
+        </div>
+        <div className="bg-[#111] border border-white/8 p-5 space-y-3"><div><p className="text-[#F5C300] text-[9px] font-black tracking-[0.2em] uppercase mb-2">Checkout promotions</p><h3 className="font-black">Create a promo code</h3></div><label><span className={LABEL}>Code</span><input value={promo.code} onChange={(event) => setPromo({ ...promo, code: event.target.value.toUpperCase() })} placeholder="WEEKEND15" className={INPUT} /></label><div className="grid grid-cols-2 gap-3"><label><span className={LABEL}>Discount %</span><input type="number" min="1" max="100" value={promo.percentOff} onChange={(event) => setPromo({ ...promo, percentOff: Number(event.target.value) })} className={INPUT} /></label><label><span className={LABEL}>Maximum uses</span><input type="number" min="1" value={promo.maxRedemptions} onChange={(event) => setPromo({ ...promo, maxRedemptions: event.target.value })} placeholder="Unlimited" className={INPUT} /></label></div><label><span className={LABEL}>Expiry (optional)</span><input type="datetime-local" value={promo.expiresAt} onChange={(event) => setPromo({ ...promo, expiresAt: event.target.value })} className={INPUT} /></label><label><span className={LABEL}>Private note</span><input value={promo.description} onChange={(event) => setPromo({ ...promo, description: event.target.value })} placeholder="August newsletter" className={INPUT} /></label><button onClick={() => void createPromotion()} disabled={busy || promo.code.length < 4} className="w-full bg-[#F5C300] disabled:opacity-40 text-black py-3 text-xs font-black uppercase tracking-wider">Make code work at checkout</button>{promotions.length > 0 && <div className="border-t border-white/8 pt-3 space-y-2">{promotions.slice(0, 6).map((promotion) => <div key={promotion.code} className={`flex items-center justify-between gap-3 text-xs ${promotion.active ? "" : "opacity-45"}`}><div><span className={`font-bold ${promotion.active ? "text-[#F5C300]" : "text-[#999] line-through"}`}>{promotion.code} · {promotion.percent_off}%</span><span className="text-[#777] ml-2">{promotion.redemption_count}{promotion.max_redemptions ? `/${promotion.max_redemptions}` : ""} uses</span>{!promotion.active && <span className="block text-red-300 text-[9px] mt-1 uppercase tracking-wider">Cancelled</span>}</div>{promotion.active && <button onClick={() => void cancelPromotion(promotion)} disabled={busy} className="shrink-0 border border-red-500/30 text-red-300 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider hover:bg-red-500/10">Cancel</button>}</div>)}</div>}</div>
       </aside>
     </div>
 

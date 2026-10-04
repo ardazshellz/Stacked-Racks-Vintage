@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { campaignHtml, dropEmailHtml, validDropItemId } from "../lib/email-html.ts";
+import { campaignHtml, dropEmailHtml, validDropItemId, welcomeEmailHtml } from "../lib/email-html.ts";
 
 const unsubscribeUrl = "https://stackedracksvintage.co.uk/unsubscribe";
 
@@ -23,7 +23,7 @@ test("shop, Vinted and site links keep their existing labels", () => {
 
 test("body and preview text are escaped before link markup is added", () => {
   const html = campaignHtml('<script>alert("x")</script> <sr-product-0> __SR_SHOP_LINK__', '<img src=x onerror="bad">', unsubscribeUrl);
-  assert.doesNotMatch(html, /<script>|<img|<sr-product-0>/);
+  assert.doesNotMatch(html, /<script>|<img src=x|<sr-product-0>/);
   assert.match(html, /&lt;script&gt;alert\(&quot;x&quot;\)&lt;\/script&gt;/);
   assert.match(html, /&lt;sr-product-0&gt; __SR_SHOP_LINK__/);
   assert.match(html, /&lt;img src=x onerror=&quot;bad&quot;&gt;/);
@@ -32,8 +32,8 @@ test("body and preview text are escaped before link markup is added", () => {
 
 test("full-width table and cell carry the near-black background", () => {
   const html = campaignHtml("Hello", "", unsubscribeUrl);
-  assert.match(html, /<table[^>]*width="100%"[^>]*bgcolor="#0a0a0a"[^>]*style="[^"]*background-color:#0a0a0a"/);
-  assert.match(html, /<td[^>]*bgcolor="#0a0a0a"[^>]*style="background-color:#0a0a0a"/);
+  assert.match(html, /<table[^>]*width="100%"[^>]*bgcolor="#0A0A0A"[^>]*style="[^"]*background-color:#0A0A0A"/);
+  assert.match(html, /<td[^>]*bgcolor="#0A0A0A"[^>]*style="background-color:#0A0A0A;/);
   assert.match(html, /max-width:600px/);
 });
 
@@ -51,7 +51,7 @@ test("drop email uses the reference colours, layout and item details", () => {
   assert.match(html, /border-left:5px solid #E8500A/);
   assert.match(html, /color:#F5C300[^>]*>NEW DROP/);
   assert.match(html, /padding:38px 16px 38px/);
-  assert.match(html, /src="https:\/\/stackedracksvintage\.co\.uk\/icon\.png"[^>]*width="120"/);
+  assert.match(html, /src="https:\/\/stackedracksvintage\.co\.uk\/email-wordmark\.png"[^>]*alt="Stacked Racks Vintage"[^>]*width="300"/);
   assert.match(html, /SUNDAY 4 OCTOBER/);
   assert.match(html, /1 piece/);
   assert.match(html, /£45\.00/);
@@ -101,4 +101,33 @@ test("item URLs use validated ids and unsafe image or unsubscribe URLs are omitt
   assert.equal(validDropItemId("a/b"), false);
   assert.equal(validDropItemId(0), false);
   assert.equal(validDropItemId(Number.MAX_SAFE_INTEGER + 1), false);
+});
+
+test("campaign uses the shared wordmark, ordered cards and recipient unsubscribe", () => {
+  const html = campaignHtml("New <pieces> today", "Preview", "https://stackedracksvintage.co.uk/unsubscribe?token=a&x=1", [
+    { id: "second", name: "Second shirt", size: "M", price: 20 },
+    { id: "first", name: "First shirt", size: "S", price: 10 },
+  ]);
+  assert.match(html, /email-wordmark\.png/);
+  assert.ok(html.indexOf("Second shirt") < html.indexOf("First shirt"));
+  assert.match(html, /New &lt;pieces&gt; today/);
+  assert.match(html, /unsubscribe\?token=a&amp;x=1/);
+  assert.equal((html.match(/View item →/g) ?? []).length, 2);
+});
+
+test("welcome email includes escaped code and latest drop cards", () => {
+  const html = welcomeEmailHtml("RACKS-<10>", unsubscribeUrl, [drop.items[0]]);
+  assert.match(html, /email-wordmark\.png/);
+  assert.match(html, /Your 10% off code/);
+  assert.match(html, /RACKS-&lt;10&gt;/);
+  assert.match(html, /LATEST DROP/);
+  assert.match(html, /Nike &lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.match(html, /£45\.00/);
+  assert.doesNotMatch(html, /<script>/);
+});
+
+test("welcome email still renders code when there are no items", () => {
+  const html = welcomeEmailHtml("RACKS-ABC", unsubscribeUrl);
+  assert.match(html, /RACKS-ABC/);
+  assert.doesNotMatch(html, /LATEST DROP/);
 });

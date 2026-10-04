@@ -2,32 +2,14 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { generateCampaignDraft, normalizePromotionCode } from "@/lib/promotions";
 import { campaignHtml, dropEmailHtml, validDropItemId } from "@/lib/email-html";
-import { rowToProduct, type ProductRow } from "@/lib/product-db";
-import { productSizeLabel, publicProduct } from "@/lib/products";
-import { ukDate } from "@/lib/listing-schedule";
+import { productSizeLabel } from "@/lib/products";
 import { isAdminRequest } from "@/lib/server/admin-auth";
-import { getProductSettings, PRODUCT_SETTINGS_NAME } from "@/lib/server/product-settings";
+import { loadPublicEmailProducts } from "@/lib/server/email-products";
 import { sameOrigin } from "@/lib/server/request-security";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
 import { subscriberToken } from "@/lib/server/subscriber-token";
 
 export const runtime = "nodejs";
-
-async function dropProducts(ids?: string[]) {
-  let query = getSupabaseAdmin().from("products").select("*").gt("stock", 0).order("created_at", { ascending: false });
-  if (ids) query = query.in("id", ids);
-  const [result, settings] = await Promise.all([query, getProductSettings()]);
-  if (result.error) throw result.error;
-  const items = ((result.data ?? []) as ProductRow[])
-    .filter((row) => row.name !== PRODUCT_SETTINGS_NAME && (!row.reserved_until || Date.parse(row.reserved_until) <= Date.now()))
-    .map(rowToProduct)
-    .filter((item) => validDropItemId(item.id) && item.listingStatus !== "draft" && !settings.hiddenProductIds.includes(String(item.id)) && !settings.deletedProductIds.includes(String(item.id)))
-    .map((item) => {
-      const release = settings.scheduledReleases[String(item.id)];
-      return publicProduct(release ? { ...item, listedDate: ukDate(release) } : item);
-    });
-  return { items, scheduledReleases: settings.scheduledReleases };
-}
 
 async function mailer() {
   const gmailPass = process.env.GMAIL_APP_PASSWORD;
@@ -47,7 +29,7 @@ export async function GET() {
       supabase.from("subscribers").select("email,discount_code,consent_source,consented_at,unsubscribed_at,discount_redeemed_at").order("consented_at", { ascending: false }),
       supabase.from("promotion_codes").select("*").order("created_at", { ascending: false }),
       supabase.from("email_campaigns").select("*").order("created_at", { ascending: false }).limit(20),
-      dropProducts(),
+      loadPublicEmailProducts(),
     ]);
     const error = subscribersResult.error || promotionsResult.error || campaignsResult.error;
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -90,7 +72,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Choose 1–200 subscribers per send." }, { status: 400 });
     }
     try {
-      const { items } = await dropProducts(itemIds);
+      const { items } = await loadPublicEmailProducts(itemIds);
       if (items.length !== itemIds.length) return NextResponse.json({ error: "Some selected items are no longer available. Refresh the list and choose again." }, { status: 400 });
       const orderedItems = itemIds.map((id) => items.find((item) => String(item.id) === id)!).map((item) => ({ ...item, size: productSizeLabel(item) }));
       const requestedEmails = test ? [testEmail] : [...new Set<string>(body.emails.filter(validEmail).map((email: string) => email.trim().toLowerCase()))];
@@ -169,10 +151,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ campaign: data });
   }
 
+  let selectedItems: { id: string | number; name: string; size: string; price: number; imageUrls?: string[] }[] = [];
+  if (action === "send-test" || action === "send") {
+    if (body.itemIds !== undefined && (!Array.isArray(body.itemIds) || body.itemIds.length > 12 || !body.itemIds.every(validDropItemId))) {
+      return NextResponse.json({ error: "Choose up to 12 valid items." }, { status: 400 });
+    }
+    const itemIds = [...new Set<string>((body.itemIds ?? []).map(String))];
+    if (itemIds.length) {
+      try {
+        const { items } = await loadPublicEmailProducts(itemIds);
+        if (items.length !== itemIds.length) return NextResponse.json({ error: "Some selected items are no longer available. Refresh the list and choose again." }, { status: 400 });
+        selectedItems = itemIds.map((id) => items.find((item) => String(item.id) === id)!).map((item) => ({ ...item, size: productSizeLabel(item) }));
+      } catch (error) {
+        console.error("Campaign items load failed:", error);
+        return NextResponse.json({ error: "Could not load selected items." }, { status: 500 });
+      }
+    }
+  }
+
   if (action === "send-test") {
     const { gmailUser, transporter } = await mailer();
     const recipient = String(body.testEmail || process.env.OWNER_EMAIL || gmailUser).trim();
-    await transporter.sendMail({ from: `"Stacked Racks Vintage" <${gmailUser}>`, to: recipient, subject: `[TEST] ${subject}`, html: campaignHtml(emailBody, previewText, "https://stackedracksvintage.co.uk/unsubscribe") });
+    const unsubscribeUrl = `https://stackedracksvintage.co.uk/unsubscribe?token=${subscriberToken(recipient.toLowerCase())}`;
+    await transporter.sendMail({ from: `"Stacked Racks Vintage" <${gmailUser}>`, to: recipient, subject: `[TEST] ${subject}`, html: campaignHtml(emailBody, previewText, unsubscribeUrl, selectedItems) });
     return NextResponse.json({ ok: true, sentTo: recipient });
   }
 
@@ -187,7 +188,7 @@ export async function POST(req: Request) {
     for (const subscriber of subscribers ?? []) {
       try {
         const unsubscribeUrl = `${base}/unsubscribe?token=${subscriberToken(subscriber.email)}`;
-        await transporter.sendMail({ from: `"Stacked Racks Vintage" <${gmailUser}>`, to: subscriber.email, subject, html: campaignHtml(emailBody, previewText, unsubscribeUrl) });
+        await transporter.sendMail({ from: `"Stacked Racks Vintage" <${gmailUser}>`, to: subscriber.email, subject, html: campaignHtml(emailBody, previewText, unsubscribeUrl, selectedItems) });
         sentCount += 1;
       } catch (error) {
         failedCount += 1;
@@ -195,7 +196,7 @@ export async function POST(req: Request) {
       }
     }
     const { data: campaign } = await supabase.from("email_campaigns").insert({ subject, preview_text: previewText, body: emailBody, keywords: String(body.keywords ?? "").slice(0, 500), promotion_code: normalizePromotionCode(body.promotionCode) || null, status: failedCount ? "failed" : "sent", sent_count: sentCount, failed_count: failedCount, sent_at: new Date().toISOString() }).select("*").single();
-    await supabase.from("admin_audit_log").insert({ action: "campaign.sent", target_type: "email_campaign", target_id: campaign?.id ?? "", details: { sent_count: sentCount, failed_count: failedCount } });
+    await supabase.from("admin_audit_log").insert({ action: "campaign.sent", target_type: "email_campaign", target_id: campaign?.id ?? "", details: { sent_count: sentCount, failed_count: failedCount, item_ids: selectedItems.map((item) => item.id) } });
     return NextResponse.json({ ok: failedCount === 0, sentCount, failedCount });
   }
 
