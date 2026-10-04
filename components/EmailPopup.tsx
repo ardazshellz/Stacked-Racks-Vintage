@@ -5,38 +5,97 @@ import { usePathname } from "next/navigation";
 
 const SUBSCRIBED_KEY = "sr_email_subscribed";
 const DISMISSED_KEY = "sr_email_popup_dismissed";
+const FADE_DURATION_MS = 300;
 const EXCLUDED_ROUTES = ["/admin", "/checkout", "/cart", "/order-confirmation", "/order-status", "/unsubscribe", "/legal"];
 
 export default function EmailPopup() {
   const pathname = usePathname();
   const excluded = EXCLUDED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
   const [visible, setVisible] = useState(false);
+  const [active, setActive] = useState(false);
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const closeTimerRef = useRef<number | null>(null);
+  const frameRef = useRef<number | null>(null);
+  const closingRef = useRef(false);
+
+  const open = useCallback(() => {
+    if (excluded || localStorage.getItem(SUBSCRIBED_KEY)) return;
+    closingRef.current = false;
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+      setActive(true);
+    }
+    setVisible(true);
+  }, [excluded]);
+
+  const dismiss = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    sessionStorage.setItem(DISMISSED_KEY, "1");
+    setActive(false);
+    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      closeTimerRef.current = null;
+      setVisible(false);
+    } else {
+      closeTimerRef.current = window.setTimeout(() => {
+        closeTimerRef.current = null;
+        setVisible(false);
+      }, FADE_DURATION_MS);
+    }
+  }, []);
+
+  useEffect(() => () => {
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+  }, []);
 
   useEffect(() => {
-    const open = () => {
-      if (!excluded && !localStorage.getItem(SUBSCRIBED_KEY)) setVisible(true);
-    };
     document.addEventListener("sr:open-email-popup", open);
     return () => document.removeEventListener("sr:open-email-popup", open);
-  }, [excluded]);
+  }, [open]);
 
   useEffect(() => {
     if (excluded) {
-      const timer = window.setTimeout(() => setVisible(false), 0);
+      const timer = window.setTimeout(() => {
+        if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+        if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+        closeTimerRef.current = null;
+        frameRef.current = null;
+        closingRef.current = true;
+        setActive(false);
+        setVisible(false);
+      }, 0);
       return () => window.clearTimeout(timer);
     }
     if (localStorage.getItem(SUBSCRIBED_KEY) || sessionStorage.getItem(DISMISSED_KEY)) return;
     const timer = window.setTimeout(() => {
-      if (!localStorage.getItem(SUBSCRIBED_KEY) && !sessionStorage.getItem(DISMISSED_KEY)) setVisible(true);
-    }, 4000);
+      if (!sessionStorage.getItem(DISMISSED_KEY)) open();
+    }, 2000);
     return () => window.clearTimeout(timer);
-  }, [excluded]);
+  }, [excluded, open]);
+
+  useEffect(() => {
+    if (!visible || excluded) return;
+    frameRef.current = window.requestAnimationFrame(() => {
+      frameRef.current = window.requestAnimationFrame(() => {
+        frameRef.current = null;
+        if (!closingRef.current) setActive(true);
+      });
+    });
+    return () => {
+      if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    };
+  }, [visible, excluded]);
 
   useEffect(() => {
     if (!visible || excluded) return;
@@ -45,8 +104,7 @@ export default function EmailPopup() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        sessionStorage.setItem(DISMISSED_KEY, "1");
-        setVisible(false);
+        dismiss();
       } else if (event.key === "Tab") {
         const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? []);
         if (!focusable.length) return;
@@ -58,9 +116,7 @@ export default function EmailPopup() {
     };
     document.addEventListener("keydown", onKeyDown);
     return () => { document.removeEventListener("keydown", onKeyDown); previousFocus?.focus(); };
-  }, [visible, excluded]);
-
-  const dismiss = useCallback(() => { sessionStorage.setItem(DISMISSED_KEY, "1"); setVisible(false); }, []);
+  }, [visible, excluded, dismiss]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,10 +144,10 @@ export default function EmailPopup() {
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      className={`fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm transition-opacity duration-300 motion-reduce:duration-0 ${active ? "opacity-100" : "opacity-0"}`}
       onClick={(e) => e.target === e.currentTarget && dismiss()}
     >
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="email-popup-title" className="bg-[#111] border border-white/10 w-full max-w-sm shadow-2xl relative overflow-hidden">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="email-popup-title" className={`bg-[#111] border border-white/10 w-full max-w-sm shadow-2xl relative overflow-hidden transition-[opacity,transform] duration-300 motion-reduce:duration-0 motion-reduce:transition-opacity ${active ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 motion-reduce:translate-y-0"}`}>
         {/* Orange top accent */}
         <div className="h-1 bg-[#E8500A]" />
 
