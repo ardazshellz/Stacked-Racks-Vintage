@@ -4,7 +4,7 @@ import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "How Stacked Racks Vintage Ltd collects, uses and protects your personal data.",
+  description: "How Stacked Racks Vintage collects, uses and protects your personal data.",
   alternates: { canonical: "/legal/privacy" },
 };
 
@@ -31,13 +31,13 @@ export default function PrivacyPage() {
             style={{ fontFamily: "var(--font-playfair-display), serif" }}>
             Privacy Policy
           </h1>
-          <p className="text-[#888] text-sm">Last updated: 9 August 2026 · Stacked Racks Vintage Ltd</p>
+          <p className="text-[#888] text-sm">Last updated: 3 October 2026 · Stacked Racks Vintage</p>
         </div>
 
         <div className="border-t border-white/5 pt-10">
 
           <Section title="Who We Are">
-            <p>Stacked Racks Vintage Ltd (company number 15999498) is the data controller. We are registered in England and Wales at 114 Durnsford Road, London, England, SW19 8HQ.</p>
+            <p>Stacked Racks Vintage is the data controller. Our business address is 114 Durnsford Road, London, England, SW19 8HQ.</p>
             <p>Contact: <a href="mailto:stackedracksvintage@gmail.com" className="text-[#E8500A]">stackedracksvintage@gmail.com</a></p>
           </Section>
 

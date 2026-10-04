@@ -3,6 +3,7 @@ import { productToRow, rowToProduct, type ProductRow } from "@/lib/product-db";
 import { isAdminRequest } from "@/lib/server/admin-auth";
 import { sameOrigin } from "@/lib/server/request-security";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
+import { isTaxYear } from "@/lib/sales";
 
 export async function POST(req: Request) {
   if (!(await isAdminRequest())) {
@@ -14,24 +15,31 @@ export async function POST(req: Request) {
     productId?: string;
     purchasePrice?: number;
     soldPrice?: number;
+    channel?: string;
+    boughtFrom?: string;
+    costTaxYear?: string;
   };
+  const channel = body.channel === "other" ? "other" : "vinted";
   const productId = String(body.productId ?? "").trim();
   const purchasePrice = Number(body.purchasePrice);
   const soldPrice = Number(body.soldPrice);
   if (!productId || !Number.isFinite(purchasePrice) || purchasePrice < 0 || !Number.isFinite(soldPrice) || soldPrice <= 0) {
     return NextResponse.json({ error: "Product, purchase price and sold price are required" }, { status: 400 });
   }
+  if (body.costTaxYear && !isTaxYear(body.costTaxYear)) {
+    return NextResponse.json({ error: "Cost tax year must look like 2024-25" }, { status: 400 });
+  }
 
   const supabase = getSupabaseAdmin();
   const { data: existingSale, error: existingSaleError } = await supabase
     .from("orders")
     .select("id")
-    .eq("source", "vinted")
+    .in("source", ["vinted", "manual"])
     .eq("item_id", productId)
     .limit(1)
     .maybeSingle();
   if (existingSaleError) return NextResponse.json({ error: existingSaleError.message }, { status: 500 });
-  if (existingSale) return NextResponse.json({ error: "This item is already recorded as sold on Vinted" }, { status: 409 });
+  if (existingSale) return NextResponse.json({ error: "This item is already recorded as sold" }, { status: 409 });
 
   const { data: productRow, error: productError } = await supabase
     .from("products")
@@ -50,7 +58,9 @@ export async function POST(req: Request) {
   const originalProduct = rowToProduct(originalRow);
   const { id: _id, ...productDetails } = originalProduct;
   void _id;
-  const soldProduct = { ...productDetails, costPrice: purchasePrice, stock: 0 };
+  const boughtFrom = String(body.boughtFrom ?? originalProduct.source ?? "").trim().slice(0, 100);
+  const costTaxYear = body.costTaxYear || originalProduct.costTaxYear || "";
+  const soldProduct = { ...productDetails, costPrice: purchasePrice, source: boughtFrom || undefined, costTaxYear: costTaxYear || undefined, stock: 0 };
   const { error: stockError } = await supabase
     .from("products")
     .update({
@@ -61,29 +71,32 @@ export async function POST(req: Request) {
     .eq("id", productId);
   if (stockError) return NextResponse.json({ error: stockError.message }, { status: 500 });
 
-  const orderId = `VINTED-${Date.now().toString(36).toUpperCase()}`;
+  const stamp = Date.now().toString(36).toUpperCase();
+  const orderId = channel === "vinted" ? `VINTED-${stamp}` : `SR-${stamp}`;
   const orderRow = {
     id: orderId,
-    source: "vinted",
+    source: channel === "vinted" ? "vinted" : "manual",
     item_id: productId,
     item_name: originalProduct.name,
     brand: originalProduct.brand,
     price: soldPrice,
     postage: 0,
     total: soldPrice,
-    customer_name: "Vinted buyer",
+    customer_name: channel === "vinted" ? "Vinted buyer" : "Direct buyer",
     customer_email: "",
     customer_phone: "",
     customer_address: "",
     payment_status: "paid",
     fulfilment_status: "paid",
-    notes: "Sold on Vinted",
+    notes: channel === "vinted" ? "Sold on Vinted" : "Sold directly",
     items: [{
       id: productId,
       name: originalProduct.name,
       brand: originalProduct.brand,
       price: soldPrice,
       costPrice: purchasePrice,
+      boughtFrom,
+      costTaxYear,
     }],
     date_of_sale: new Date().toISOString(),
   };
@@ -103,7 +116,7 @@ export async function POST(req: Request) {
   }
 
   await supabase.from("admin_audit_log").insert({
-    action: "product.sold_on_vinted",
+    action: channel === "vinted" ? "product.sold_on_vinted" : "product.sold_directly",
     target_type: "product",
     target_id: productId,
     details: { order_id: orderId, purchase_price: purchasePrice, sold_price: soldPrice },

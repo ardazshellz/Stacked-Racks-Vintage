@@ -1,5 +1,9 @@
 const REVIEWS = [
   {
+    name: "olliesfashions",
+    text: "Absolutely unbelievable seller! Genuinely one of the nicest guys I’ve ever dealt with on Vinted. The polo is absolutely PERFECT, such a beautiful, genuine item and even better than I expected. Amazing communication, amazing service, amazing guy. An absolute legend and genuinely a credit to Vinted. Couldn’t recommend him enough — 100% buying from him again!",
+  },
+  {
     name: "georgielawrence",
     text: "Amazing, item just as described and fast delivery! Would definitely buy from here again!",
   },
@@ -33,7 +37,7 @@ export default function CustomerReviews() {
       <div className="mx-auto max-w-7xl">
         <div className="px-4 sm:px-6 lg:px-8">
           <p className="mb-3 text-center text-[10px] font-black uppercase tracking-[0.3em] text-[#E8500A]">
-            5-Star Vinted Feedback
+            Vinted Feedback · Rated 4.8
           </p>
           <h2
             id="customer-reviews-heading"

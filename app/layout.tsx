@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     template: "%s | Stacked Racks Vintage",
   },
   description:
-    "Unique & Rare Vintage Clothing from the 80s, 90s & 00s. London-based limited company with 5,000+ sales and 2,500+ five-star reviews. Shop Nike, Adidas, Burberry and more.",
+    "Unique & Rare Vintage Clothing from the 80s, 90s & 00s. London-based seller with 5,000+ sales and 2,500+ Vinted reviews (rated 4.8). Shop Nike, Adidas, Burberry and more.",
   keywords:
     "vintage clothing, 90s fashion, 80s fashion, streetwear, London vintage, rare vintage, Burberry, Nike, Adidas, Champion, vintage jackets, vintage shop London",
   openGraph: {
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
       "Unique & Rare Vintage Clothing. 5,000+ sales. London-based. Shop Nike, Adidas, Burberry and more.",
     images: [
       {
-        url: "/hero-rail.jpg",
+        url: "/og-logo.png",
         width: 1200,
         height: 630,
         alt: "Stacked Racks Vintage — London Vintage Clothing",
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Stacked Racks Vintage | London Vintage Clothing",
     description: "Rare 80s, 90s & 00s vintage clothing. 5,000+ sales.",
-    images: ["/hero-rail.jpg"],
+    images: ["/og-logo.png"],
   },
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL ?? "https://stackedracksvintage.co.uk"),
 };
@@ -67,10 +67,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           "@context": "https://schema.org",
           "@type": "OnlineStore",
           name: "Stacked Racks Vintage",
-          legalName: "STACKED RACKS VINTAGE LTD",
+          legalName: "Stacked Racks Vintage",
           url: "https://stackedracksvintage.co.uk",
           email: "stackedracksvintage@gmail.com",
-          identifier: "15999498",
           address: { "@type": "PostalAddress", streetAddress: "114 Durnsford Road", addressLocality: "London", postalCode: "SW19 8HQ", addressCountry: "GB" },
           sameAs: ["https://instagram.com/stacked_racks_vintage", "https://www.vinted.co.uk/member/59714764-stackedracks"],
         }).replace(/</g, "\\u003c") }} />

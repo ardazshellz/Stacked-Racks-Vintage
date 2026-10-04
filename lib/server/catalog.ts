@@ -1,13 +1,14 @@
 import "server-only";
 
-import type { Product } from "@/lib/products";
+import { publicProduct, type Product } from "@/lib/products";
 import { rowToProduct, type ProductRow } from "@/lib/product-db";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
 import { PRODUCT_SETTINGS_NAME, parseProductSettings } from "@/lib/server/product-settings";
 
 import { publicProducts } from "@/lib/listing-schedule";
 
-export async function getPublicProducts(): Promise<Product[]> {
+/** Owner-only fields are stripped unless includePrivate is set (owner views only). */
+export async function getPublicProducts(includePrivate = false): Promise<Product[]> {
   const { data, error } = await getSupabaseAdmin()
     .from("products")
     .select("*")
@@ -22,10 +23,11 @@ export async function getPublicProducts(): Promise<Product[]> {
       const reserved = row.reserved_until && new Date(row.reserved_until).getTime() > Date.now();
       return row.name !== PRODUCT_SETTINGS_NAME && !reserved;
     })
-    .map(rowToProduct), settings);
+    .map(rowToProduct), settings)
+    .map((product) => (includePrivate ? product : publicProduct(product)));
 }
 
-export async function getPublicProduct(id: string): Promise<Product | null> {
-  const products = await getPublicProducts();
+export async function getPublicProduct(id: string, includePrivate = false): Promise<Product | null> {
+  const products = await getPublicProducts(includePrivate);
   return products.find((product) => String(product.id) === id) ?? null;
 }

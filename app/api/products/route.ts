@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import type { Product } from "@/lib/products";
+import { publicProduct, type Product } from "@/lib/products";
 import { productToRow, rowToProduct, type ProductRow } from "@/lib/product-db";
 import { isAdminRequest } from "@/lib/server/admin-auth";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
@@ -45,22 +45,7 @@ export async function GET(req: Request) {
       .filter(row => admin || !row.reserved_until || Date.parse(row.reserved_until) <= Date.now()).map(rowToProduct);
     return NextResponse.json({
       products: (admin ? visible : publicProducts(visible, settings))
-        .map((product) => {
-          return admin ? product : {
-            ...product,
-            sku: undefined,
-            costPrice: undefined,
-            storageLocation: undefined,
-            source: undefined,
-            listingStatus: undefined,
-            pricingStatus: undefined,
-            suggestedPriceLow: undefined,
-            suggestedPriceHigh: undefined,
-            pricingReason: undefined,
-            pricingSearchQuery: undefined,
-            pricingReviewedAt: undefined,
-          };
-        }),
+        .map((product) => (admin ? product : publicProduct(product))),
       ...(admin ? settings : { hiddenProductIds: [], deletedProductIds: [] }),
     }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {

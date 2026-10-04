@@ -45,9 +45,9 @@ export default function Footer() {
         <div className="grid grid-cols-2 sm:grid-cols-4 border border-white/10 mb-8 max-w-3xl mx-auto">
           {[
             { stat: "5,000+", label: "Sales" },
-            { stat: "2,500+", label: "5★ Reviews" },
-            { stat: "2.5K",  label: "Followers" },
-            { stat: "London", label: "Based · Ltd" },
+            { stat: "2,500+", label: "Vinted Reviews" },
+            { stat: "1.4K",  label: "Followers" },
+            { stat: "London", label: "Based" },
           ].map(({ stat, label }, i) => (
             <div key={stat} className={`px-4 py-5 text-center border-white/10 ${i % 2 === 1 ? "border-l" : ""} ${i > 0 ? "sm:border-l" : ""} ${i > 1 ? "border-t sm:border-t-0" : ""}`}>
               <div className="font-display text-[#F5C300] text-4xl font-black leading-[0.9] tabular-nums">{stat}</div>
@@ -74,9 +74,9 @@ export default function Footer() {
         </div>
 
         <div className="text-center text-[#888] text-[11px] tracking-wide space-y-1 border-t border-white/8 pt-6">
-          <p>STACKED RACKS VINTAGE LTD · Company no. 15999498 · Registered in England and Wales</p>
-          <p>Registered office: 114 Durnsford Road, London, England, SW19 8HQ</p>
-          <p>© 2026 Stacked Racks Vintage Ltd · All Rights Reserved</p>
+          <p>Business address: 114 Durnsford Road, London, England, SW19 8HQ</p>
+          <p>© 2026 Stacked Racks Vintage · All Rights Reserved</p>
+          <p className="text-[10px] text-[#666]">Zakery Shelley, sole trader, trading as Stacked Racks Vintage</p>
         </div>
       </div>
     </footer>

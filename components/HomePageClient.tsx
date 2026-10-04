@@ -8,6 +8,7 @@ import Hero from "@/components/Hero";
 import MarqueeBanner from "@/components/MarqueeBanner";
 import SectionBoxes from "@/components/SectionBoxes";
 import CustomerReviews from "@/components/CustomerReviews";
+import RecentlySold from "@/components/RecentlySold";
 import ProductCard from "@/components/ProductCard";
 import ProductModal from "@/components/ProductModal";
 import { Product } from "@/lib/products";
@@ -163,6 +164,7 @@ export default function HomePageClient({ initialProducts }: { initialProducts: P
   };
 
   const filtered = products.filter((p) => {
+    if (p.stock <= 0) return false;
     if (showNew && !isNew(p)) return false;
     if (showMarquee && p.badge !== "RARE") return false;
     const genderMatch = selectedGender === "All" || productMatchesGender(p, selectedGender);
@@ -510,6 +512,7 @@ export default function HomePageClient({ initialProducts }: { initialProducts: P
                   ))}
                 </div>
               )}
+              <RecentlySold products={products} onSelect={setSelectedProduct} />
 
               <div className="mt-10 text-center border border-white/8 py-8 px-4">
                 <p className="text-[#aaa] text-sm mb-1">See everything</p>
