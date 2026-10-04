@@ -82,12 +82,18 @@ function emailHeading(title: "NEW DROP" | "LATEST DROP" | "YOUR 10% OFF CODE") {
 function itemCards(items: DropEmailItem[]) {
   const validItems = items.filter((item) => validDropItemId(item.id));
   const rows: string[] = [];
+  const cardBackground = background("#111111");
+  const cardSides = `border-left:1px solid ${orange};border-right:1px solid ${orange}`;
+  const gutter = `<td width="12" bgcolor="${dark}" style="width:12px;${background(dark)};font-size:0">&nbsp;</td>`;
+  const emptyCell = `<td width="50%" bgcolor="${dark}" style="width:50%;${background(dark)}">&nbsp;</td>`;
+  const cardCell = (content: string, style: string, extra = "") =>
+    `<td ${extra}valign="top" bgcolor="#111111" style="vertical-align:top;${cardBackground};${cardSides};${style}">${content}</td>`;
   for (let index = 0; index < validItems.length; index += 2) {
     const cards = validItems.slice(index, index + 2).map((item) => {
       const title = websiteProductTitle(item.name);
       const image = safeHttpsUrl(item.imageUrls?.[0]);
       const imageHtml = image
-        ? `<tr><td bgcolor="#111111" style="${background("#111111")}"><img src="${escapeHtml(image)}" alt="${escapeHtml(title)}" width="260" style="display:block;width:100%;height:auto;border:0"></td></tr>`
+        ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(title)}" width="260" style="display:block;width:100%;height:auto;border:0">`
         : "";
       const itemUrl = `${site}/products/${item.id}/`;
       const price = Number.isFinite(item.price) ? new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(item.price) : "";
@@ -95,9 +101,18 @@ function itemCards(items: DropEmailItem[]) {
       const genderHtml = gender ? `<span style="display:inline-block;border:1px solid ${orange};color:${orange};font-family:Arial,sans-serif;font-size:9px;font-weight:bold;letter-spacing:1.2px;padding:4px 5px">${escapeHtml(gender)}</span>` : "";
       const categoryHtml = item.category ? `<span style="display:inline-block;color:#AAAAAA;font-family:Arial,sans-serif;font-size:9px;font-weight:bold;letter-spacing:1.1px;padding-left:6px">${blend(escapeHtml(item.category.toUpperCase()), true)}</span>` : "";
       const fit = item.brand ? `${item.brand} · Fits ${item.size}` : `Fits ${item.size}`;
-      return `<td class="item-card" width="50%" valign="top" bgcolor="#111111" style="width:50%;vertical-align:top;${background("#111111")};border:1px solid ${orange}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#111111" style="width:100%;${background("#111111")}">${imageHtml}<tr><td bgcolor="#111111" style="${background("#111111")};padding:10px 9px 3px">${genderHtml}${categoryHtml}</td></tr><tr><td bgcolor="#111111" style="${background("#111111")};padding:7px 9px 4px;color:${orange};font-family:Arial,sans-serif;font-size:15px;font-weight:bold;line-height:1.3">${escapeHtml(title)}</td></tr><tr><td bgcolor="#111111" style="${background("#111111")};padding:0 9px;color:#C8C8C8;font-family:Arial,sans-serif;font-size:12px;line-height:1.5">${blend(escapeHtml(fit))}</td></tr><tr><td bgcolor="#111111" style="${background("#111111")};padding:8px 9px 10px;color:${orange};font-family:Arial,sans-serif;font-size:20px;font-weight:bold">${escapeHtml(price)}</td></tr><tr><td bgcolor="#111111" style="${background("#111111")};padding:0 9px 10px"><a href="${itemUrl}" style="display:block;border:1px solid ${orange};${background(dark)};color:${orange};font-family:Arial,sans-serif;font-size:11px;font-weight:bold;letter-spacing:1.4px;text-align:center;text-decoration:none;padding:10px 4px">VIEW ITEM</a></td></tr></table></td>`;
+      return [
+        cardCell(imageHtml, `width:50%;border-top:1px solid ${orange}`, 'class="item-card" width="50%" '),
+        cardCell(`${genderHtml}${categoryHtml}`, "padding:10px 9px 3px"),
+        cardCell(escapeHtml(title), `padding:7px 9px 4px;color:${orange};font-family:Arial,sans-serif;font-size:15px;font-weight:bold;line-height:1.3`),
+        cardCell(blend(escapeHtml(fit)), "padding:0 9px;color:#C8C8C8;font-family:Arial,sans-serif;font-size:12px;line-height:1.5"),
+        cardCell(escapeHtml(price), `padding:8px 9px 10px;color:${orange};font-family:Arial,sans-serif;font-size:20px;font-weight:bold`),
+        cardCell(`<a href="${itemUrl}" style="display:block;border:1px solid ${orange};${background(dark)};color:${orange};font-family:Arial,sans-serif;font-size:11px;font-weight:bold;letter-spacing:1.4px;text-align:center;text-decoration:none;padding:10px 4px">VIEW ITEM</a>`, `padding:0 9px 10px;border-bottom:1px solid ${orange}`),
+      ];
     });
-    rows.push(`<tr class="item-row">${cards[0]}<td width="12" bgcolor="${dark}" style="width:12px;${background(dark)};font-size:0">&nbsp;</td>${cards[1] ?? `<td width="50%" bgcolor="${dark}" style="width:50%;${background(dark)}">&nbsp;</td>`}</tr>`);
+    for (let part = 0; part < 6; part += 1) {
+      rows.push(`<tr class="item-row">${cards[0][part]}${gutter}${cards[1]?.[part] ?? emptyCell}</tr>`);
+    }
   }
   return rows.length
     ? `<tr><td bgcolor="${dark}" style="${background(dark)};padding:18px 14px 8px;${orangeSides()}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${dark}" style="width:100%;table-layout:fixed;${background(dark)}">${rows.join("")}</table></td></tr>`

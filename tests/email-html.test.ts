@@ -125,7 +125,7 @@ test("coloured content stays outside blend wrappers in every email", () => {
 
 test("cards show website metadata and an outlined orange button", () => {
   const html = dropEmailHtml(drop);
-  assert.match(html, /class="item-card"[^>]*bgcolor="#111111"[^>]*border:1px solid #E8500A/);
+  assert.match(html, /class="item-card"[^>]*bgcolor="#111111"[^>]*border-left:1px solid #E8500A;border-right:1px solid #E8500A;width:50%;border-top:1px solid #E8500A/);
   assert.match(html, /border:1px solid #E8500A;color:#E8500A[^>]*>MEN'S \+ WOMEN'S<\/span>/);
   assert.match(html, /T-SHIRTS &amp; TOPS/);
   assert.match(html, /color:#E8500A;font-family:Arial,sans-serif;font-size:15px[^>]*>Nike &lt;script&gt;/);
@@ -141,14 +141,48 @@ test("three valid items occupy two fixed two-column rows with an empty last cell
     { id: "three", name: "Third", size: "L", price: 30 },
   ];
   for (const html of [dropEmailHtml({ ...drop, items }), campaignHtml("Hello", "", unsubscribeUrl, items), welcomeEmailHtml("CODE", unsubscribeUrl, items)]) {
-    assert.equal((html.match(/<tr class="item-row">/g) ?? []).length, 2);
+    const rows = [...html.matchAll(/<tr class="item-row">([\s\S]*?)<\/tr>/g)].map((match) => match[1]);
+    assert.equal(rows.length, 12);
     assert.equal((html.match(/<td class="item-card" width="50%"/g) ?? []).length, 3);
-    assert.match(html, /<tr class="item-row">[\s\S]*?First[\s\S]*?Second[\s\S]*?<\/tr><tr class="item-row">[\s\S]*?Third/);
+    assert.match(rows[2], /First[\s\S]*Second/);
+    assert.match(rows[8], /Third/);
+    for (const row of rows.slice(6)) assert.match(row, /<td width="50%" bgcolor="#0A0A0A"[^>]*>&nbsp;<\/td>$/);
     assert.match(html, /<td width="12" bgcolor="#0A0A0A"/);
     assert.match(html, /table-layout:fixed/);
     assert.doesNotMatch(html, /@media|display:block!important/);
     assert.match(html, /width="260" style="display:block;width:100%;height:auto/);
   }
+});
+
+test("both cards share each content row so unequal titles leave buttons level", () => {
+  const items = [
+    { id: "short", name: "Short", size: "S", brand: "Nike", category: "Tops", price: 10, imageUrls: ["https://example.com/short.jpg"] },
+    { id: "long", name: "A much longer title that wraps onto more than one line", size: "M", brand: "Adidas", category: "Shirts", price: 20 },
+  ];
+  const html = dropEmailHtml({ ...drop, items });
+  const rows = [...html.matchAll(/<tr class="item-row">([\s\S]*?)<\/tr>/g)].map((match) => match[1]);
+  assert.equal(rows.length, 6);
+  const pairs = [
+    [/short\.jpg/, /class="item-card"[^>]*border-top:1px solid #E8500A/],
+    [/TOPS/, /SHIRTS/],
+    [/>Short<\/td>/, /A much longer title that wraps onto more than one line/],
+    [/Nike · Fits S/, /Adidas · Fits M/],
+    [/£10\.00/, /£20\.00/],
+    [/products\/short\/[^>]*>VIEW ITEM<\/a>/, /products\/long\/[^>]*>VIEW ITEM<\/a>/],
+  ];
+  for (const [index, row] of rows.entries()) {
+    for (const pattern of pairs[index]) assert.match(row, pattern);
+    assert.equal((row.match(/valign="top" bgcolor="#111111"/g) ?? []).length, 2);
+    assert.equal((row.match(/border-left:1px solid #E8500A;border-right:1px solid #E8500A/g) ?? []).length, 2);
+    assert.equal((row.match(/<td width="12"/g) ?? []).length, 1);
+  }
+  assert.equal((rows[0].match(/border-top:1px solid #E8500A/g) ?? []).length, 2);
+  assert.equal((rows[0].match(/<img /g) ?? []).length, 1);
+  assert.match(rows[0], /<td class="item-card"[^>]*><\/td>$/);
+  assert.doesNotMatch(rows.slice(1).join(""), /border-top:1px solid #E8500A/);
+  assert.equal((rows[5].match(/border-bottom:1px solid #E8500A/g) ?? []).length, 2);
+  assert.doesNotMatch(rows.slice(0, 5).join(""), /border-bottom:1px solid #E8500A/);
+  assert.doesNotMatch(rows[0], /src=""|src="undefined"/);
 });
 
 test("item URLs use validated ids and unsafe image or unsubscribe URLs are omitted", () => {
