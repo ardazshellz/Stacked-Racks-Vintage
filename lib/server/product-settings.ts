@@ -2,30 +2,8 @@ import { getSupabaseAdmin } from "./supabase";
 
 export const PRODUCT_SETTINGS_NAME = "__STACKED_RACKS_PRODUCT_SETTINGS__";
 
-export interface ProductSettings {
-  hiddenProductIds: string[];
-  deletedProductIds: string[];
-}
-
-const EMPTY_SETTINGS: ProductSettings = { hiddenProductIds: [], deletedProductIds: [] };
-
-export function parseProductSettings(value: unknown): ProductSettings {
-  try {
-    const parsed = typeof value === "string" ? JSON.parse(value) : value;
-    if (!parsed || typeof parsed !== "object") return { ...EMPTY_SETTINGS };
-    const settings = parsed as Partial<ProductSettings>;
-    return {
-      hiddenProductIds: Array.isArray(settings.hiddenProductIds)
-        ? [...new Set(settings.hiddenProductIds.map(String))]
-        : [],
-      deletedProductIds: Array.isArray(settings.deletedProductIds)
-        ? [...new Set(settings.deletedProductIds.map(String))]
-        : [],
-    };
-  } catch {
-    return { ...EMPTY_SETTINGS };
-  }
-}
+import { parseProductSettings, type ProductSettings } from "../listing-schedule";
+export { parseProductSettings, type ProductSettings } from "../listing-schedule";
 
 export async function getProductSettings(): Promise<ProductSettings> {
   const { data, error } = await getSupabaseAdmin()

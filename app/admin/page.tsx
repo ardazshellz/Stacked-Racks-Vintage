@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { defaultScheduleConfig, type ScheduleConfig } from "@/lib/listing-schedule";
 import Image from "next/image";
 import EmailMarketing from "@/components/admin/EmailMarketing";
 import PhotoEditor from "@/components/admin/PhotoEditor";
@@ -271,6 +272,11 @@ export default function AdminPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [hiddenProductIds, setHiddenProductIds] = useState<string[]>([]);
+  const [scheduledReleases, setScheduledReleases] = useState<Record<string, string>>({});
+  const [scheduleConfig, setScheduleConfig] = useState<ScheduleConfig>(defaultScheduleConfig);
+  const [scheduleBusy, setScheduleBusy] = useState(false);
+  const [scheduleMessage, setScheduleMessage] = useState("");
+  const [scheduleNow, setScheduleNow] = useState(() => Date.now());
   const [productSearch, setProductSearch] = useState("");
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState("");
@@ -304,7 +310,7 @@ export default function AdminPage() {
     try {
       const [ordersResponse, productsResponse] = await Promise.all([
         fetch("/api/admin-orders", { cache: "no-store" }),
-        fetch("/api/products", { cache: "no-store" }),
+        fetch("/api/products?admin=true", { cache: "no-store" }),
       ]);
       if (ordersResponse.status === 401) {
         setAuthenticated(false);
@@ -317,6 +323,8 @@ export default function AdminPage() {
       const deletedIds = new Set<string>(productsData.deletedProductIds ?? []);
       setProducts((productsData.products ?? []).filter((product: Product) => !deletedIds.has(String(product.id))));
       setHiddenProductIds(productsData.hiddenProductIds ?? []);
+      setScheduledReleases(productsData.scheduledReleases ?? {});
+      setScheduleConfig(productsData.scheduleConfig ?? defaultScheduleConfig());
     } catch (error) {
       setDataError(error instanceof Error ? error.message : "Could not load dashboard data");
     } finally {
@@ -604,7 +612,37 @@ export default function AdminPage() {
     await generateListing({}, quickDetails || sellerNotes, "photos");
   };
 
-  const saveProduct = async (listingStatus: "live" | "draft" = "live") => {
+  useEffect(() => {
+    const timer = window.setInterval(() => setScheduleNow(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const scheduleDate = (at: string) => new Date(at).toLocaleString("en-GB", { timeZone: "Europe/London", dateStyle: "medium", timeStyle: "short" });
+  const upcomingDrops: Record<string, Product[]> = {};
+  for (const product of products) {
+    const at = scheduledReleases[String(product.id)];
+    if (at && Date.parse(at) > scheduleNow) (upcomingDrops[at] ??= []).push(product);
+  }
+  const patchSchedule = async (body: unknown) => {
+    const response = await fetch("/api/products", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? "Could not update release schedule");
+  };
+  const updateSchedule = async (body: unknown, message: string) => {
+    setScheduleBusy(true);
+    setScheduleMessage("");
+    try {
+      await patchSchedule(body);
+      await loadDashboard();
+      setScheduleNow(Date.now());
+      setScheduleMessage(message);
+      window.dispatchEvent(new CustomEvent("sr:products-updated"));
+    } catch (error) {
+      setScheduleMessage(error instanceof Error ? error.message : "Could not update release schedule");
+    } finally { setScheduleBusy(false); }
+  };
+
+  const saveProduct = async (listingStatus: "live" | "draft" = "live", schedule = false) => {
     if (listingStatus === "live" && pricingApprovalRequired) {
       setListingMessage("Review and approve the suggested pricing before publishing this collectible or uncertain item.");
       return;
@@ -620,11 +658,19 @@ export default function AdminPage() {
       const response = await fetch("/api/products", {
         method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editingId ? { id: editingId, product: productForSave } : productForSave),
+        body: JSON.stringify(editingId ? { id: editingId, product: productForSave, hidden: schedule || undefined } : { ...productForSave, hidden: schedule || undefined }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Could not save product");
-      setListingMessage(listingStatus === "draft" ? "Saved safely in To be uploaded — it is not public" : editingId ? "Product updated" : "Product published to the website");
+      if (schedule) {
+        setEditingId(String(data.product.id));
+        try { await patchSchedule({ schedule: { auto: [String(data.product.id)] } }); }
+        catch (error) {
+          await loadDashboard();
+          throw new Error(`Listing saved privately, but scheduling failed: ${error instanceof Error ? error.message : "try again"}`);
+        }
+      }
+      setListingMessage(schedule ? "Listing added to the release schedule" : listingStatus === "draft" ? "Saved safely in To be uploaded — it is not public" : editingId ? "Product updated" : "Product published to the website");
       setEditingId(null);
       setForm({ ...EMPTY_PRODUCT, listedDate: new Date().toISOString().slice(0, 10) });
       setQuickDetails("");
@@ -942,17 +988,37 @@ export default function AdminPage() {
                 <Field label="Live Vinted item URL" value={form.vintedUrl ?? ""} onChange={(value) => setForm({ ...form, vintedUrl: value })} placeholder="https://www.vinted.co.uk/items/…" />
                 <p className="text-[#777] text-[10px] -mt-2">Paste the public item link after publishing on Vinted. Product links will then open this exact listing for every visitor.</p>
                 {listingMessage && <p className="text-[#F5C300] text-xs border border-[#F5C300]/20 bg-[#F5C300]/5 p-3">{listingMessage}</p>}
-                <div className="flex flex-wrap gap-3"><button onClick={() => void saveProduct("live")} disabled={saving || pricingApprovalRequired || !form.name || !form.brand || form.price <= 0} className="bg-[#E8500A] disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">{saving ? "Saving…" : editingId && form.listingStatus === "draft" ? "Approve and publish" : editingId ? "Save changes" : "Publish to website"}</button><button onClick={() => void saveProduct("draft")} disabled={saving || !form.name || !form.brand || form.price <= 0} className="border border-amber-400/50 text-amber-200 disabled:opacity-40 px-5 py-3 text-xs font-bold">Save to be uploaded</button><button onClick={() => navigator.clipboard.writeText(`${form.vintedTitle}\n\n${form.vintedDescription}`)} className="border border-white/15 text-[#aaa] px-5 py-3 text-xs font-bold">Copy full Vinted listing</button><a href="https://www.vinted.co.uk/items/new" target="_blank" rel="noopener noreferrer" className="border border-[#F5C300]/40 text-[#F5C300] px-5 py-3 text-xs font-bold">Open Vinted ↗</a></div>
+                <div className="flex flex-wrap gap-3"><button onClick={() => void saveProduct("live")} disabled={saving || pricingApprovalRequired || !form.name || !form.brand || form.price <= 0} className="bg-[#E8500A] disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">{saving ? "Saving…" : editingId && form.listingStatus === "draft" ? "Approve and publish" : editingId ? "Save changes" : "Publish to website"}</button><button onClick={() => void saveProduct("live", true)} disabled={saving || scheduleBusy || pricingApprovalRequired || !form.name || !form.brand || form.price <= 0} className="border border-[#E8500A] text-[#E8500A] disabled:opacity-40 px-5 py-3 text-xs font-black uppercase tracking-wider">Add to schedule</button><button onClick={() => void saveProduct("draft")} disabled={saving || !form.name || !form.brand || form.price <= 0} className="border border-amber-400/50 text-amber-200 disabled:opacity-40 px-5 py-3 text-xs font-bold">Save to be uploaded</button><button onClick={() => navigator.clipboard.writeText(`${form.vintedTitle}\n\n${form.vintedDescription}`)} className="border border-white/15 text-[#aaa] px-5 py-3 text-xs font-bold">Copy full Vinted listing</button><a href="https://www.vinted.co.uk/items/new" target="_blank" rel="noopener noreferrer" className="border border-[#F5C300]/40 text-[#F5C300] px-5 py-3 text-xs font-bold">Open Vinted ↗</a></div>
               </div>
             </div>
 
             <aside className="bg-[#111] border border-white/8 p-5 xl:sticky xl:top-24">
               {draftProducts.length > 0 && <div className="mb-6 border border-amber-400/35 bg-amber-400/[0.05] p-4"><div className="flex items-center justify-between gap-3"><div><h3 className="font-black text-amber-200">To be uploaded</h3><p className="text-[#777] text-[10px] mt-1">Private provisional listings waiting for your review.</p></div><span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-amber-400 text-black text-xs font-black">{draftProducts.length}</span></div><div className="mt-3 space-y-2">{draftProducts.map((product) => <button key={product.id} type="button" onClick={() => editProduct(product)} className="w-full border border-white/8 bg-black/20 p-3 text-left hover:border-amber-300/40"><span className="block text-xs font-bold text-white">{product.name}</span><span className="mt-1 block text-[9px] text-[#888]">Suggested {product.suggestedPriceLow && product.suggestedPriceHigh ? `£${product.suggestedPriceLow}–£${product.suggestedPriceHigh}` : money(product.price)} · Review listing</span></button>)}</div></div>}
+              <section className="mb-6 border border-[#E8500A]/30 bg-[#161616] p-4">
+                <h3 className="font-black">Release schedule</h3>
+                <p className="text-[#888] text-xs mt-1 mb-4">UK time (GMT/BST). Items go live automatically. Config changes apply to new slots only.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className={LABEL}>Batch size<input type="number" min="1" max="100" value={scheduleConfig.batchSize} onChange={e => setScheduleConfig({ ...scheduleConfig, batchSize: Number(e.target.value) })} className={INPUT} /></label>
+                  <label className={LABEL}>Every N days<input type="number" min="1" max="365" value={scheduleConfig.everyDays} onChange={e => setScheduleConfig({ ...scheduleConfig, everyDays: Number(e.target.value) })} className={INPUT} /></label>
+                  <label className={LABEL}>Start date<input type="date" value={scheduleConfig.startAt} onChange={e => setScheduleConfig({ ...scheduleConfig, startAt: e.target.value })} className={INPUT} /></label>
+                  <label className={LABEL}>Hour (UK, 0–23)<input type="number" min="0" max="23" value={scheduleConfig.releaseHour} onChange={e => setScheduleConfig({ ...scheduleConfig, releaseHour: Number(e.target.value) })} className={INPUT} /></label>
+                </div>
+                <button disabled={scheduleBusy || saving} onClick={() => void updateSchedule({ scheduleConfig }, "Schedule configuration saved")} className="mt-3 bg-[#E8500A] disabled:opacity-40 px-4 py-2 text-[10px] font-black uppercase tracking-wider">Save schedule settings</button>
+                {scheduleMessage && <p role="status" className="text-amber-200 text-xs mt-3">{scheduleMessage}</p>}
+                <div className="mt-4 space-y-3 max-h-[50vh] overflow-y-auto">{Object.entries(upcomingDrops).sort(([a], [b]) => a.localeCompare(b)).map(([at, items]) => <div key={at} className="border border-white/10 p-3">
+                  <p className="text-[#E8500A] text-[10px] font-black uppercase tracking-wider">{scheduleDate(at)} UK · {items.length}/{scheduleConfig.batchSize}</p>
+                  {items.map(product => <div key={product.id} className="mt-3 border-t border-white/5 pt-2"><p className="text-xs font-bold">{product.name}</p><div className="flex flex-wrap gap-3 mt-2">
+                    <button disabled={scheduleBusy || saving} onClick={() => void updateSchedule({ schedule: { id: String(product.id) } }, "Removed from schedule; item remains hidden")} className="text-amber-200 disabled:opacity-40 text-[10px]">Remove from schedule</button>
+                    <button disabled={scheduleBusy || saving} onClick={() => void updateSchedule({ schedule: { id: String(product.id), at: new Date().toISOString() } }, "Item released now")} className="text-[#E8500A] disabled:opacity-40 text-[10px]">Release now</button>
+                  </div></div>)}
+                </div>)}{Object.keys(upcomingDrops).length === 0 && <p className="text-[#777] text-xs">No upcoming drops. Add a listing to schedule its release.</p>}</div>
+              </section>
               <h3 className="font-black mb-1">Manage website products</h3><p className="text-[#555] text-xs mb-4">Your 5 newest listings appear here. Search to find any other item.</p>
               <input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Search product name or brand…" className={`${INPUT} mb-4`} />
               <div className="space-y-3 max-h-[72vh] overflow-y-auto">{managedProducts.map((product) => {
                 const id = String(product.id);
                 const hidden = hiddenProductIds.includes(id);
+                const scheduled = scheduledReleases[id] && Date.parse(scheduledReleases[id]) > scheduleNow;
                 const databaseProduct = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id);
                 const recordedVintedSale = vintedSaleByProductId.get(id);
                 return <div key={product.id} className={`border p-3 flex gap-3 ${hidden ? "border-amber-500/25 bg-amber-500/[0.03]" : "border-white/8"}`}>
@@ -960,7 +1026,7 @@ export default function AdminPage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold truncate">{product.name}</p>
                     <p className="text-[#666] text-[10px]">{product.brand} · {money(product.price)}</p>
-                    <p className={`text-[9px] mt-1 ${hidden ? "text-amber-300" : product.stock > 0 ? "text-emerald-400" : "text-red-400"}`}>{hidden ? "HIDDEN FROM PUBLIC" : product.stock > 0 ? "LIVE" : recordedVintedSale ? (recordedVintedSale.source === "vinted" ? "SOLD ON VINTED" : "SOLD DIRECT") : "SOLD"}</p>
+                    <p className={`text-[9px] mt-1 ${hidden ? "text-amber-300" : product.stock > 0 ? "text-emerald-400" : "text-red-400"}`}>{scheduled ? `Scheduled ${scheduleDate(scheduledReleases[id])} UK` : hidden ? "HIDDEN FROM PUBLIC" : product.stock > 0 ? "LIVE" : recordedVintedSale ? (recordedVintedSale.source === "vinted" ? "SOLD ON VINTED" : "SOLD DIRECT") : "SOLD"}</p>
                     {recordedVintedSale
                       ? <p className="text-[#F5C300] text-[9px] mt-1">Purchased {money(orderPurchaseCost(recordedVintedSale, products))} · Sold {money(recordedVintedSale.price)}</p>
                       : <p className="text-[#777] text-[9px] mt-1">Purchase cost: {product.costPrice === undefined ? "Not added" : money(product.costPrice)}</p>}
@@ -969,6 +1035,7 @@ export default function AdminPage() {
                       {databaseProduct && !recordedVintedSale && <button onClick={() => openVintedSale(product)} className="text-[#F5C300] text-[10px] font-bold">Sold on Vinted</button>}
                       {databaseProduct && !recordedVintedSale && <button onClick={() => void setPurchasePrice(product)} className="text-sky-300 text-[10px]">{product.costPrice === undefined ? "Add purchase price" : "Update purchase price"}</button>}
                       {databaseProduct && !recordedVintedSale && <button onClick={() => void updateStock(product)} className="text-[#aaa] text-[10px]">{product.stock > 0 ? "Mark sold elsewhere" : "Relist"}</button>}
+                      {hidden && product.stock > 0 && <button disabled={scheduleBusy || saving} onClick={() => void updateSchedule({ schedule: { auto: [id] } }, "Item added to schedule")} className="text-[#E8500A] disabled:opacity-40 text-[10px]">Add to schedule</button>}
                       <button onClick={() => void toggleProductVisibility(product)} className="text-amber-300 text-[10px]">{hidden ? "Show publicly" : "Hide from public"}</button>
                       <button onClick={() => void removeProduct(product)} className="text-red-400 text-[10px]">Delete</button>
                     </div>

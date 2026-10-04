@@ -10,6 +10,8 @@ import { sameOrigin, withinRateLimit } from "@/lib/server/request-security";
 import { discountedPrices } from "@/lib/promotions";
 import { validatePromotion } from "@/lib/server/promotions";
 
+import { productUnavailable } from "@/lib/listing-schedule";
+
 const MAX_ITEMS = 8;
 
 export async function POST(req: Request) {
@@ -40,8 +42,7 @@ export async function POST(req: Request) {
   let reservationToken = "";
   try {
     const settings = await getProductSettings();
-    const unavailable = new Set([...settings.hiddenProductIds, ...settings.deletedProductIds]);
-    if (requestedIds.some((id) => unavailable.has(id))) {
+    if (requestedIds.some((id) => productUnavailable(settings, id))) {
       return NextResponse.json({ error: "One of these items is no longer available" }, { status: 409 });
     }
 

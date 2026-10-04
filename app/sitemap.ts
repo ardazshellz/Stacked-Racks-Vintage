@@ -2,6 +2,8 @@ import type { MetadataRoute } from "next";
 import { getPublicProducts } from "@/lib/server/catalog";
 import { productPath } from "@/lib/product-url";
 
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://stackedracksvintage.co.uk";
   const routes = ["", "/shop", "/contact", "/legal", "/legal/privacy", "/legal/terms"];
