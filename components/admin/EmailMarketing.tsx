@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { dropEmailHtml } from "@/lib/email-html";
+import { isNew, productMatchesGender, productSizeLabel, type Product } from "@/lib/products";
+import { normalizePromotionCode } from "@/lib/promotions";
 
 type Subscriber = { email: string; discount_code: string; consent_source: string; consented_at: string; unsubscribed_at: string | null; discount_redeemed_at: string | null };
 type Promotion = { code: string; percent_off: number; description: string; active: boolean; expires_at: string | null; max_redemptions: number | null; redemption_count: number };
@@ -8,6 +11,21 @@ type Campaign = { id: string; subject: string; status: string; sent_count: numbe
 
 const INPUT = "w-full bg-[#171717] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-[#E8500A]/70 placeholder:text-[#555]";
 const LABEL = "block text-[#777] text-[9px] font-black tracking-[0.18em] uppercase mb-1.5";
+const FILTERS = ["All", "Posted today", "Last 7 days", "Men's", "Women's", "Marquee"] as const;
+type ItemFilter = (typeof FILTERS)[number];
+
+function ukDate() {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "long", day: "numeric", month: "long" }).format(new Date()).toUpperCase();
+}
+
+function ukIsoDate() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+function releaseNote(value: string) {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", dateStyle: "medium" }).format(date) : value;
+}
 
 function exportSubscribers(subscribers: Subscriber[]) {
   const lines = ["Email,Joined,Source,Status,Discount redeemed", ...subscribers.map((subscriber) => [subscriber.email, new Date(subscriber.consented_at).toLocaleDateString("en-GB"), subscriber.consent_source, subscriber.unsubscribed_at ? "Unsubscribed" : "Active", subscriber.discount_redeemed_at ? "Yes" : "No"].map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))];
@@ -23,6 +41,14 @@ export default function EmailMarketing() {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [items, setItems] = useState<Product[]>([]);
+  const [scheduledReleases, setScheduledReleases] = useState<Record<string, string>>({});
+  const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [itemFilter, setItemFilter] = useState<ItemFilter>("All");
+  const [drop, setDrop] = useState({ subject: "New drop: 0 one-off vintage pieces", intro: "Fresh one-off vintage pieces have landed. Pick your favourites before they go.", dateLine: ukDate(), promotionEnabled: false, percentOff: 10, code: "DROP10", testEmail: "zakeryshelley1997@gmail.com" });
+  const [subjectEdited, setSubjectEdited] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -33,11 +59,21 @@ export default function EmailMarketing() {
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
-    const response = await fetch("/api/admin-email", { cache: "no-store" });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) setError(data.error ?? "Could not load email marketing data");
-    else { setSubscribers(data.subscribers ?? []); setPromotions(data.promotions ?? []); setCampaigns(data.campaigns ?? []); }
-    setLoading(false);
+    try {
+      const response = await fetch("/api/admin-email", { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error ?? "Could not load email marketing data");
+      const nextSubscribers: Subscriber[] = data.subscribers ?? [];
+      const nextItems: Product[] = data.items ?? [];
+      setSubscribers(nextSubscribers); setPromotions(data.promotions ?? []); setCampaigns(data.campaigns ?? []);
+      setItems(nextItems); setScheduledReleases(data.scheduledReleases ?? {});
+      const active = new Set(nextSubscribers.filter((subscriber) => !subscriber.unsubscribed_at).map((subscriber) => subscriber.email));
+      const available = new Set(nextItems.map((item) => String(item.id)));
+      setSelectedEmails((current) => current.filter((email) => active.has(email)));
+      setSelectedItemIds((current) => current.filter((id) => available.has(id)));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not load email marketing data");
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
@@ -50,6 +86,31 @@ export default function EmailMarketing() {
     const query = search.trim().toLowerCase();
     return query ? subscribers.filter((subscriber) => subscriber.email.includes(query)) : subscribers;
   }, [search, subscribers]);
+  const selectedItems = useMemo(() => {
+    const byId = new Map(items.map((item) => [String(item.id), item]));
+    return selectedItemIds.flatMap((id) => { const item = byId.get(id); return item ? [item] : []; });
+  }, [items, selectedItemIds]);
+  const visibleItems = useMemo(() => {
+    const today = ukIsoDate();
+    const sevenDaysAgo = new Date(`${today}T00:00:00Z`);
+    sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6);
+    const earliest = sevenDaysAgo.toISOString().slice(0, 10);
+    return items.filter((item) => {
+      const date = item.listedDate?.slice(0, 10);
+      switch (itemFilter) {
+        case "Posted today": return date === today;
+        case "Last 7 days": return isNew({ ...item, listedDate: date }) && date >= earliest && date <= today;
+        case "Men's": return productMatchesGender(item, "Mens");
+        case "Women's": return productMatchesGender(item, "Womens");
+        case "Marquee": return item.badge === "RARE";
+        default: return true;
+      }
+    });
+  }, [items, itemFilter]);
+  const dropSubject = subjectEdited ? drop.subject : `New drop: ${selectedItems.length} one-off vintage pieces`;
+  const dropCode = normalizePromotionCode(drop.code);
+  const dropError = selectedItemIds.length < 1 ? "Select at least one item." : selectedItemIds.length > 12 ? "Select no more than 12 items." : selectedEmails.length < 1 ? "Select at least one subscribed email." : selectedEmails.length > 200 ? "Select no more than 200 subscribers." : !dropSubject.trim() ? "Enter a subject." : !drop.dateLine.trim() ? "Enter a date line." : drop.promotionEnabled && (!Number.isInteger(drop.percentOff) || drop.percentOff < 1 || drop.percentOff > 90 || dropCode.length < 4) ? "Enter a discount from 1–90% and a valid code of at least 4 characters." : "";
+  const previewHtml = previewOpen && selectedItems.length ? dropEmailHtml({ items: selectedItems.map((item) => ({ id: item.id, name: item.name, size: productSizeLabel(item), price: item.price, imageUrls: item.imageUrls })), intro: drop.intro, dateLine: drop.dateLine, promotion: { enabled: drop.promotionEnabled, percentOff: drop.percentOff, code: dropCode }, unsubscribeUrl: "https://stackedracksvintage.co.uk/unsubscribe" }) : "";
 
   const post = async (payload: Record<string, unknown>) => {
     setBusy(true); setError(""); setMessage("");
@@ -97,11 +158,55 @@ export default function EmailMarketing() {
     await load();
   };
 
+  const dropPayload = () => ({ itemIds: selectedItems.map((item) => item.id), emails: selectedEmails, subject: dropSubject.trim(), intro: drop.intro.trim(), dateLine: drop.dateLine.trim(), promotionEnabled: drop.promotionEnabled, percentOff: drop.percentOff, code: dropCode, testEmail: drop.testEmail.trim() });
+  const sendDropTest = async () => {
+    if (!selectedItems.length || selectedItems.length > 12 || !dropSubject.trim() || !drop.dateLine.trim()) { setError("Select 1–12 items and enter a subject and date line before sending a test."); return; }
+    if (drop.promotionEnabled && (!Number.isInteger(drop.percentOff) || drop.percentOff < 1 || drop.percentOff > 90 || dropCode.length < 4)) { setError("Enter a discount from 1–90% and a valid code of at least 4 characters."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(drop.testEmail.trim())) { setError("Enter a valid test email address."); return; }
+    const data = await post({ action: "send-drop-test", ...dropPayload() });
+    if (data) {
+      if (data.sentCount > 0 && !data.failedCount) setMessage(`Test sent to ${data.sentTo ?? drop.testEmail.trim()}.`);
+      else setError(`Test failed to send${data.failedCount ? ` (${data.failedCount} failed)` : ""}.`);
+    }
+  };
+  const sendDrop = async () => {
+    if (dropError) { setError(dropError); return; }
+    if (window.prompt(`Send this drop to ${selectedEmails.length} selected subscriber${selectedEmails.length === 1 ? "" : "s"}? Type SEND to confirm.`) !== "SEND") return;
+    const data = await post({ action: "send-drop", ...dropPayload(), confirm: "SEND" });
+    if (!data) return;
+    setMessage(`Drop finished: ${data.sentCount} sent${data.failedCount ? `, ${data.failedCount} failed` : ""}${data.skippedCount ? `, ${data.skippedCount} skipped` : ""}.`);
+    await load();
+  };
+  const toggleEmail = (email: string) => setSelectedEmails((current) => current.includes(email) ? current.filter((value) => value !== email) : [...current, email]);
+  const toggleItem = (id: string) => setSelectedItemIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+
   return <section className="space-y-6">
     <div className="grid sm:grid-cols-3 gap-3">
       {[{ label: "Active subscribers", value: activeSubscribers.length }, { label: "Used welcome discount", value: subscribers.filter((subscriber) => subscriber.discount_redeemed_at).length }, { label: "Unsubscribed", value: subscribers.filter((subscriber) => subscriber.unsubscribed_at).length }].map((stat) => <div key={stat.label} className="bg-[#111] border border-white/8 p-5"><p className="text-[#888] text-[9px] uppercase tracking-[0.2em] mb-2">{stat.label}</p><p className="text-2xl font-black">{stat.value}</p></div>)}
     </div>
     {(error || message) && <div className={`border p-4 text-sm ${error ? "border-red-500/30 bg-red-500/10 text-red-300" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"}`}>{error || message}</div>}
+
+    <div className="grid xl:grid-cols-[1fr_390px] gap-6 items-start">
+      <div className="bg-[#111] border border-white/8 p-5 sm:p-6 space-y-5">
+        <div><p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">New drop email</p><h2 className="text-xl font-black">Build a drop from your stock</h2><p className="text-[#777] text-xs mt-1">Choose stock and subscribers, preview the email, then send a test.</p></div>
+        <div className="border border-white/10 p-4 space-y-3"><label className="flex items-center gap-3 text-sm font-bold"><input type="checkbox" checked={drop.promotionEnabled} onChange={(event) => setDrop((current) => ({ ...current, promotionEnabled: event.target.checked }))} className="accent-[#E8500A]" /> Include a checkout promotion</label>{drop.promotionEnabled && <><div className="grid sm:grid-cols-2 gap-3"><label><span className={LABEL}>Discount %</span><input type="number" min="1" max="90" step="1" value={drop.percentOff} onChange={(event) => setDrop((current) => ({ ...current, percentOff: Number(event.target.value) }))} className={INPUT} /></label><label><span className={LABEL}>Code</span><input value={drop.code} onChange={(event) => setDrop((current) => ({ ...current, code: event.target.value }))} onBlur={() => setDrop((current) => ({ ...current, code: normalizePromotionCode(current.code) }))} className={INPUT} /></label></div><p className="text-[#777] text-xs">The code will be activated when you send the drop to subscribers.</p></>}</div>
+        <label><span className={LABEL}>Subject</span><input lang="en-GB" spellCheck value={dropSubject} onChange={(event) => { setSubjectEdited(true); setDrop((current) => ({ ...current, subject: event.target.value })); }} className={INPUT} /></label>
+        <label><span className={LABEL}>Intro line</span><textarea rows={2} lang="en-GB" spellCheck value={drop.intro} onChange={(event) => setDrop((current) => ({ ...current, intro: event.target.value }))} className={INPUT} /></label>
+        <label><span className={LABEL}>Date line</span><input lang="en-GB" spellCheck value={drop.dateLine} onChange={(event) => setDrop((current) => ({ ...current, dateLine: event.target.value }))} className={INPUT} /></label>
+        <div className="flex flex-wrap gap-3 items-end"><button onClick={() => { if (!selectedItems.length) { setError("Select at least one item to preview."); return; } setError(""); setPreviewOpen(true); }} disabled={loading || !selectedItems.length} className="border border-white/20 disabled:opacity-40 px-4 py-3 text-xs font-black uppercase tracking-wider">Preview</button><label className="grow min-w-[220px]"><span className={LABEL}>Test email address</span><input type="email" value={drop.testEmail} onChange={(event) => setDrop((current) => ({ ...current, testEmail: event.target.value }))} className={INPUT} /></label><button onClick={() => void sendDropTest()} disabled={busy || loading || !selectedItems.length || selectedItems.length > 12} className="border border-[#F5C300]/40 disabled:opacity-40 text-[#F5C300] px-4 py-3 text-xs font-bold">Send test to me</button></div>
+        {previewOpen && <div><div className="flex items-center justify-between mb-2"><h3 className="text-sm font-black">Preview</h3><button onClick={() => setPreviewOpen(false)} className="text-[#999] text-xs underline">Close</button></div>{previewHtml ? <iframe title="Drop email preview" sandbox="" srcDoc={previewHtml} className="w-full h-[640px] border border-white/10 bg-[#0A0A0A]" /> : <p className="text-[#777] text-xs">Select an item to preview the drop.</p>}</div>}
+        {dropError && <p className="text-[#F5C300] text-xs" role="status">{dropError}</p>}
+        <button onClick={() => void sendDrop()} disabled={busy || loading || Boolean(dropError)} className="bg-[#E8500A] disabled:opacity-40 px-5 py-3 text-xs font-black uppercase tracking-wider">Send to {selectedEmails.length} selected</button>
+      </div>
+      <aside className="bg-[#111] border border-white/8 p-5 space-y-4"><div><h3 className="font-black">{selectedItemIds.length} items selected</h3><p className="text-[#777] text-xs mt-1">Choose 1–12 in-stock items.</p></div><div className="flex flex-wrap gap-2" role="group" aria-label="Filter items">{FILTERS.map((filter) => <button key={filter} onClick={() => setItemFilter(filter)} aria-pressed={itemFilter === filter} className={`px-2.5 py-1.5 text-[10px] font-bold border ${itemFilter === filter ? "border-[#E8500A] text-[#E8500A]" : "border-white/15 text-[#999]"}`}>{filter}</button>)}</div>{loading ? <p className="text-[#777] text-xs">Loading items…</p> : <div className="max-h-[650px] overflow-y-auto space-y-2">{visibleItems.map((item) => { const id = String(item.id); const release = scheduledReleases[id]; return <label key={id} className="flex items-center gap-3 border border-white/8 p-2 cursor-pointer"><input type="checkbox" checked={selectedItemIds.includes(id)} disabled={!selectedItemIds.includes(id) && selectedItemIds.length >= 12} onChange={() => toggleItem(id)} className="accent-[#E8500A] shrink-0" /><div className="w-14 h-16 bg-[#222] shrink-0 overflow-hidden">{item.imageUrls?.[0] && <img src={item.imageUrls[0]} alt="" className="w-full h-full object-cover" />}</div><span className="min-w-0 flex-1"><span className="block text-xs font-bold truncate">{item.name}</span><span className="block text-[10px] text-[#999] mt-1">{productSizeLabel(item)} · £{item.price.toFixed(2)} {item.badge === "RARE" && <span className="text-[#F5C300] font-black">· RARE</span>}</span>{release && new Date(release).getTime() > Date.now() && <span className="block text-[10px] text-[#F5C300] mt-1">Releases {releaseNote(release)}</span>}</span></label>; })}{!visibleItems.length && <p className="text-[#777] text-xs py-5 text-center">No items match this filter.</p>}</div>}</aside>
+    </div>
+
+    <div className="bg-[#111] border border-white/8 p-5 sm:p-6">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-4"><div><h2 className="text-xl font-black">Email list</h2><p className="text-[#777] text-xs mt-1">{selectedEmails.length} selected · Only subscribed addresses can receive a drop.</p></div><div className="flex gap-2"><input type="search" aria-label="Search email" value={search} onChange={(event) => setSearch(event.target.value.toLowerCase())} placeholder="Search email…" className={`${INPUT} max-w-xs`} /><button onClick={() => exportSubscribers(filtered)} className="border border-white/15 px-4 text-[10px] font-black uppercase">Export CSV</button></div></div>
+      <label className="inline-flex items-center gap-2 text-xs font-bold mb-3"><input type="checkbox" className="accent-[#E8500A]" checked={activeSubscribers.length > 0 && activeSubscribers.every((subscriber) => selectedEmails.includes(subscriber.email))} onChange={(event) => setSelectedEmails(event.target.checked ? activeSubscribers.map((subscriber) => subscriber.email) : [])} disabled={!activeSubscribers.length} />Select all subscribed</label>
+      {selectedEmails.length > 200 && <p className="text-[#F5C300] text-xs mb-3" role="status">{selectedEmails.length} selected. Reduce this to 200 or fewer before sending.</p>}
+      {loading ? <p className="text-[#777] text-xs py-8">Loading subscribers…</p> : <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left"><thead><tr className="border-b border-white/10">{["Select", "Email", "Signed up", "Status", "Discount redeemed"].map((heading) => <th key={heading} className="py-3 px-3 text-[#888] text-[9px] tracking-[0.18em] uppercase">{heading}</th>)}</tr></thead><tbody>{filtered.map((subscriber) => <tr key={subscriber.email} className="border-b border-white/5"><td className="py-3 px-3"><input type="checkbox" aria-label={`Select ${subscriber.email}`} checked={selectedEmails.includes(subscriber.email)} disabled={Boolean(subscriber.unsubscribed_at)} onChange={() => toggleEmail(subscriber.email)} className="accent-[#E8500A]" /></td><td className="py-3 px-3 text-sm font-semibold">{subscriber.email}</td><td className="py-3 px-3 text-[#999] text-xs">{new Date(subscriber.consented_at).toLocaleDateString("en-GB")}</td><td className="py-3 px-3 text-xs"><span className={subscriber.unsubscribed_at ? "text-red-300" : "text-emerald-300"}>{subscriber.unsubscribed_at ? "Unsubscribed" : "Subscribed"}</span></td><td className="py-3 px-3 text-xs text-[#999]">{subscriber.discount_redeemed_at ? "Yes" : "No"}</td></tr>)}</tbody></table>{!filtered.length && <p className="text-[#666] text-xs py-10 text-center">No matching subscribers.</p>}</div>}
+    </div>
 
     <div className="grid xl:grid-cols-[1fr_390px] gap-6 items-start">
       <div className="bg-[#111] border border-white/8 p-5 sm:p-6 space-y-4">
@@ -120,6 +225,6 @@ export default function EmailMarketing() {
       </aside>
     </div>
 
-    <div className="bg-[#111] border border-white/8 p-5 sm:p-6"><div className="flex flex-wrap items-end justify-between gap-3 mb-4"><div><h2 className="text-xl font-black">Email list</h2><p className="text-[#777] text-xs mt-1">Only people who actively signed up appear here. Discount codes are private to Admin and the subscriber&apos;s email.</p></div><div className="flex gap-2"><input value={search} onChange={(event) => setSearch(event.target.value.toLowerCase())} placeholder="Search email…" className={`${INPUT} max-w-xs`} /><button onClick={() => exportSubscribers(filtered)} className="border border-white/15 px-4 text-[10px] font-black uppercase">Export CSV</button></div></div>{loading ? <p className="text-[#777] text-xs py-8">Loading subscribers…</p> : <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left"><thead><tr className="border-b border-white/10">{["Email", "Joined", "Source", "Status", "Welcome discount"].map((heading) => <th key={heading} className="py-3 px-3 text-[#888] text-[9px] tracking-[0.18em] uppercase">{heading}</th>)}</tr></thead><tbody>{filtered.map((subscriber) => <tr key={subscriber.email} className="border-b border-white/5"><td className="py-3 px-3 text-sm font-semibold">{subscriber.email}</td><td className="py-3 px-3 text-[#999] text-xs">{new Date(subscriber.consented_at).toLocaleDateString("en-GB")}</td><td className="py-3 px-3 text-[#999] text-xs uppercase">{subscriber.consent_source}</td><td className="py-3 px-3 text-xs"><span className={subscriber.unsubscribed_at ? "text-red-300" : "text-emerald-300"}>{subscriber.unsubscribed_at ? "Unsubscribed" : "Active"}</span></td><td className="py-3 px-3 text-xs"><span className="font-mono text-[#F5C300]">{subscriber.discount_code}</span><span className="text-[#777] ml-2">{subscriber.discount_redeemed_at ? "Used" : "Unused"}</span></td></tr>)}</tbody></table>{!filtered.length && <p className="text-[#666] text-xs py-10 text-center">No matching subscribers.</p>}</div>}</div>
+
   </section>;
 }
