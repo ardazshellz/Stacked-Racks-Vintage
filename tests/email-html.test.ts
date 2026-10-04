@@ -54,6 +54,18 @@ test("all email types emit the Gmail dark-mode document and keep preview first",
   assert.match(examples[1], /Preview &lt;safe&gt;/);
 });
 
+test("one continuous orange frame encloses each email and its footer", () => {
+  const examples = [dropEmailHtml(drop), campaignHtml("Hello", "", unsubscribeUrl), welcomeEmailHtml("CODE", unsubscribeUrl)];
+  for (const html of examples) {
+    assert.match(html, /<table role="presentation" width="600"[^>]*style="[^"]*border:5px solid #E8500A;border-image:linear-gradient\(#E8500A,#E8500A\) 1">/);
+    assert.equal((html.match(/border:5px solid #E8500A/g) ?? []).length, 1);
+    assert.doesNotMatch(html, /border-left:5px solid #E8500A|border-right:5px solid #E8500A/);
+    assert.ok(html.indexOf("STACKED RACKS VINTAGE") > html.indexOf("SHOP NOW"));
+    assert.match(html, /STACKED RACKS VINTAGE[\s\S]*London, UK[\s\S]*mailto:stackedracksvintage@gmail\.com[\s\S]*Shop on Vinted →[\s\S]*Unsubscribe/);
+    assert.match(html, /href="https:\/\/www\.vinted\.co\.uk\/member\/59714764-stackedracks"[^>]*>Shop on Vinted →<\/a>/);
+  }
+});
+
 const drop = {
   items: [{ id: "abc-123", name: "Nike <script>alert(1)</script>", size: "Men's M / Women's L", brand: "Nike", gender: "Mens" as const, secondaryGender: "Womens" as const, category: "T-Shirts & Tops", price: 45, imageUrls: ["https://example.com/shirt.jpg?x=1&y=2"] }],
   intro: "Fresh <b>pieces</b>",
@@ -65,7 +77,7 @@ test("drop email uses the reference colours, layout and item details", () => {
   const html = dropEmailHtml(drop);
   assert.match(html, /bgcolor="#0A0A0A"/);
   assert.match(html, /max-width:600px/);
-  assert.match(html, /border-left:5px solid #E8500A/);
+  assert.match(html, /border:5px solid #E8500A/);
   assert.match(html, /src="https:\/\/stackedracksvintage\.co\.uk\/email\/new-drop\.png" alt="NEW DROP" width="294"/);
   assert.match(html, /padding:38px 16px/);
   assert.match(html, /src="https:\/\/stackedracksvintage\.co\.uk\/email-wordmark\.png"[^>]*alt="Stacked Racks Vintage"[^>]*width="300"/);
@@ -134,7 +146,7 @@ test("cards show website metadata and an outlined orange button", () => {
   assert.match(html, /href="https:\/\/stackedracksvintage\.co\.uk\/products\/abc-123\/" style="display:block;border:1px solid #E8500A;background-color:#0A0A0A[^>]*>VIEW ITEM<\/a>/);
 });
 
-test("three valid items occupy two fixed two-column rows with an empty last cell", () => {
+test("three valid items place the CTA beside the last item in aligned rows", () => {
   const items = [
     { id: "one", name: "First", size: "S", price: 10, imageUrls: ["https://example.com/first.jpg"] },
     { id: "two", name: "Second", size: "M", price: 20 },
@@ -146,11 +158,38 @@ test("three valid items occupy two fixed two-column rows with an empty last cell
     assert.equal((html.match(/<td class="item-card" width="50%"/g) ?? []).length, 3);
     assert.match(rows[2], /First[\s\S]*Second/);
     assert.match(rows[8], /Third/);
-    for (const row of rows.slice(6)) assert.match(row, /<td width="50%" bgcolor="#0A0A0A"[^>]*>&nbsp;<\/td>$/);
+    assert.match(rows[6], /class="cta-card"[^>]*><img src="https:\/\/stackedracksvintage\.co\.uk\/email\/new-pieces-weekly\.png" alt="New pieces weekly" width="253"/);
+    assert.match(rows[6], /New one-off vintage lands every week\. Keep an eye out\./);
+    assert.match(rows[11], /href="https:\/\/stackedracksvintage\.co\.uk\/shop"[^>]*>SHOP NOW<\/a>/);
+    assert.match(rows[6], /class="cta-card"[^>]*align="center" valign="middle"[^>]*vertical-align:middle/);
+    assert.match(rows[6], /<img [^>]*margin:0 auto[^>]*><div style="padding-top:12px;color:#E8500A[^>]*text-align:center">New one-off vintage/);
+    for (const row of rows.slice(7, 11)) assert.match(row, /<td[^>]*><\/td>$/);
+    assert.match(rows[11], /VIEW ITEM<\/a>[\s\S]*SHOP NOW<\/a>/);
+    for (const row of rows.slice(7)) assert.equal((row.match(/valign="top" bgcolor="#111111"/g) ?? []).length, 2);
+    assert.equal((html.match(/>SHOP NOW<\/a>/g) ?? []).length, 1);
     assert.match(html, /<td width="12" bgcolor="#0A0A0A"/);
     assert.match(html, /table-layout:fixed/);
     assert.doesNotMatch(html, /@media|display:block!important/);
     assert.match(html, /width="260" style="display:block;width:100%;height:auto/);
+  }
+});
+
+test("even and zero item counts place one full-width CTA below the items", () => {
+  const items = [
+    { id: "one", name: "First", size: "S", price: 10 },
+    { id: "two", name: "Second", size: "M", price: 20 },
+  ];
+  for (const selected of [items, []]) {
+    const examples = [dropEmailHtml({ ...drop, items: selected }), campaignHtml("Hello", "", unsubscribeUrl, selected), welcomeEmailHtml("CODE", unsubscribeUrl, selected)];
+    for (const html of examples) {
+      assert.equal((html.match(/>SHOP NOW<\/a>/g) ?? []).length, 1);
+      assert.doesNotMatch(html, /class="cta-card"/);
+      assert.match(html, /<table role="presentation" width="100%"[^>]*bgcolor="#111111"[^>]*border:1px solid #E8500A/);
+      assert.match(html, /src="https:\/\/stackedracksvintage\.co\.uk\/email\/new-pieces-weekly\.png" alt="New pieces weekly" width="253"/);
+      assert.match(html, /New one-off vintage lands every week\. Keep an eye out\./);
+      assert.match(html, /<td align="center" valign="middle"[^>]*vertical-align:middle;text-align:center[^>]*><img [^>]*><div style="padding-top:12px;color:#E8500A[^>]*>New one-off vintage[^<]*<\/div><\/td><\/tr><tr><td[^>]*><a [^>]*>SHOP NOW<\/a>/);
+      if (selected.length) assert.ok(html.indexOf("Second") < html.indexOf("New one-off vintage"));
+    }
   }
 });
 
