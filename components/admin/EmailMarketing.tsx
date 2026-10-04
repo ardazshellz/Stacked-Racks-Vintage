@@ -102,7 +102,7 @@ export default function EmailMarketing() {
       }
     }).sort((a, b) => Date.parse(b.listedDate) - Date.parse(a.listedDate));
   }, [items, itemFilter]);
-  const emailItems: DropEmailItem[] = selectedItems.map((item) => ({ id: item.id, name: item.name, size: productSizeLabel(item), price: item.price, imageUrls: item.imageUrls }));
+  const emailItems: DropEmailItem[] = selectedItems.map((item) => ({ id: item.id, name: item.name, size: productSizeLabel(item), price: item.price, imageUrls: item.imageUrls, gender: item.gender, secondaryGender: item.secondaryGender, category: item.category, brand: item.brand }));
   const dropSubject = subjectEdited ? drop.subject : `New drop: ${selectedItems.length} one-off vintage pieces`;
   const dropCode = normalizePromotionCode(drop.code);
   const dropError = selectedItemIds.length < 1 ? "Select at least one item." : selectedItemIds.length > 12 ? "Select no more than 12 items." : selectedEmails.length < 1 ? "Select at least one subscribed email." : selectedEmails.length > 200 ? "Select no more than 200 subscribers." : !dropSubject.trim() ? "Enter a subject." : !drop.dateLine.trim() ? "Enter a date line." : drop.promotionEnabled && (!Number.isInteger(drop.percentOff) || drop.percentOff < 1 || drop.percentOff > 90 || dropCode.length < 4) ? "Enter a discount from 1–90% and a valid code of at least 4 characters." : "";
