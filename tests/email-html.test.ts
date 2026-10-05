@@ -158,8 +158,8 @@ test("three valid items place the CTA beside the last item in aligned rows", () 
     assert.equal((html.match(/<td class="item-card" width="50%"/g) ?? []).length, 3);
     assert.match(rows[2], /First[\s\S]*Second/);
     assert.match(rows[8], /Third/);
-    assert.match(rows[6], /class="cta-card"[^>]*><img src="https:\/\/stackedracksvintage\.co\.uk\/email\/new-pieces-weekly\.png" alt="New pieces weekly" width="253"/);
-    assert.match(rows[6], /New one-off vintage lands every week\. Keep an eye out\./);
+    assert.match(rows[6], /class="cta-card"[^>]*><img src="https:\/\/stackedracksvintage\.co\.uk\/email\/new-pieces-every-3-days\.png" alt="New pieces every 3 days" width="253"/);
+    assert.match(rows[6], /New one-off vintage lands every 3 days\. Keep an eye out\./);
     assert.match(rows[11], /href="https:\/\/stackedracksvintage\.co\.uk\/shop"[^>]*>SHOP NOW<\/a>/);
     assert.match(rows[6], /class="cta-card"[^>]*align="center" valign="middle"[^>]*vertical-align:middle/);
     assert.match(rows[6], /<img [^>]*margin:0 auto[^>]*><div style="padding-top:12px;color:#E8500A[^>]*text-align:center">New one-off vintage/);
@@ -185,8 +185,8 @@ test("even and zero item counts place one full-width CTA below the items", () =>
       assert.equal((html.match(/>SHOP NOW<\/a>/g) ?? []).length, 1);
       assert.doesNotMatch(html, /class="cta-card"/);
       assert.match(html, /<table role="presentation" width="100%"[^>]*bgcolor="#111111"[^>]*border:1px solid #E8500A/);
-      assert.match(html, /src="https:\/\/stackedracksvintage\.co\.uk\/email\/new-pieces-weekly\.png" alt="New pieces weekly" width="253"/);
-      assert.match(html, /New one-off vintage lands every week\. Keep an eye out\./);
+      assert.match(html, /src="https:\/\/stackedracksvintage\.co\.uk\/email\/new-pieces-every-3-days\.png" alt="New pieces every 3 days" width="253"/);
+      assert.match(html, /New one-off vintage lands every 3 days\. Keep an eye out\./);
       assert.match(html, /<td align="center" valign="middle"[^>]*vertical-align:middle;text-align:center[^>]*><img [^>]*><div style="padding-top:12px;color:#E8500A[^>]*>New one-off vintage[^<]*<\/div><\/td><\/tr><tr><td[^>]*><a [^>]*>SHOP NOW<\/a>/);
       if (selected.length) assert.ok(html.indexOf("Second") < html.indexOf("New one-off vintage"));
     }

@@ -76,14 +76,14 @@ function emailHeading(title: "NEW DROP" | "LATEST DROP" | "YOUR 10% OFF CODE") {
 }
 
 function ctaImage() {
-  return `<img src="${site}/email/new-pieces-weekly.png" alt="New pieces weekly" width="253" style="display:block;width:100%;max-width:253px;height:auto;border:0;margin:0 auto">`;
+  return `<img src="${site}/email/new-pieces-every-3-days.png" alt="New pieces every 3 days" width="253" style="display:block;width:100%;max-width:253px;height:auto;border:0;margin:0 auto">`;
 }
 
 function ctaButton() {
   return `<a href="${site}/shop" style="display:block;border:1px solid ${orange};${background(dark)};color:${orange};font-family:Arial,sans-serif;font-size:11px;font-weight:bold;letter-spacing:1.4px;text-align:center;text-decoration:none;padding:10px 4px">SHOP NOW</a>`;
 }
 
-const ctaCopy = "New one-off vintage lands every week. Keep an eye out.";
+const ctaCopy = "New one-off vintage lands every 3 days. Keep an eye out.";
 
 function ctaContent() {
   return `${ctaImage()}<div style="padding-top:12px;color:${orange};font-family:Arial,sans-serif;font-size:15px;line-height:1.3;text-align:center">${ctaCopy}</div>`;
@@ -154,7 +154,10 @@ export function dropEmailHtml(input: {
     && input.promotion.percentOff >= 1 && input.promotion.percentOff <= 90
     ? `<tr><td bgcolor="${dark}" style="${background(dark)};border:2px solid ${orange};padding:19px 24px;text-align:center;color:${orange};font-family:Arial,sans-serif"><div style="color:${orange};font-family:${headlineFont};font-size:32px;font-weight:900;line-height:1.1;text-transform:uppercase">${input.promotion.percentOff}% OFF THE DROP</div><div style="color:${orange};font-size:15px;line-height:1.5;padding-top:6px">Use code <strong style="color:${orange}">${escapeHtml(input.promotion.code)}</strong> at checkout</div></td></tr>`
     : "";
-  const content = `${emailHeading("NEW DROP")}<tr><td align="center" bgcolor="${dark}" style="${background(dark)};padding:20px 20px 24px;font-family:Arial,sans-serif"><div style="color:#FFFFFF;font-size:22px;font-weight:bold;line-height:1.3;text-transform:uppercase">${blend(escapeHtml(input.dateLine))}</div><div style="color:${orange};font-size:17px;padding-top:9px">${count} ${count === 1 ? "piece" : "pieces"}</div></td></tr>${promo}<tr><td bgcolor="${dark}" style="${background(dark)};padding:24px 24px 6px;color:#DDDDDD;font-family:Arial,sans-serif;font-size:16px;line-height:1.6">${blend(escapeHtml(input.intro).replaceAll("\n", "<br>"))}</td></tr>${itemCards(input.items)}`;
+  const intro = input.intro.trim()
+    ? `<tr><td bgcolor="${dark}" style="${background(dark)};padding:24px 24px 6px;color:#DDDDDD;font-family:Arial,sans-serif;font-size:16px;line-height:1.6">${blend(escapeHtml(input.intro).replaceAll("\n", "<br>"))}</td></tr>`
+    : "";
+  const content = `${emailHeading("NEW DROP")}<tr><td align="center" bgcolor="${dark}" style="${background(dark)};padding:20px 20px 24px;font-family:Arial,sans-serif"><div style="color:#FFFFFF;font-size:22px;font-weight:bold;line-height:1.3;text-transform:uppercase">${blend(escapeHtml(input.dateLine))}</div><div style="color:${orange};font-size:17px;padding-top:9px">${count} ${count === 1 ? "piece" : "pieces"}</div></td></tr>${promo}${intro}${itemCards(input.items)}`;
   return emailShell(content, input.unsubscribeUrl);
 }
 
