@@ -59,6 +59,17 @@ export function releaseAt(date: string, hour: number): string {
   const candidateHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", hourCycle: "h23" }).format(candidate));
   return new Date(candidateHour === hour ? candidate : utc).toISOString();
 }
+/** Upcoming release slots from the schedule settings: every `everyDays` from `startAt`. */
+export function upcomingSlots(config: ScheduleConfig, now: number, count: number): string[] {
+  const anchor = Date.parse(config.startAt);
+  const slots: string[] = [];
+  for (let n = Math.max(0, Math.floor((now - anchor) / (config.everyDays * 86400000)) - 1); slots.length < count; n++) {
+    const at = releaseAt(new Date(anchor + n * config.everyDays * 86400000).toISOString().slice(0, 10), config.releaseHour);
+    if (Date.parse(at) > now) slots.push(at);
+  }
+  return slots;
+}
+
 export function assignReleaseSlots(settings: ProductSettings, ids: string[], now = Date.now()): Record<string, string> {
   const releases = { ...settings.scheduledReleases };
   const { batchSize, everyDays, startAt, releaseHour } = settings.scheduleConfig;
