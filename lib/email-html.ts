@@ -65,28 +65,28 @@ function emailShell(content: string, unsubscribeUrl: string, previewText = "") {
   return `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>u + .body .gmail-blend-screen { background:#000; mix-blend-mode:screen; } u + .body .gmail-blend-difference { background:#000; mix-blend-mode:difference; }</style></head><body class="body" bgcolor="${dark}" style="margin:0;padding:0;${background(dark)}"><div style="display:none;max-height:0;overflow:hidden">${escapeHtml(previewText)}</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${dark}" style="width:100%;${background(dark)}"><tr><td align="center" bgcolor="${dark}" style="${background(dark)};padding:0 10px"><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${dark}" style="width:100%;max-width:600px;${background(dark)};border:5px solid ${orange};border-image:linear-gradient(${orange},${orange}) 1">${emailHeader()}${content}${emailFooter(unsubscribeUrl)}</table></td></tr></table></body></html>`;
 }
 
-function emailHeading(title: "NEW DROP" | "LATEST DROP" | "YOUR 10% OFF CODE") {
+function emailHeading(title: "NEW DROP" | "LATEST DROP" | "YOUR 10% OFF CODE", ruleBelow = true) {
   const images = {
     "NEW DROP": { file: "new-drop.png", width: 294 },
     "LATEST DROP": { file: "latest-drop.png", width: 355 },
     "YOUR 10% OFF CODE": { file: "your-10-off-code.png", width: 535 },
   };
   const image = images[title];
-  return `${orangeRule()}<tr><td align="center" bgcolor="${dark}" style="${background(dark)};padding:38px 16px"><img src="${site}/email/${image.file}" alt="${title}" width="${image.width}" style="display:block;width:100%;max-width:${image.width}px;height:auto;border:0"></td></tr>${orangeRule()}`;
+  return `${orangeRule()}<tr><td align="center" bgcolor="${dark}" style="${background(dark)};padding:38px 16px"><img src="${site}/email/${image.file}" alt="${title}" width="${image.width}" style="display:block;width:100%;max-width:${image.width}px;height:auto;border:0"></td></tr>${ruleBelow ? orangeRule() : ""}`;
 }
 
 function ctaImage() {
-  return `<img src="${site}/email/new-pieces-weekly.png" alt="New pieces weekly" width="253" style="display:block;width:100%;max-width:253px;height:auto;border:0;margin:0 auto">`;
+  return `<img src="${site}/email/new-pieces-every-3-days.png" alt="New pieces every 3 days" width="253" style="display:block;width:100%;max-width:253px;height:auto;border:0;margin:0 auto">`;
 }
 
 function ctaButton() {
   return `<a href="${site}/shop" style="display:block;border:1px solid ${orange};${background(dark)};color:${orange};font-family:Arial,sans-serif;font-size:11px;font-weight:bold;letter-spacing:1.4px;text-align:center;text-decoration:none;padding:10px 4px">SHOP NOW</a>`;
 }
 
-const ctaCopy = "New one-off vintage lands every week. Keep an eye out.";
+const ctaCopy = "New one-off vintage lands every 3 days. Keep an eye out.";
 
 function ctaContent() {
-  return `${ctaImage()}<div style="padding-top:12px;color:${orange};font-family:Arial,sans-serif;font-size:15px;line-height:1.3;text-align:center">${ctaCopy}</div>`;
+  return `${ctaImage()}<div style="padding-top:12px;color:#FFFFFF;font-family:Arial,sans-serif;font-size:15px;line-height:1.3;text-align:center">${blend(ctaCopy)}</div>`;
 }
 
 function fullWidthCta() {
@@ -117,9 +117,9 @@ function itemCards(items: DropEmailItem[]) {
       return [
         cardCell(imageHtml, `width:50%;border-top:1px solid ${orange}`, 'class="item-card" width="50%" '),
         cardCell(`${genderHtml}${categoryHtml}`, "padding:10px 9px 3px"),
-        cardCell(escapeHtml(title), `padding:7px 9px 4px;color:${orange};font-family:Arial,sans-serif;font-size:15px;font-weight:bold;line-height:1.3`),
+        cardCell(blend(escapeHtml(title)), `padding:7px 9px 4px;color:#FFFFFF;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;line-height:1.3`),
         cardCell(blend(escapeHtml(fit)), "padding:0 9px;color:#C8C8C8;font-family:Arial,sans-serif;font-size:12px;line-height:1.5"),
-        cardCell(escapeHtml(price), `padding:8px 9px 10px;color:${orange};font-family:Arial,sans-serif;font-size:20px;font-weight:bold`),
+        cardCell(blend(escapeHtml(price)), `padding:8px 9px 10px;color:#FFFFFF;font-family:Arial,sans-serif;font-size:20px;font-weight:bold`),
         cardCell(`<a href="${itemUrl}" style="display:block;border:1px solid ${orange};${background(dark)};color:${orange};font-family:Arial,sans-serif;font-size:11px;font-weight:bold;letter-spacing:1.4px;text-align:center;text-decoration:none;padding:10px 4px">VIEW ITEM</a>`, `padding:0 9px 10px;border-bottom:1px solid ${orange}`),
       ];
     });
@@ -152,9 +152,12 @@ export function dropEmailHtml(input: {
   const count = input.items.length;
   const promo = input.promotion?.enabled && Number.isInteger(input.promotion.percentOff)
     && input.promotion.percentOff >= 1 && input.promotion.percentOff <= 90
-    ? `<tr><td bgcolor="${dark}" style="${background(dark)};border:2px solid ${orange};padding:19px 24px;text-align:center;color:${orange};font-family:Arial,sans-serif"><div style="color:${orange};font-family:${headlineFont};font-size:32px;font-weight:900;line-height:1.1;text-transform:uppercase">${input.promotion.percentOff}% OFF THE DROP</div><div style="color:${orange};font-size:15px;line-height:1.5;padding-top:6px">Use code <strong style="color:${orange}">${escapeHtml(input.promotion.code)}</strong> at checkout</div></td></tr>`
+    ? `<tr><td bgcolor="${dark}" style="${background(dark)};border:2px solid ${orange};padding:19px 24px;text-align:center;color:${orange};font-family:Arial,sans-serif"><div style="color:${orange};font-family:${headlineFont};font-size:32px;font-weight:900;line-height:1.1;text-transform:uppercase">${input.promotion.percentOff}% OFF THE DROP</div><div style="color:#FFFFFF;font-size:15px;line-height:1.5;padding-top:6px">${blend(`Use code <strong style="color:#FFFFFF">${escapeHtml(input.promotion.code)}</strong> at checkout`)}</div></td></tr>`
     : "";
-  const content = `${emailHeading("NEW DROP")}<tr><td align="center" bgcolor="${dark}" style="${background(dark)};padding:20px 20px 24px;font-family:Arial,sans-serif"><div style="color:#FFFFFF;font-size:22px;font-weight:bold;line-height:1.3;text-transform:uppercase">${blend(escapeHtml(input.dateLine))}</div><div style="color:${orange};font-size:17px;padding-top:9px">${count} ${count === 1 ? "piece" : "pieces"}</div></td></tr>${promo}<tr><td bgcolor="${dark}" style="${background(dark)};padding:24px 24px 6px;color:#DDDDDD;font-family:Arial,sans-serif;font-size:16px;line-height:1.6">${blend(escapeHtml(input.intro).replaceAll("\n", "<br>"))}</td></tr>${itemCards(input.items)}`;
+  const intro = input.intro.trim()
+    ? `<tr><td bgcolor="${dark}" style="${background(dark)};padding:24px 24px 6px;color:#DDDDDD;font-family:Arial,sans-serif;font-size:16px;line-height:1.6">${blend(escapeHtml(input.intro).replaceAll("\n", "<br>"))}</td></tr>`
+    : "";
+  const content = `${emailHeading("NEW DROP", false)}<tr><td align="center" bgcolor="${dark}" style="${background(dark)};padding:0 20px 28px;font-family:Arial,sans-serif"><div style="color:#FFFFFF;font-size:22px;font-weight:bold;line-height:1.3;text-transform:uppercase">${blend(escapeHtml(input.dateLine))}</div><div style="color:#FFFFFF;font-size:17px;padding-top:9px">${blend(`${count} ${count === 1 ? "piece" : "pieces"}`)}</div></td></tr>${promo}${intro}${itemCards(input.items)}`;
   return emailShell(content, input.unsubscribeUrl);
 }
 
