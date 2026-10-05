@@ -104,7 +104,7 @@ test("drop item cards show the size on its own line without repeating it in the 
     items: [{ ...drop.items[0], name: "Metallica Vintage T-Shirt – Men's S / Women's M", brand: "Metallica", size: "Men's S / Women's M" }],
   });
   assert.match(html, /alt="Metallica Vintage T-Shirt"/);
-  assert.match(html, /color:#E8500A[^>]*>Metallica Vintage T-Shirt<\/td>/);
+  assert.match(html, /color:#FFFFFF[^>]*><div class="gmail-blend-screen"><div class="gmail-blend-difference">Metallica Vintage T-Shirt<\/div><\/div><\/td>/);
   assert.match(html, /Metallica · Fits Men's S \/ Women's M/);
   assert.doesNotMatch(html, /Metallica Vintage T-Shirt – Men's S/);
 });
@@ -114,7 +114,7 @@ test("promo appears only when enabled", () => {
   assert.doesNotMatch(dropEmailHtml({ ...drop, promotion: { enabled: false, percentOff: 10, code: "DROP10" } }), /OFF THE DROP|Use code/);
   const html = dropEmailHtml({ ...drop, promotion: { enabled: true, percentOff: 10, code: "DROP<10" } });
   assert.match(html, /10% OFF THE DROP/);
-  assert.match(html, /Use code <strong style="color:#E8500A">DROP&lt;10<\/strong> at checkout/);
+  assert.match(html, /Use code <strong style="color:#FFFFFF">DROP&lt;10<\/strong> at checkout/);
   assert.match(html, /border:2px solid #E8500A/);
   assert.doesNotMatch(html, /bgcolor="#F5C300"|background-color:#F5C300/);
 });
@@ -131,7 +131,7 @@ test("coloured content stays outside blend wrappers in every email", () => {
     for (const [, , content] of wrapped) assert.doesNotMatch(content, /color:#(?:E8500A|F5C300|0A0A0A)/i);
     assert.doesNotMatch(html, /bgcolor="#F5C300"|background-color:#F5C300/);
   }
-  assert.match(examples[0], /color:#E8500A;font-size:17px;padding-top:9px">1 piece<\/div>/);
+  assert.match(examples[0], /color:#FFFFFF;font-size:17px;padding-top:9px"><div class="gmail-blend-screen"><div class="gmail-blend-difference">1 piece<\/div>/);
   assert.match(examples[1], /style="color:#E8500A">Shop the latest drop →<\/a>/);
 });
 
@@ -140,9 +140,9 @@ test("cards show website metadata and an outlined orange button", () => {
   assert.match(html, /class="item-card"[^>]*bgcolor="#111111"[^>]*border-left:1px solid #E8500A;border-right:1px solid #E8500A;width:50%;border-top:1px solid #E8500A/);
   assert.match(html, /border:1px solid #E8500A;color:#E8500A[^>]*>MEN'S \+ WOMEN'S<\/span>/);
   assert.match(html, /T-SHIRTS &amp; TOPS/);
-  assert.match(html, /color:#E8500A;font-family:Arial,sans-serif;font-size:15px[^>]*>Nike &lt;script&gt;/);
+  assert.match(html, /color:#FFFFFF;font-family:Arial,sans-serif;font-size:15px[^>]*><div class="gmail-blend-screen"><div class="gmail-blend-difference">Nike &lt;script&gt;/);
   assert.match(html, /Nike · Fits Men's M \/ Women's L/);
-  assert.match(html, /color:#E8500A;font-family:Arial,sans-serif;font-size:20px[^>]*>£45\.00/);
+  assert.match(html, /color:#FFFFFF;font-family:Arial,sans-serif;font-size:20px[^>]*><div class="gmail-blend-screen"><div class="gmail-blend-difference">£45\.00/);
   assert.match(html, /href="https:\/\/stackedracksvintage\.co\.uk\/products\/abc-123\/" style="display:block;border:1px solid #E8500A;background-color:#0A0A0A[^>]*>VIEW ITEM<\/a>/);
 });
 
@@ -162,7 +162,7 @@ test("three valid items place the CTA beside the last item in aligned rows", () 
     assert.match(rows[6], /New one-off vintage lands every 3 days\. Keep an eye out\./);
     assert.match(rows[11], /href="https:\/\/stackedracksvintage\.co\.uk\/shop"[^>]*>SHOP NOW<\/a>/);
     assert.match(rows[6], /class="cta-card"[^>]*align="center" valign="middle"[^>]*vertical-align:middle/);
-    assert.match(rows[6], /<img [^>]*margin:0 auto[^>]*><div style="padding-top:12px;color:#E8500A[^>]*text-align:center">New one-off vintage/);
+    assert.match(rows[6], /<img [^>]*margin:0 auto[^>]*><div style="padding-top:12px;color:#FFFFFF[^>]*text-align:center"><div class="gmail-blend-screen"><div class="gmail-blend-difference">New one-off vintage/);
     for (const row of rows.slice(7, 11)) assert.match(row, /<td[^>]*><\/td>$/);
     assert.match(rows[11], /VIEW ITEM<\/a>[\s\S]*SHOP NOW<\/a>/);
     for (const row of rows.slice(7)) assert.equal((row.match(/valign="top" bgcolor="#111111"/g) ?? []).length, 2);
@@ -187,7 +187,7 @@ test("even and zero item counts place one full-width CTA below the items", () =>
       assert.match(html, /<table role="presentation" width="100%"[^>]*bgcolor="#111111"[^>]*border:1px solid #E8500A/);
       assert.match(html, /src="https:\/\/stackedracksvintage\.co\.uk\/email\/new-pieces-every-3-days\.png" alt="New pieces every 3 days" width="253"/);
       assert.match(html, /New one-off vintage lands every 3 days\. Keep an eye out\./);
-      assert.match(html, /<td align="center" valign="middle"[^>]*vertical-align:middle;text-align:center[^>]*><img [^>]*><div style="padding-top:12px;color:#E8500A[^>]*>New one-off vintage[^<]*<\/div><\/td><\/tr><tr><td[^>]*><a [^>]*>SHOP NOW<\/a>/);
+      assert.match(html, /<td align="center" valign="middle"[^>]*vertical-align:middle;text-align:center[^>]*><img [^>]*><div style="padding-top:12px;color:#FFFFFF[^>]*><div class="gmail-blend-screen"><div class="gmail-blend-difference">New one-off vintage[^<]*(?:<\/div>){3}<\/td><\/tr><tr><td[^>]*><a [^>]*>SHOP NOW<\/a>/);
       if (selected.length) assert.ok(html.indexOf("Second") < html.indexOf("New one-off vintage"));
     }
   }
@@ -204,7 +204,7 @@ test("both cards share each content row so unequal titles leave buttons level", 
   const pairs = [
     [/short\.jpg/, /class="item-card"[^>]*border-top:1px solid #E8500A/],
     [/TOPS/, /SHIRTS/],
-    [/>Short<\/td>/, /A much longer title that wraps onto more than one line/],
+    [/>Short<\/div><\/div><\/td>/, /A much longer title that wraps onto more than one line/],
     [/Nike · Fits S/, /Adidas · Fits M/],
     [/£10\.00/, /£20\.00/],
     [/products\/short\/[^>]*>VIEW ITEM<\/a>/, /products\/long\/[^>]*>VIEW ITEM<\/a>/],
