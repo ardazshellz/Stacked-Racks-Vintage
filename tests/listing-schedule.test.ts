@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assignReleaseSlots, parseProductSettings, productUnavailable, publicProducts, releaseAt, validRelease, validScheduleConfig } from "../lib/listing-schedule.ts";
+import { assignReleaseSlots, upcomingSlots, parseProductSettings, productUnavailable, publicProducts, releaseAt, validRelease, validScheduleConfig } from "../lib/listing-schedule.ts";
 import type { Product } from "../lib/products.ts";
 
 const settings = () => parseProductSettings({ scheduleConfig: { startAt: "2026-10-01" } });
@@ -73,4 +73,11 @@ test("catalog and checkout availability change exactly at release; New In uses U
   assert.deepEqual(publicList.map(p => p.id), ["queued", "normal"]);
   assert.equal(publicList[0].listedDate, "2026-10-02");
   assert.equal(products[0].listedDate, "2020-01-01");
+});
+
+test("upcomingSlots lists future drops every 3 days at 10:00 UK across the clock change", () => {
+  const config = { batchSize: 5, everyDays: 3, startAt: "2026-10-04", releaseHour: 10 };
+  const slots = upcomingSlots(config, Date.parse("2026-10-05T16:00:00Z"), 8);
+  assert.deepEqual(slots.slice(0, 3), ["2026-10-07T09:00:00.000Z", "2026-10-10T09:00:00.000Z", "2026-10-13T09:00:00.000Z"]);
+  assert.equal(slots[6], "2026-10-25T10:00:00.000Z");
 });
