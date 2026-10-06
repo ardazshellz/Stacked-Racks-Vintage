@@ -101,6 +101,8 @@ test("taxSummary totals confirmed sales per sale year and earlier-year costs to 
     { ...base, id: "C", items: [{ costPrice: 15, costTaxYear: "2024-25" }] },
   ];
   const summary = taxSummary(orders, []);
+  // Including paid sales not yet delivered adds order C (2024-25 stock, taxed on the full price).
+  assert.equal(taxSummary(orders, [], true).find((row) => row.year === "2026-27")?.sales, 3);
   const y2627 = summary.find((row) => row.year === "2026-27");
   const y2425 = summary.find((row) => row.year === "2024-25");
   assert.deepEqual(y2627, { year: "2026-27", sales: 2, revenue: 50, costsDeducted: 6.85, tax: 8.63, costsToClaim: 0 });

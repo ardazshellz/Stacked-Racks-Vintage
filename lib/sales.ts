@@ -121,10 +121,11 @@ function orderCostYearLabel(order: SaleOrder, products: CostProduct[]) {
   return years.length > 1 ? "mixed" : years[0];
 }
 
-export function taxSummary(orders: SaleOrder[], products: CostProduct[]) {
+// By default only delivered ("confirmed") sales count, as in the HMRC export. Pass includeToConfirm to add paid sales still in transit.
+export function taxSummary(orders: SaleOrder[], products: CostProduct[], includeToConfirm = false) {
   const years = new Map<string, { year: string; sales: number; revenue: number; costsDeducted: number; tax: number; costsToClaim: number }>();
   const row = (year: string) => years.get(year) ?? years.set(year, { year, sales: 0, revenue: 0, costsDeducted: 0, tax: 0, costsToClaim: 0 }).get(year)!;
-  for (const order of orders.filter((candidate) => saleStage(candidate) === "sold")) {
+  for (const order of orders.filter((candidate) => saleStage(candidate) === "sold" || (includeToConfirm && saleStage(candidate) === "to_confirm"))) {
     const saleYear = taxYear(order.date_of_sale);
     const sale = row(saleYear);
     sale.sales += 1;

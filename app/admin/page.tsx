@@ -392,7 +392,7 @@ export default function AdminPage() {
   const currentTaxYear = taxYear(new Date().toISOString());
   const taxThisYear = paidOrders.filter((order) => taxYear(order.date_of_sale) === currentTaxYear).reduce((sum, order) => sum + orderTax(order, products), 0);
   const accountRowList = accountRows(orders, products, exportFrom, exportTo);
-  const taxRows = taxSummary(orders, products);
+  const taxRows = taxSummary(orders, products, true);
   const managedProducts = useMemo(() => {
     const query = productSearch.trim().toLowerCase();
     const sorted = products.filter((product) => product.listingStatus !== "draft").sort((a, b) =>
@@ -881,9 +881,9 @@ export default function AdminPage() {
             <p className="text-[#666] text-[10px] mb-4">HMRC CSV and Google Sheets copy include confirmed sales only (marked delivered), with what you paid and gross profit before fees.</p>
             {taxRows.length > 0 && <div className="bg-[#111] border border-white/8 mb-6 overflow-x-auto">
               <p className="px-4 pt-4 text-[#F5C300] text-[10px] font-black uppercase tracking-[0.2em]">Tax calculation (estimate at 20%)</p>
-              <p className="px-4 pt-1 text-[#777] text-[10px]">Confirmed sales only. Items bought in 2024-25 or earlier were already deducted, so they are taxed on the full sale price and their cost is listed under the year it was bought. Items bought from 2025-26 on are taxed on profit only. An estimate only: no personal allowance or other rates; check with an accountant.</p>
+              <p className="px-4 pt-1 text-[#777] text-[10px]">Every paid sale, delivered or still on its way (refunded sales drop out). Items bought in 2024-25 or earlier were already deducted, so they are taxed on the full sale price and their cost is listed under the year it was bought. Items bought from 2025-26 on are taxed on profit only. An estimate only: no personal allowance or other rates; check with an accountant.</p>
               <table className="w-full min-w-[720px] text-left mt-2">
-                <thead><tr className="border-b border-white/10">{["Tax year", "Confirmed sales", "Revenue", "Costs deducted", "Tax estimate (20%)", "Costs to claim this year"].map((heading) => <th key={heading} className="px-4 py-2 text-[#888] text-[9px] tracking-[0.18em] uppercase">{heading}</th>)}</tr></thead>
+                <thead><tr className="border-b border-white/10">{["Tax year", "Paid sales", "Revenue", "Costs deducted", "Tax estimate (20%)", "Costs to claim this year"].map((heading) => <th key={heading} className="px-4 py-2 text-[#888] text-[9px] tracking-[0.18em] uppercase">{heading}</th>)}</tr></thead>
                 <tbody>{taxRows.map((row) => <tr key={row.year} className="border-b border-white/5"><td className="px-4 py-2 font-bold">{row.year}</td><td className="px-4 py-2">{row.sales}</td><td className="px-4 py-2">{money(row.revenue)}</td><td className="px-4 py-2">{money(row.costsDeducted)}</td><td className="px-4 py-2 text-[#F5C300] font-black">{money(row.tax)}</td><td className="px-4 py-2">{money(row.costsToClaim)}</td></tr>)}</tbody>
               </table>
             </div>}
