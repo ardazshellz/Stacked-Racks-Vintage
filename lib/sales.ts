@@ -84,9 +84,19 @@ export function orderCostTaxYear(order: SaleOrder, products: CostProduct[]) {
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
-// Zakery's 20% estimate: a cost bought in an earlier tax year belongs to that year's return, so the whole sale price is taxed.
+// Stock costs were deducted on Zakery's returns up to and including this tax year (his rule, 6 Oct 2026).
+// Raise it when a later year's return is filed with that year's stock costs deducted.
+export const COSTS_DEDUCTED_UP_TO = "2024-25";
+
+// True when the cost was already claimed in an earlier return, so it cannot be set against the sale again.
+export function costAlreadyDeducted(costYear: string, saleYear: string) {
+  return Boolean(costYear) && costYear < saleYear && costYear <= COSTS_DEDUCTED_UP_TO;
+}
+
+// Zakery's 20% estimate: stock already deducted (bought 2024-25 or earlier) is taxed on the whole sale price;
+// stock bought later (2025-26 onward) is taxed on the profit only.
 export function taxEstimate(price: number, cost: number, saleYear: string, costYear: string) {
-  return round2(0.2 * (costYear && costYear < saleYear ? price : price - cost));
+  return round2(0.2 * (costAlreadyDeducted(costYear, saleYear) ? price : price - cost));
 }
 
 interface SaleLine { price: number; cost: number; costYear: string }
@@ -121,7 +131,7 @@ export function taxSummary(orders: SaleOrder[], products: CostProduct[]) {
     sale.revenue = round2(sale.revenue + Number(order.price));
     sale.tax = round2(sale.tax + orderTax(order, products));
     for (const line of orderLines(order, products)) {
-      if (line.costYear && line.costYear < saleYear) row(line.costYear).costsToClaim = round2(row(line.costYear).costsToClaim + line.cost);
+      if (costAlreadyDeducted(line.costYear, saleYear)) row(line.costYear).costsToClaim = round2(row(line.costYear).costsToClaim + line.cost);
       else sale.costsDeducted = round2(sale.costsDeducted + line.cost);
     }
   }
