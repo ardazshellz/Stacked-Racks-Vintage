@@ -80,6 +80,8 @@ test("taxEstimate: same or unknown year deducts cost, earlier year taxes the ful
   assert.equal(taxEstimate(23, 6.85, "2026-27", "2026-27"), 3.23);
   assert.equal(taxEstimate(23, 6.85, "2026-27", ""), 3.23);
   assert.equal(taxEstimate(27, 15, "2026-27", "2024-25"), 5.4);
+  // Bought 2025-26, sold 2026-27: not yet deducted, so only the profit is taxed.
+  assert.equal(taxEstimate(30, 10, "2026-27", "2025-26"), 4);
   assert.equal(taxEstimate(10, 15, "2026-27", "2026-27"), -1);
 });
 
