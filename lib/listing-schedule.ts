@@ -11,6 +11,8 @@ export interface ProductSettings {
   deletedProductIds: string[];
   scheduledReleases: Record<string, string>;
   scheduleConfig: ScheduleConfig;
+  /** Release times (ISO) whose drop email has already gone out, so it is never sent twice. */
+  emailedDrops: string[];
 }
 
 export function ukDate(value: Date | string = new Date()): string {
@@ -31,7 +33,7 @@ export function validScheduleConfig(value: unknown): value is ScheduleConfig {
   return Number.isInteger(c.batchSize) && c.batchSize >= 1 && c.batchSize <= 100 && Number.isInteger(c.everyDays) && c.everyDays >= 1 && c.everyDays <= 365 && validDate(c.startAt) && Number.isInteger(c.releaseHour) && c.releaseHour >= 0 && c.releaseHour <= 23;
 }
 export function parseProductSettings(value: unknown): ProductSettings {
-  const defaults: ProductSettings = { hiddenProductIds: [], deletedProductIds: [], scheduledReleases: {}, scheduleConfig: defaultScheduleConfig() };
+  const defaults: ProductSettings = { hiddenProductIds: [], deletedProductIds: [], scheduledReleases: {}, scheduleConfig: defaultScheduleConfig(), emailedDrops: [] };
   try {
     const parsed = typeof value === "string" ? JSON.parse(value) : value;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return defaults;
@@ -46,6 +48,7 @@ export function parseProductSettings(value: unknown): ProductSettings {
       scheduledReleases: parsed.scheduledReleases && typeof parsed.scheduledReleases === "object" && !Array.isArray(parsed.scheduledReleases)
         ? Object.fromEntries(Object.entries(parsed.scheduledReleases).filter(([id, at]) => id && validRelease(at)).map(([id, at]) => [id, new Date(at as string).toISOString()])) : {},
       scheduleConfig: config,
+      emailedDrops: Array.isArray(parsed.emailedDrops) ? [...new Set<string>(parsed.emailedDrops.filter(validRelease).map((at: string) => new Date(at).toISOString()))].sort().slice(-60) : [],
     };
   } catch { return defaults; }
 }
@@ -94,6 +97,18 @@ export function assignReleaseSlots(settings: ProductSettings, ids: string[], now
     }
   }
   return releases;
+}
+// Drops that have released within the window and have not been emailed yet, oldest first.
+// The window stops a first run (or a long outage) from emailing old drops.
+export function dropsToEmail(settings: ProductSettings, now = Date.now(), windowHours = 26): { at: string; ids: string[] }[] {
+  const drops = new Map<string, string[]>();
+  for (const [id, at] of Object.entries(settings.scheduledReleases)) {
+    const time = Date.parse(at);
+    if (time > now || time <= now - windowHours * 3600000) continue;
+    if (settings.emailedDrops.includes(at) || settings.hiddenProductIds.includes(id) || settings.deletedProductIds.includes(id)) continue;
+    drops.set(at, [...(drops.get(at) ?? []), id]);
+  }
+  return [...drops.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([at, ids]) => ({ at, ids }));
 }
 export function productUnavailable(settings: ProductSettings, id: string, now = Date.now()): boolean {
   return settings.hiddenProductIds.includes(id) || settings.deletedProductIds.includes(id) || Date.parse(settings.scheduledReleases[id] ?? "") > now;
