@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assignReleaseSlots, upcomingSlots, parseProductSettings, productUnavailable, publicProducts, releaseAt, validRelease, validScheduleConfig } from "../lib/listing-schedule.ts";
+import { assignReleaseSlots, upcomingSlots, dropsToEmail, parseProductSettings, productUnavailable, publicProducts, releaseAt, validRelease, validScheduleConfig } from "../lib/listing-schedule.ts";
 import type { Product } from "../lib/products.ts";
 
 const settings = () => parseProductSettings({ scheduleConfig: { startAt: "2026-10-01" } });
@@ -80,4 +80,16 @@ test("upcomingSlots lists future drops every 3 days at 10:00 UK across the clock
   const slots = upcomingSlots(config, Date.parse("2026-10-05T16:00:00Z"), 8);
   assert.deepEqual(slots.slice(0, 3), ["2026-10-07T09:00:00.000Z", "2026-10-10T09:00:00.000Z", "2026-10-13T09:00:00.000Z"]);
   assert.equal(slots[6], "2026-10-25T10:00:00.000Z");
+});
+
+test("dropsToEmail returns only recently released, not yet emailed drops", () => {
+  const s = settings();
+  const now = Date.parse("2026-10-10T18:10:00Z");
+  s.scheduledReleases = { a: "2026-10-10T18:00:00.000Z", b: "2026-10-10T18:00:00.000Z", hidden: "2026-10-10T18:00:00.000Z", old: "2026-10-07T18:00:00.000Z", future: "2026-10-13T18:00:00.000Z" };
+  s.hiddenProductIds = ["hidden"];
+  assert.deepEqual(dropsToEmail(s, now), [{ at: "2026-10-10T18:00:00.000Z", ids: ["a", "b"] }]);
+  s.emailedDrops = ["2026-10-10T18:00:00.000Z"];
+  assert.deepEqual(dropsToEmail(s, now), []);
+  // The sent list survives a save and reload, and bad values are dropped.
+  assert.deepEqual(parseProductSettings(JSON.stringify({ ...s, emailedDrops: ["2026-10-10T19:00:00+01:00", "nonsense"] })).emailedDrops, ["2026-10-10T18:00:00.000Z"]);
 });
