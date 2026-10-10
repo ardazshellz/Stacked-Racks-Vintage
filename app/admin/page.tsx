@@ -405,12 +405,15 @@ export default function AdminPage() {
   }, [productSearch, products]);
   const sellableProducts = useMemo(() => {
     const query = sellSearch.trim().toLowerCase();
-    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    // An item's "on sale since" date: its drop release if it had one, else the day it was listed.
+    const since = (product: Product) => scheduledReleases[String(product.id)]?.slice(0, 10) ?? product.listedDate;
+    // Without a search: everything a customer can buy right now (not hidden, not waiting for a future drop), newest first.
+    const onSale = (product: Product) => !hiddenProductIds.includes(String(product.id)) && !(Date.parse(scheduledReleases[String(product.id)] ?? "") > scheduleNow);
     return products
       .filter((product) => product.stock > 0 && product.listingStatus !== "draft" && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(product.id)))
-      .filter((product) => query ? `${product.name} ${product.brand} ${product.sku ?? ""}`.toLowerCase().includes(query) : product.listedDate >= weekAgo)
-      .sort((a, b) => b.listedDate.localeCompare(a.listedDate));
-  }, [sellSearch, products]);
+      .filter((product) => query ? `${product.name} ${product.brand} ${product.sku ?? ""}`.toLowerCase().includes(query) : onSale(product))
+      .sort((a, b) => since(b).localeCompare(since(a)));
+  }, [sellSearch, products, hiddenProductIds, scheduledReleases, scheduleNow]);
   const draftProducts = useMemo(() => products.filter((product) => product.listingStatus === "draft"), [products]);
   const pricingApprovalRequired = form.pricingStatus === "needs_review";
   const vintedSaleByProductId = useMemo(() => {
@@ -862,11 +865,11 @@ export default function AdminPage() {
               {[{ label: "Paid orders", value: paidOrders.length }, { label: "All-time revenue", value: money(revenue) }, { label: "Last 30 days", value: money(recentRevenue) }, { label: "Average order", value: money(averageOrder) }, { label: "Needs packing", value: pendingFulfilment }, { label: "Unsold stock cost", value: money(inventoryCost) }, { label: "Sold stock cost", value: money(soldStockCost) }, { label: "Gross profit before fees", value: money(grossProfitBeforeFees) }, { label: `Tax likely to pay · year ending April ${Number(currentTaxYear.slice(0, 4)) + 1} (20% est.)`, value: money(taxThisYear) }, { label: "Profit after cost and tax", value: money(grossProfitBeforeFees - taxToSetAside) }].map((stat) => <div key={stat.label} className="bg-[#111] border border-white/8 p-5"><p className="text-[#888] text-[9px] uppercase tracking-[0.2em] mb-2">{stat.label}</p><p className="text-2xl font-black">{stat.value}</p></div>)}
             </div>
             <div className="bg-[#111] border border-white/8 p-5 mb-7 max-w-4xl">
-              <div className="flex flex-wrap items-end justify-between gap-3 mb-4"><div><h2 className="text-xl font-black">Mark an item sold</h2><p className="text-[#777] text-xs mt-1">{sellSearch.trim() ? `${sellableProducts.length} in-stock items match` : `${sellableProducts.length} items listed in the last 7 days`} · Tap one to record where it sold. Scroll down for more.</p></div><input type="search" aria-label="Search items to mark sold" value={sellSearch} onChange={(event) => setSellSearch(event.target.value)} placeholder="Search any in-stock item…" className={`${INPUT} sm:max-w-xs`} /></div>
+              <div className="flex flex-wrap items-end justify-between gap-3 mb-4"><div><h2 className="text-xl font-black">Mark an item sold</h2><p className="text-[#777] text-xs mt-1">{sellSearch.trim() ? `${sellableProducts.length} in-stock items match` : `${sellableProducts.length} items on sale now, newest first`} · Tap one to record where it sold. Scroll down for more.</p></div><input type="search" aria-label="Search items to mark sold" value={sellSearch} onChange={(event) => setSellSearch(event.target.value)} placeholder="Search any in-stock item…" className={`${INPUT} sm:max-w-xs`} /></div>
               <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-1.5 max-h-[22rem] overflow-y-auto">{sellableProducts.map((product) => <button key={String(product.id)} type="button" onClick={() => openVintedSale(product)} aria-label={`Mark ${product.name} sold`} className="min-w-0 text-left border border-white/10 hover:border-[#F5C300] p-1">
                 <span className="relative block aspect-[3/4] bg-[#222] overflow-hidden">{product.imageUrls?.[0] ? <Image src={product.imageUrls[0]} alt="" fill sizes="(max-width: 640px) 33vw, 180px" className="object-cover" /> : <span className="flex h-full items-center justify-center text-[#666] text-[9px]">No photo</span>}</span>
                 <span className="text-[10px] leading-tight font-bold mt-1 line-clamp-2 break-words">{product.name}</span><span className="block truncate text-[9px] leading-tight text-[#999] mt-0.5">{productSizeLabel(product)} · {money(product.price)}</span>
-              </button>)}{!sellableProducts.length && <p className="col-span-full text-[#777] text-xs py-5 text-center">{sellSearch.trim() ? "No in-stock items match." : "Nothing listed in the last 7 days. Search to find an older item."}</p>}</div>
+              </button>)}{!sellableProducts.length && <p className="col-span-full text-[#777] text-xs py-5 text-center">{sellSearch.trim() ? "No in-stock items match." : "Nothing is on sale right now. Search to find a hidden or queued item."}</p>}</div>
             </div>
             <div className="flex flex-wrap gap-3 items-center mb-4">
               <div className="flex gap-2">{([["to_confirm", `To be confirmed (${toConfirmCount})`], ["sold", `Sold (${soldCount})`], ["all", "All"]] as const).map(([value, label]) => <button key={value} onClick={() => setStageFilter(value)} className={`px-3 py-2.5 text-[10px] font-black tracking-wider uppercase border ${stageFilter === value ? "bg-[#F5C300] text-[#0a0a0a] border-[#F5C300]" : "border-white/10 text-[#aaa]"}`}>{label}</button>)}</div>

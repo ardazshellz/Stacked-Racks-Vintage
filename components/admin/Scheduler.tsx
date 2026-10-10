@@ -59,13 +59,19 @@ export default function Scheduler({ products, hiddenProductIds, scheduledRelease
 
   return <section className="space-y-6">
     <div className="bg-[#111] border border-white/8 p-5 sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-1"><div><p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">Scheduler</p><h2 className="text-xl font-black">Upcoming drops</h2><p className="text-[#777] text-xs mt-1">{scheduleConfig.batchSize} items every {scheduleConfig.everyDays} days at {String(scheduleConfig.releaseHour).padStart(2, "0")}:00 UK. Pick a drop, then tap photos below to add them. Tap a photo in a drop to take it out.</p></div></div>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-1"><div><p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">Scheduler</p><h2 className="text-xl font-black">Upcoming drops</h2><p className="text-[#777] text-xs mt-1">{scheduleConfig.batchSize} items every {scheduleConfig.everyDays} days at {String(scheduleConfig.releaseHour).padStart(2, "0")}:00 UK. Pick a drop, then tap photos below to add them. Under each item in a drop: View item opens it in Listing studio, Remove from drop takes it out (it stays hidden).</p></div></div>
       {message && <p role="status" className="text-amber-200 text-xs mt-3">{message}</p>}
       <div className="mt-4 space-y-3">{drops.map((drop) => {
         const active = drop.at === target;
         return <div key={drop.at} className={`border p-3 ${active ? "border-[#E8500A] bg-[#E8500A]/5" : "border-white/10"}`}>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2"><p className="text-sm font-black">{dropDate(drop.at)} <span className={`text-[10px] font-bold ml-2 ${drop.items.length > scheduleConfig.batchSize ? "text-[#E8500A]" : "text-[#999]"}`}>{drop.items.length}/{scheduleConfig.batchSize}</span></p><button type="button" onClick={() => setChosen(drop.at)} aria-pressed={active} className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider border ${active ? "bg-[#E8500A] border-[#E8500A]" : "border-white/15 text-[#aaa]"}`}>{active ? "Adding to this drop" : "Add to this drop"}</button></div>
-          {drop.items.length ? <div className={GRID}>{drop.items.map((product) => <Tile key={String(product.id)} product={product} label="Take out of this drop (stays hidden)" onClick={() => { if (!busy) void updateSchedule({ schedule: { id: String(product.id) } }, "Taken out of the schedule; item stays hidden"); }} />)}</div> : <p className="text-[#666] text-xs">Empty.</p>}
+          {drop.items.length ? <div className={GRID}>{drop.items.map((product) => <div key={String(product.id)} className="min-w-0 flex flex-col">
+            <Tile product={product} label="View item in Listing studio" onClick={() => onEdit(product)} />
+            <div className="grid grid-cols-2 gap-1 mt-1">
+              <button type="button" onClick={() => onEdit(product)} className="border border-white/15 hover:border-[#F5C300] text-[9px] font-black uppercase tracking-wider py-1.5">View item</button>
+              <button type="button" disabled={busy} onClick={() => void updateSchedule({ schedule: { id: String(product.id) } }, "Removed from the drop; item stays hidden")} className="border border-[#E8500A]/50 text-[#E8500A] hover:bg-[#E8500A] hover:text-white disabled:opacity-40 text-[9px] font-black uppercase tracking-wider py-1.5">Remove from drop</button>
+            </div>
+          </div>)}</div> : <p className="text-[#666] text-xs">Empty.</p>}
         </div>;
       })}</div>
     </div>
