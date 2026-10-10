@@ -110,6 +110,17 @@ export function dropsToEmail(settings: ProductSettings, now = Date.now(), window
   }
   return [...drops.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([at, ids]) => ({ at, ids }));
 }
+// Weekend days release in two batches (11:00 and 17:30). One email per UK day covers every batch due that day.
+export function dropEmailsByDay(due: { at: string; ids: string[] }[]): { day: string; ats: string[]; ids: string[] }[] {
+  const days = new Map<string, { day: string; ats: string[]; ids: string[] }>();
+  for (const drop of due) {
+    const day = ukDate(drop.at);
+    const entry = days.get(day) ?? days.set(day, { day, ats: [], ids: [] }).get(day)!;
+    entry.ats.push(drop.at);
+    entry.ids.push(...drop.ids);
+  }
+  return [...days.values()].sort((a, b) => a.day.localeCompare(b.day));
+}
 export function productUnavailable(settings: ProductSettings, id: string, now = Date.now()): boolean {
   return settings.hiddenProductIds.includes(id) || settings.deletedProductIds.includes(id) || Date.parse(settings.scheduledReleases[id] ?? "") > now;
 }

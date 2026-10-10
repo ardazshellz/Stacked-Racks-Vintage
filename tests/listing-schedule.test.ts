@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assignReleaseSlots, upcomingSlots, dropsToEmail, parseProductSettings, productUnavailable, publicProducts, releaseAt, validRelease, validScheduleConfig } from "../lib/listing-schedule.ts";
+import { assignReleaseSlots, upcomingSlots, dropsToEmail, dropEmailsByDay, parseProductSettings, productUnavailable, publicProducts, releaseAt, validRelease, validScheduleConfig } from "../lib/listing-schedule.ts";
 import type { Product } from "../lib/products.ts";
 
 const settings = () => parseProductSettings({ scheduleConfig: { startAt: "2026-10-01" } });
@@ -92,4 +92,12 @@ test("dropsToEmail returns only recently released, not yet emailed drops", () =>
   assert.deepEqual(dropsToEmail(s, now), []);
   // The sent list survives a save and reload, and bad values are dropped.
   assert.deepEqual(parseProductSettings(JSON.stringify({ ...s, emailedDrops: ["2026-10-10T19:00:00+01:00", "nonsense"] })).emailedDrops, ["2026-10-10T18:00:00.000Z"]);
+});
+
+test("dropEmailsByDay merges a weekend day's two batches into one email", () => {
+  const due = [{ at: "2026-10-10T10:00:00.000Z", ids: ["a", "b"] }, { at: "2026-10-10T16:30:00.000Z", ids: ["c"] }, { at: "2026-10-13T18:00:00.000Z", ids: ["d"] }];
+  assert.deepEqual(dropEmailsByDay(due), [
+    { day: "2026-10-10", ats: ["2026-10-10T10:00:00.000Z", "2026-10-10T16:30:00.000Z"], ids: ["a", "b", "c"] },
+    { day: "2026-10-13", ats: ["2026-10-13T18:00:00.000Z"], ids: ["d"] },
+  ]);
 });

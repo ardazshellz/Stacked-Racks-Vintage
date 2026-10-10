@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { dropEmailHtml } from "@/lib/email-html";
-import { dropsToEmail } from "@/lib/listing-schedule";
+import { dropEmailsByDay, dropsToEmail } from "@/lib/listing-schedule";
 import { productSizeLabel } from "@/lib/products";
 import { loadPublicEmailProducts } from "@/lib/server/email-products";
 import { getProductSettings, saveProductSettings } from "@/lib/server/product-settings";
@@ -42,12 +42,12 @@ export async function GET(req: Request) {
     const recipients = (subscribers ?? []).map((subscriber) => String(subscriber.email));
     const transporter = nodemailer.createTransport({ host: "smtp.gmail.com", port: 587, secure: false, auth: { user: gmailUser, pass: gmailPass } });
     const results = [];
-    for (const drop of due) {
+    for (const drop of dropEmailsByDay(due)) {
       // Only items that are public and in stock right now; anything sold or hidden since is left out.
       const { items } = await loadPublicEmailProducts(drop.ids);
       const ordered = drop.ids.map((id) => items.find((item) => String(item.id) === id)).filter((item) => item !== undefined).map((item) => ({ ...item, size: productSizeLabel(item) }));
-      if (!ordered.length || !recipients.length) { results.push({ at: drop.at, items: ordered.length, sent: 0, failed: 0 }); continue; }
-      const dateLine = new Date(drop.at).toLocaleDateString("en-GB", { timeZone: "Europe/London", weekday: "long", day: "numeric", month: "long" });
+      if (!ordered.length || !recipients.length) { results.push({ day: drop.day, items: ordered.length, sent: 0, failed: 0 }); continue; }
+      const dateLine = new Date(drop.ats[0]).toLocaleDateString("en-GB", { timeZone: "Europe/London", weekday: "long", day: "numeric", month: "long" });
       const subject = `New drop: ${ordered.length} one-off vintage ${ordered.length === 1 ? "piece" : "pieces"}`;
       let sent = 0;
       let failed = 0;
@@ -62,8 +62,8 @@ export async function GET(req: Request) {
         }
       }
       const { data: campaign } = await supabase.from("email_campaigns").insert({ subject, preview_text: "", body: JSON.stringify({ intro: "", dateLine, itemIds: ordered.map((item) => String(item.id)), automatic: true }), promotion_code: null, status: failed ? "failed" : "sent", sent_count: sent, failed_count: failed, sent_at: new Date().toISOString() }).select("id").single();
-      await supabase.from("admin_audit_log").insert({ action: "campaign.sent_automatically", target_type: "email_campaign", target_id: campaign?.id ?? "", details: { drop: drop.at, sent_count: sent, failed_count: failed, item_ids: ordered.map((item) => String(item.id)) } });
-      results.push({ at: drop.at, items: ordered.length, sent, failed });
+      await supabase.from("admin_audit_log").insert({ action: "campaign.sent_automatically", target_type: "email_campaign", target_id: campaign?.id ?? "", details: { drop: drop.day, releases: drop.ats, sent_count: sent, failed_count: failed, item_ids: ordered.map((item) => String(item.id)) } });
+      results.push({ day: drop.day, items: ordered.length, sent, failed });
     }
     return NextResponse.json({ ok: results.every((result) => !result.failed), drops: results });
   } catch (error) {
