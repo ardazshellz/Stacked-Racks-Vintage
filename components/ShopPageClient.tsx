@@ -2,7 +2,7 @@
 
 import { useState, Suspense, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Product, SIZES, FITS, CATEGORIES, displayGender, getBrandsInStock, isNew, productMatchesGender, productMatchesSize } from "@/lib/products";
+import { GENDERS, Product, type ProductGender, SIZES, FITS, CATEGORIES, displayGender, getBrandsInStock, isNew, productMatchesGender, productMatchesSize } from "@/lib/products";
 import { useProducts } from "@/hooks/useProducts";
 import Navbar from "@/components/Navbar";
 import RecentlySold from "@/components/RecentlySold";
@@ -14,7 +14,7 @@ import CustomerReviews from "@/components/CustomerReviews";
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 interface SidebarProps {
-  selectedGender: "All" | "Mens" | "Womens";
+  selectedGender: "All" | ProductGender;
   selectedSizes: string[];
   selectedBrands: string[];
   selectedCategories: string[];
@@ -23,8 +23,8 @@ interface SidebarProps {
   availableSizes: string[];
   availableCategories: string[];
   availableFits: string[];
-  availableGenders: Array<"Mens" | "Womens">;
-  onGender: (g: "All" | "Mens" | "Womens") => void;
+  availableGenders: ProductGender[];
+  onGender: (g: "All" | ProductGender) => void;
   onToggleSize: (s: string) => void;
   onToggleBrand: (b: string) => void;
   onToggleCategory: (c: string) => void;
@@ -198,7 +198,7 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
   const router = useRouter();
 
   // Read URL params for initial state
-  const paramGender = searchParams.get("gender") as "Mens" | "Womens" | null;
+  const paramGender = searchParams.get("gender") as ProductGender | null;
   const paramBrand = searchParams.get("brand");
   const paramSize = searchParams.get("size");
   const paramCategory = searchParams.get("category");
@@ -215,9 +215,9 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
   const availableSizes = SIZES.filter((size) => availableProducts.some((product) => productMatchesSize(product, size)));
   const availableCategories = CATEGORIES.filter((category) => availableProducts.some((product) => product.category === category));
   const availableFits = FITS.filter((fit) => availableProducts.some((product) => product.fit === fit));
-  const availableGenders = (["Mens", "Womens"] as const).filter((gender) => availableProducts.some((product) => productMatchesGender(product, gender)));
+  const availableGenders = GENDERS.filter((gender) => availableProducts.some((product) => productMatchesGender(product, gender)));
 
-  const [selectedGender, setSelectedGender] = useState<"All" | "Mens" | "Womens">(
+  const [selectedGender, setSelectedGender] = useState<"All" | ProductGender>(
     paramGender ?? "All"
   );
   const [selectedSizes, setSelectedSizes] = useState<string[]>(
@@ -399,7 +399,7 @@ function ShopContent({ initialProducts }: { initialProducts: Product[] }) {
                   {displayGender(chip)}
                   <button
                     onClick={() => {
-                      if (chip === "Mens" || chip === "Womens") setSelectedGender("All");
+                      if (chip === "Mens" || chip === "Womens" || chip === "Kids") setSelectedGender("All");
                       else if (chip.startsWith("Fits ")) setSelectedSizes((p) => p.filter((s) => `Fits ${s}` !== chip));
                       else if (chip.startsWith("Fit: ")) setSelectedFits((p) => p.filter((f) => `Fit: ${f}` !== chip));
                       else setSelectedCategories((p) => p.filter((c) => c !== chip));

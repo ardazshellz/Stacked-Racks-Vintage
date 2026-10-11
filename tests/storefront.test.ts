@@ -83,3 +83,13 @@ test("public products never carry purchase costs or sources", () => {
   assert.equal(shown.price, 20);
   assert.equal(JSON.stringify(shown).match(/costPrice|Fleek|2024-25|SRV-1/), null);
 });
+
+test("children's department is labelled and filtered like the others", async () => {
+  const { displayGender, GENDERS, productGenderLabel: label, productMatchesGender: matches } = await import("../lib/products.ts");
+  assert.deepEqual([...GENDERS], ["Mens", "Womens", "Kids"]);
+  assert.equal(displayGender("Kids"), "Children's");
+  const kit = { gender: "Kids", size: "9-10Y" } as never;
+  assert.equal(label(kit), "Children's");
+  assert.equal(matches(kit, "Kids"), true);
+  assert.equal(matches(kit, "Mens"), false);
+});

@@ -21,8 +21,8 @@ export async function GET() {
     <g:condition>used</g:condition>
     <g:brand>${xml(product.brand)}</g:brand>
     <g:identifier_exists>no</g:identifier_exists>
-    <g:age_group>adult</g:age_group>
-    <g:gender>${product.secondaryGender ? "unisex" : product.gender === "Mens" ? "male" : "female"}</g:gender>
+    <g:age_group>${product.gender === "Kids" ? "kids" : "adult"}</g:age_group>
+    <g:gender>${product.secondaryGender || product.gender === "Kids" ? "unisex" : product.gender === "Mens" ? "male" : "female"}</g:gender>
     <g:size>${xml(product.size)}</g:size>${product.garmentDetails?.colour ? `
     <g:color>${xml(product.garmentDetails.colour)}</g:color>` : ""}
   </item>`).join("\n");

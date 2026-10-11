@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { isNew, SIZES, FITS, ERAS, getBrandsInStock, CATEGORIES, productMatchesGender, productMatchesSize } from "@/lib/products";
+import { isNew, type ProductGender, SIZES, FITS, ERAS, getBrandsInStock, CATEGORIES, productMatchesGender, productMatchesSize } from "@/lib/products";
 import { useProducts } from "@/hooks/useProducts";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
@@ -106,7 +106,7 @@ function FAQSection() {
 
 export default function HomePageClient({ initialProducts }: { initialProducts: Product[] }) {
   const router = useRouter();
-  const [selectedGender, setSelectedGender] = useState<"All" | "Mens" | "Womens">("All");
+  const [selectedGender, setSelectedGender] = useState<"All" | ProductGender>("All");
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -190,6 +190,7 @@ export default function HomePageClient({ initialProducts }: { initialProducts: P
       newIn: products.filter(isNew).length,
       mens: products.filter((p) => productMatchesGender(p, "Mens") && p.stock > 0).length,
       womens: products.filter((p) => productMatchesGender(p, "Womens") && p.stock > 0).length,
+      kids: products.filter((p) => productMatchesGender(p, "Kids") && p.stock > 0).length,
       marquee: products.filter((p) => p.badge === "RARE" && p.stock > 0).length,
     };
 
@@ -215,6 +216,14 @@ export default function HomePageClient({ initialProducts }: { initialProducts: P
         active: selectedGender === "Womens" && !showNew && !showMarquee,
         onClick: () => { setSelectedGender(selectedGender === "Womens" ? "All" : "Womens"); setShowNew(false); setShowMarquee(false); },
       },
+      // Children's only appears once there is children's stock.
+      ...(sectionCounts.kids > 0 ? [{
+        key: "kids",
+        label: "Children's",
+        count: sectionCounts.kids,
+        active: selectedGender === "Kids" && !showNew && !showMarquee,
+        onClick: () => { setSelectedGender(selectedGender === "Kids" ? "All" : "Kids"); setShowNew(false); setShowMarquee(false); },
+      }] : []),
       {
         key: "marquee",
         label: "Marquee",

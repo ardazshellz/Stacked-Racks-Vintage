@@ -15,6 +15,8 @@ import {
   FITS,
   SIZES,
   displayGender,
+  GENDERS,
+  KIDS_SIZES,
   type Condition,
   type Era,
   type Fit,
@@ -927,14 +929,18 @@ export default function AdminPage() {
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                   <Field label="Brand" value={form.brand} onChange={(value) => setForm({ ...form, brand: value })} placeholder="Nike, Adidas, Vintage…" suggestions={ALL_BRANDS} />
                   <Select label="Category" value={form.category} options={CATEGORIES} onChange={(value) => setForm({ ...form, category: value })} />
-                  <Select label="Size" value={form.size} options={SIZES} onChange={(value) => setForm({ ...form, size: value })} />
-                  <Select label="Department" value={form.gender} options={["Mens", "Womens"]} optionLabel={displayGender} onChange={(value) => {
+                  <Select label={form.gender === "Kids" ? "Age size" : "Size"} value={form.size} options={form.gender === "Kids" ? KIDS_SIZES : SIZES} onChange={(value) => setForm({ ...form, size: value })} />
+                  <Select label="Department" value={form.gender} options={GENDERS} optionLabel={displayGender} onChange={(value) => {
                     const gender = value as Product["gender"];
+                    const kids = gender === "Kids";
+                    // Children's items use age sizes and never sit in a second department.
+                    const sizes: readonly string[] = kids ? KIDS_SIZES : SIZES;
                     setForm({
                       ...form,
                       gender,
-                      secondaryGender: form.secondaryGender === gender ? undefined : form.secondaryGender,
-                      secondarySize: form.secondaryGender === gender ? undefined : form.secondarySize,
+                      size: sizes.includes(form.size) ? form.size : sizes[0],
+                      secondaryGender: kids || form.secondaryGender === gender ? undefined : form.secondaryGender,
+                      secondarySize: kids || form.secondaryGender === gender ? undefined : form.secondarySize,
                     });
                   }} />
                   <Field label="Customer sale price (£)" value={form.price || ""} type="number" onChange={(value) => setForm({ ...form, price: Number(value), pricingStatus: form.pricingStatus === "approved" ? "needs_review" : form.pricingStatus, pricingReviewedAt: undefined })} />
@@ -948,6 +954,7 @@ export default function AdminPage() {
                     <input
                       type="checkbox"
                       checked={Boolean(form.secondaryGender)}
+                      disabled={form.gender === "Kids"}
                       onChange={(event) => setForm({
                         ...form,
                         secondaryGender: event.target.checked ? (form.gender === "Mens" ? "Womens" : "Mens") : undefined,

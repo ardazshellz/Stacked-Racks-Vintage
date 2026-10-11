@@ -5,7 +5,10 @@ export const ERAS = ["60s", "70s", "80s", "90s", "00s", "2010s", "2020s"] as con
 export type Fit = "Regular" | "Fitted" | "Baggy" | "Oversized";
 export type PricingStatus = "standard" | "needs_review" | "approved";
 export type ListingStatus = "live" | "draft";
-export type ProductGender = "Mens" | "Womens";
+export type ProductGender = "Mens" | "Womens" | "Kids";
+export const GENDERS: readonly ProductGender[] = ["Mens", "Womens", "Kids"];
+// Children's items are sized by age. The exact wording (e.g. "Age 9-10") can also go in displaySize.
+export const KIDS_SIZES = ["3-4Y", "5-6Y", "7-8Y", "9-10Y", "11-12Y", "13-14Y", "15-16Y"] as const;
 
 export interface GarmentDetails {
   colour?: string;
@@ -93,6 +96,7 @@ export function getVintedItemUrl(product: Pick<Product, "vintedUrl">) {
 export function displayGender(gender: string) {
   if (gender === "Mens") return "Men's";
   if (gender === "Womens") return "Women's";
+  if (gender === "Kids") return "Children's";
   return gender;
 }
 
