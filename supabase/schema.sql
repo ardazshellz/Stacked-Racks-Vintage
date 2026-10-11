@@ -42,7 +42,7 @@ create table if not exists public.products (
   name text not null,
   brand text not null,
   size text not null,
-  gender text not null check (gender in ('Mens', 'Womens')),
+  gender text not null check (gender in ('Mens', 'Womens', 'Kids')),
   price numeric(10,2) not null check (price > 0),
   category text not null,
   badge text not null default 'NEW' check (badge in ('NEW', 'RARE')),
