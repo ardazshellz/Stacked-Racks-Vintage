@@ -418,6 +418,8 @@ export default function AdminPage() {
   }, [sellSearch, products, hiddenProductIds, scheduledReleases, scheduleNow]);
   const waitingProducts = useMemo(() => plannedItems(products, hiddenProductIds, scheduledReleases, scheduleNow).sort((a, b) => a.listedDate.localeCompare(b.listedDate)), [products, hiddenProductIds, scheduledReleases, scheduleNow]);
   const pricingApprovalRequired = form.pricingStatus === "needs_review";
+  // Not public yet: a draft, hidden, or waiting for a future drop.
+  const editingHidden = !!editingId && (form.listingStatus === "draft" || hiddenProductIds.includes(editingId) || Date.parse(scheduledReleases[editingId] ?? "") > scheduleNow);
   const vintedSaleByProductId = useMemo(() => {
     const sales = new Map<string, OrderRow>();
     orders.forEach((order) => {
@@ -664,7 +666,7 @@ export default function AdminPage() {
     } finally { setScheduleBusy(false); }
   };
 
-  const saveProduct = async (listingStatus: "live" | "draft" = "live", schedule = false) => {
+  const saveProduct = async (listingStatus: "live" | "draft" = "live", schedule = false, post = false) => {
     if (listingStatus === "live" && pricingApprovalRequired) {
       setListingMessage("Review and approve the suggested pricing before publishing this collectible or uncertain item.");
       return;
@@ -692,7 +694,12 @@ export default function AdminPage() {
           throw new Error(`Listing saved privately, but scheduling failed: ${error instanceof Error ? error.message : "try again"}`);
         }
       }
-      setListingMessage(schedule ? "Listing added to the release schedule" : listingStatus === "draft" ? "Saved safely in To be uploaded — it is not public" : editingId ? "Product updated" : "Product published to the website");
+      if (post) {
+        // Post now: make it public and drop any future release. It leaves Drafts and the Scheduler.
+        const shown = await fetch("/api/products", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ visibility: { id: String(data.product.id), hidden: false } }) });
+        if (!shown.ok) { await loadDashboard(); throw new Error("Listing saved, but it could not be posted to the website. It is still hidden; try again."); }
+      }
+      setListingMessage(post ? "Posted to the website. It is live now." : schedule ? "Listing added to the release schedule" : listingStatus === "draft" ? "Saved in Drafts — it is not public" : editingId ? "Product updated" : "Product published to the website");
       setEditingId(null);
       setForm({ ...EMPTY_PRODUCT, listedDate: new Date().toISOString().slice(0, 10) });
       setQuickDetails("");
@@ -1006,7 +1013,7 @@ export default function AdminPage() {
                   </div>
                   {form.pricingReason && <p className="mt-3 text-[#bbb] text-xs leading-relaxed">{form.pricingReason}</p>}
                   {form.pricingSearchQuery && <div className="mt-3 flex flex-wrap gap-3 text-[10px] font-black uppercase tracking-wider"><a href={`https://www.ebay.co.uk/sch/i.html?_nkw=${encodeURIComponent(form.pricingSearchQuery)}&LH_Sold=1&LH_Complete=1`} target="_blank" rel="noopener noreferrer" className="text-[#F5C300]">Check eBay sold ↗</a><a href={`https://www.vinted.co.uk/catalog?search_text=${encodeURIComponent(form.pricingSearchQuery)}`} target="_blank" rel="noopener noreferrer" className="text-[#F5C300]">Check Vinted ↗</a><a href={`https://www.google.com/search?q=${encodeURIComponent(`${form.pricingSearchQuery} vintage sold price`)}`} target="_blank" rel="noopener noreferrer" className="text-[#F5C300]">Check the web ↗</a></div>}
-                  {pricingApprovalRequired && <div className="mt-4 border-t border-amber-300/20 pt-4"><p className="text-amber-100 text-[11px] mb-3">This item may be collectible, rare or hard to price. Check the comparisons, choose the customer price above, then approve it. Until then it can only be saved privately in To be uploaded.</p><button type="button" onClick={() => setForm({ ...form, pricingStatus: "approved", pricingReviewedAt: new Date().toISOString() })} disabled={form.price <= 0} className="bg-[#F5C300] disabled:opacity-40 text-black px-4 py-2.5 text-[10px] font-black uppercase tracking-wider">Approve {form.price > 0 ? money(form.price) : "price"}</button></div>}
+                  {pricingApprovalRequired && <div className="mt-4 border-t border-amber-300/20 pt-4"><p className="text-amber-100 text-[11px] mb-3">This item may be collectible, rare or hard to price. Check the comparisons, choose the customer price above, then approve it. Until then it can only be saved privately in Drafts.</p><button type="button" onClick={() => setForm({ ...form, pricingStatus: "approved", pricingReviewedAt: new Date().toISOString() })} disabled={form.price <= 0} className="bg-[#F5C300] disabled:opacity-40 text-black px-4 py-2.5 text-[10px] font-black uppercase tracking-wider">Approve {form.price > 0 ? money(form.price) : "price"}</button></div>}
                 </div>
                 <div className="border border-white/8 bg-[#161616] p-4">
                   <p className="text-[#E8500A] text-[10px] font-black tracking-[0.18em] uppercase mb-3">Garment details & measurements</p>
@@ -1032,7 +1039,9 @@ export default function AdminPage() {
                 <Field label="Live Vinted item URL" value={form.vintedUrl ?? ""} onChange={(value) => setForm({ ...form, vintedUrl: value })} placeholder="https://www.vinted.co.uk/items/…" />
                 <p className="text-[#777] text-[10px] -mt-2">Paste the public item link after publishing on Vinted. Product links will then open this exact listing for every visitor.</p>
                 {listingMessage && <p className="text-[#F5C300] text-xs border border-[#F5C300]/20 bg-[#F5C300]/5 p-3">{listingMessage}</p>}
-                <div className="flex flex-wrap gap-3"><button onClick={() => void saveProduct("live")} disabled={saving || pricingApprovalRequired || !form.name || !form.brand || form.price <= 0} className="bg-[#E8500A] disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">{saving ? "Saving…" : editingId && form.listingStatus === "draft" ? "Approve and publish" : editingId ? "Save changes" : "Publish to website"}</button><button onClick={() => void saveProduct("live", true)} disabled={saving || scheduleBusy || pricingApprovalRequired || !form.name || !form.brand || form.price <= 0} className="border border-[#E8500A] text-[#E8500A] disabled:opacity-40 px-5 py-3 text-xs font-black uppercase tracking-wider">Add to schedule</button><button onClick={() => void saveProduct("draft")} disabled={saving || !form.name || !form.brand || form.price <= 0} className="border border-amber-400/50 text-amber-200 disabled:opacity-40 px-5 py-3 text-xs font-bold">Save to be uploaded</button><button onClick={() => navigator.clipboard.writeText(`${form.vintedTitle}\n\n${form.vintedDescription}`)} className="border border-white/15 text-[#aaa] px-5 py-3 text-xs font-bold">Copy full Vinted listing</button><a href="https://www.vinted.co.uk/items/new" target="_blank" rel="noopener noreferrer" className="border border-[#F5C300]/40 text-[#F5C300] px-5 py-3 text-xs font-bold">Open Vinted ↗</a></div>
+                <div className="flex flex-wrap gap-3"><button onClick={() => void saveProduct("live")} disabled={saving || pricingApprovalRequired || !form.name || !form.brand || form.price <= 0} className="bg-[#E8500A] disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">{saving ? "Saving…" : editingId && form.listingStatus === "draft" && !editingHidden ? "Approve and publish" : editingId ? "Save changes" : "Publish to website"}</button><button onClick={() => void saveProduct("live", true)} disabled={saving || scheduleBusy || pricingApprovalRequired || !form.name || !form.brand || form.price <= 0} className="border border-[#E8500A] text-[#E8500A] disabled:opacity-40 px-5 py-3 text-xs font-black uppercase tracking-wider">Add to schedule</button><button onClick={() => void saveProduct("draft")} disabled={saving || !form.name || !form.brand || form.price <= 0} className="border border-amber-400/50 text-amber-200 disabled:opacity-40 px-5 py-3 text-xs font-bold">Save as draft</button><button onClick={() => navigator.clipboard.writeText(`${form.vintedTitle}\n\n${form.vintedDescription}`)} className="border border-white/15 text-[#aaa] px-5 py-3 text-xs font-bold">Copy full Vinted listing</button><a href="https://www.vinted.co.uk/items/new" target="_blank" rel="noopener noreferrer" className="border border-[#F5C300]/40 text-[#F5C300] px-5 py-3 text-xs font-bold">Open Vinted ↗</a></div>
+                {editingId && editingHidden && <div className="border-t border-white/10 pt-4"><button onClick={() => void saveProduct("live", false, true)} disabled={saving || scheduleBusy || pricingApprovalRequired || !form.name || !form.brand || form.price <= 0 || form.stock < 1} className="w-full sm:w-auto bg-[#F5C300] text-black disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">Post to website now</button><p className="text-[#777] text-[10px] mt-2">Saves your changes and makes this item live straight away. It leaves Drafts and the Scheduler. No drop email is sent.</p></div>}
+                {editingId && !editingHidden && form.stock > 0 && <div className="border-t border-white/10 pt-4"><button onClick={() => void toggleProductVisibility({ id: editingId, ...form }).then(() => setListingMessage("Taken off the website. It is back in Drafts and the Scheduler."))} disabled={saving || scheduleBusy} className="w-full sm:w-auto border border-amber-400/50 text-amber-200 disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">Take off website</button><p className="text-[#777] text-[10px] mt-2">This item is live. Taking it off hides it and puts it back in Drafts and the Scheduler.</p></div>}
               </div>
             </div>
 
