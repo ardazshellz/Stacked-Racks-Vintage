@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assignReleaseSlots, upcomingSlots, dropsToEmail, dropEmailsByDay, parseProductSettings, productUnavailable, publicProducts, releaseAt, validRelease, validScheduleConfig } from "../lib/listing-schedule.ts";
+import { assignReleaseSlots, upcomingSlots, dropsToEmail, dropEmailsByDay, parseProductSettings, productUnavailable, publicProducts, releaseAt, releaseAtTime, validRelease, validScheduleConfig } from "../lib/listing-schedule.ts";
 import type { Product } from "../lib/products.ts";
 
 const settings = () => parseProductSettings({ scheduleConfig: { startAt: "2026-10-01" } });
@@ -100,4 +100,10 @@ test("dropEmailsByDay merges a weekend day's two batches into one email", () => 
     { day: "2026-10-10", ats: ["2026-10-10T10:00:00.000Z", "2026-10-10T16:30:00.000Z"], ids: ["a", "b", "c"] },
     { day: "2026-10-13", ats: ["2026-10-13T18:00:00.000Z"], ids: ["d"] },
   ]);
+});
+
+test("a hand-built drop keeps its UK date and time, minutes included, in BST and GMT", () => {
+  assert.equal(releaseAtTime("2026-10-17", "17:30"), "2026-10-17T16:30:00.000Z");
+  assert.equal(releaseAtTime("2026-11-01", "11:00"), "2026-11-01T11:00:00.000Z");
+  assert.equal(validRelease(releaseAtTime("2026-11-01", "19:05")), true);
 });

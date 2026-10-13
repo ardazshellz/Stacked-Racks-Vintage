@@ -88,7 +88,7 @@ export async function PATCH(req: Request) {
   }
   if (!sameOrigin(req)) return NextResponse.json({ error: "Invalid request" }, { status: 403 });
   const body = (await req.json()) as {
-    schedule?: { id?: string; at?: string; auto?: string[] };
+    schedule?: { id?: string; at?: string; auto?: string[]; drop?: string[] };
     scheduleConfig?: Partial<ScheduleConfig>;
     id?: string;
     product?: unknown;
@@ -108,17 +108,26 @@ export async function PATCH(req: Request) {
         const action = body.schedule;
         if (!action || typeof action !== "object" || Array.isArray(action)) return NextResponse.json({ error: "Invalid schedule action" }, { status: 400 });
         const auto = action.auto !== undefined;
-        if (auto ? (!Array.isArray(action.auto) || !action.auto.length || action.auto.length > 100 || action.id !== undefined || action.at !== undefined) : (typeof action.id !== "string" || !action.id)) return NextResponse.json({ error: "Specify one item or up to 100 queue items" }, { status: 400 });
+        // A hand-built drop: several items released together at one chosen time.
+        const drop = action.drop !== undefined;
+        if (drop && (!Array.isArray(action.drop) || !action.drop.length || action.drop.length > 100 || auto || action.id !== undefined || action.at === undefined)) return NextResponse.json({ error: "A drop needs 1 to 100 items and a release time" }, { status: 400 });
+        if (!drop && (auto ? (!Array.isArray(action.auto) || !action.auto.length || action.auto.length > 100 || action.id !== undefined || action.at !== undefined) : (typeof action.id !== "string" || !action.id))) return NextResponse.json({ error: "Specify one item or up to 100 queue items" }, { status: 400 });
         if (!auto && action.at !== undefined && !validRelease(action.at)) return NextResponse.json({ error: "Release time must be an ISO datetime with a timezone" }, { status: 400 });
-        const ids = auto ? [...new Set(action.auto!)] : [action.id!];
+        if (drop && Date.parse(action.at!) <= Date.now()) return NextResponse.json({ error: "Pick a release time in the future" }, { status: 400 });
+        const ids = drop ? [...new Set(action.drop!)] : auto ? [...new Set(action.auto!)] : [action.id!];
         if (ids.some(id => typeof id !== "string" || !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id) || settings.deletedProductIds.includes(id))) return NextResponse.json({ error: "Invalid product id" }, { status: 400 });
         const { data, error } = await getSupabaseAdmin().from("products").select("*").in("id", ids).neq("name", PRODUCT_SETTINGS_NAME);
         if (error) throw error;
         if (!data || data.length !== ids.length) return NextResponse.json({ error: "Product not found" }, { status: 404 });
         if (auto || action.at !== undefined) {
           const products = (data as ProductRow[]).map(rowToProduct);
-          if (products.some(p => p.listingStatus === "draft" || p.stock < 1 || p.pricingStatus === "needs_review")) return NextResponse.json({ error: "Review the listing and pricing and ensure it is in stock before scheduling" }, { status: 400 });
-          settings.scheduledReleases = auto ? assignReleaseSlots(settings, ids) : { ...settings.scheduledReleases, [ids[0]]: new Date(action.at!).toISOString() };
+          if (products.some(p => (!drop && p.listingStatus === "draft") || p.stock < 1 || p.pricingStatus === "needs_review")) return NextResponse.json({ error: "Review the listing and pricing and ensure it is in stock before scheduling" }, { status: 400 });
+          // Putting a draft in a drop is the owner's sign-off: it stops being a draft and stays private until the release time.
+          for (const p of drop ? products.filter(p => p.listingStatus === "draft") : []) {
+            const { error: promoteError } = await getSupabaseAdmin().from("products").update(productToRow({ ...p, listingStatus: "live" })).eq("id", p.id);
+            if (promoteError) throw promoteError;
+          }
+          settings.scheduledReleases = auto ? assignReleaseSlots(settings, ids) : { ...settings.scheduledReleases, ...Object.fromEntries(ids.map(id => [id, new Date(action.at!).toISOString()])) };
           settings.hiddenProductIds = settings.hiddenProductIds.filter(id => !ids.includes(id));
         } else {
           delete settings.scheduledReleases[ids[0]];
