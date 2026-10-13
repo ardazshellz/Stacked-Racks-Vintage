@@ -62,6 +62,11 @@ export function releaseAt(date: string, hour: number): string {
   const candidateHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", hourCycle: "h23" }).format(candidate));
   return new Date(candidateHour === hour ? candidate : utc).toISOString();
 }
+/** A UK wall-clock date and "HH:MM" time as an ISO release time. */
+export function releaseAtTime(date: string, time: string): string {
+  const [hour, minute] = time.split(":").map(Number);
+  return new Date(Date.parse(releaseAt(date, hour)) + minute * 60000).toISOString();
+}
 /** Upcoming release slots from the schedule settings: every `everyDays` from `startAt`. */
 export function upcomingSlots(config: ScheduleConfig, now: number, count: number): string[] {
   const anchor = Date.parse(config.startAt);

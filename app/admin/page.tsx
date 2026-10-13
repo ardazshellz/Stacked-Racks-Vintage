@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { defaultScheduleConfig, type ScheduleConfig } from "@/lib/listing-schedule";
 import Image from "next/image";
 import EmailMarketing from "@/components/admin/EmailMarketing";
-import Scheduler from "@/components/admin/Scheduler";
+import Scheduler, { GRID as TILE_GRID, Tile } from "@/components/admin/Scheduler";
 import PhotoEditor from "@/components/admin/PhotoEditor";
 import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard";
 import { accountRows, isRecordedSale, orderBoughtFrom, orderCostTaxYear, orderPurchaseCost, orderTax, parseMoney, saleStage, taxSummary, taxYear, toCsv, toTsv } from "@/lib/sales";
@@ -911,6 +911,10 @@ export default function AdminPage() {
           </section>
         )}
 
+        {tab === "listings" && draftProducts.length > 0 && <section className="mb-6 border border-amber-400/35 bg-amber-400/[0.05] p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3 mb-3"><div><h2 className="font-black text-amber-200">To be uploaded</h2><p className="text-[#777] text-[10px] mt-1">Private drafts waiting for your review. Tap one to open it below.</p></div><span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-amber-400 text-black text-xs font-black">{draftProducts.length}</span></div>
+          <div className={`${TILE_GRID} max-h-[34rem] overflow-y-auto`}>{draftProducts.map((product) => <Tile key={String(product.id)} product={product} label="Review listing" note={product.pricingStatus === "needs_review" ? "Price needs review" : undefined} onClick={() => editProduct(product)} />)}</div>
+        </section>}
         {tab === "listings" && (
           <section className="grid xl:grid-cols-[1fr_380px] gap-6 items-start">
             <div className="space-y-5">
@@ -1028,7 +1032,6 @@ export default function AdminPage() {
             </div>
 
             <aside className="bg-[#111] border border-white/8 p-5 xl:sticky xl:top-24">
-              {draftProducts.length > 0 && <div className="mb-6 border border-amber-400/35 bg-amber-400/[0.05] p-4"><div className="flex items-center justify-between gap-3"><div><h3 className="font-black text-amber-200">To be uploaded</h3><p className="text-[#777] text-[10px] mt-1">Private provisional listings waiting for your review.</p></div><span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-amber-400 text-black text-xs font-black">{draftProducts.length}</span></div><div className="mt-3 space-y-2">{draftProducts.map((product) => <button key={product.id} type="button" onClick={() => editProduct(product)} className="w-full border border-white/8 bg-black/20 p-3 text-left hover:border-amber-300/40"><span className="block text-xs font-bold text-white">{product.name}</span><span className="mt-1 block text-[9px] text-[#888]">Suggested {product.suggestedPriceLow && product.suggestedPriceHigh ? `£${product.suggestedPriceLow}–£${product.suggestedPriceHigh}` : money(product.price)} · Review listing</span></button>)}</div></div>}
               <section className="mb-6 border border-[#E8500A]/30 bg-[#161616] p-4">
                 <h3 className="font-black">Release schedule</h3>
                 <p className="text-[#888] text-xs mt-1 mb-4">UK time (GMT/BST). Items go live automatically. Config changes apply to new slots only.</p>
@@ -1041,11 +1044,11 @@ export default function AdminPage() {
                 <button disabled={scheduleBusy || saving} onClick={() => void updateSchedule({ scheduleConfig }, "Schedule configuration saved")} className="mt-3 bg-[#E8500A] disabled:opacity-40 px-4 py-2 text-[10px] font-black uppercase tracking-wider">Save schedule settings</button>
                 {scheduleMessage && <p role="status" className="text-amber-200 text-xs mt-3">{scheduleMessage}</p>}
                 <div className="mt-4 space-y-3 max-h-[50vh] overflow-y-auto">{Object.entries(upcomingDrops).sort(([a], [b]) => a.localeCompare(b)).map(([at, items]) => <div key={at} className="border border-white/10 p-3">
-                  <p className="text-[#E8500A] text-[10px] font-black uppercase tracking-wider">{scheduleDate(at)} UK · {items.length}/{scheduleConfig.batchSize}</p>
-                  {items.map(product => <div key={product.id} className="mt-3 border-t border-white/5 pt-2"><p className="text-xs font-bold">{product.name}</p><div className="flex flex-wrap gap-3 mt-2">
+                  <p className="text-[#E8500A] text-[10px] font-black uppercase tracking-wider">{scheduleDate(at)} UK · {items.length} item{items.length === 1 ? "" : "s"}</p>
+                  {items.map(product => <div key={product.id} className="mt-3 border-t border-white/5 pt-2 flex gap-3"><div className="w-10 h-[52px] bg-[#1a1a1a] shrink-0 overflow-hidden">{product.imageUrls?.[0] && <Image src={product.imageUrls[0]} alt="" width={40} height={52} className="w-full h-full object-cover" />}</div><div className="min-w-0"><p className="text-xs font-bold">{product.name}</p><div className="flex flex-wrap gap-3 mt-2">
                     <button disabled={scheduleBusy || saving} onClick={() => void updateSchedule({ schedule: { id: String(product.id) } }, "Removed from schedule; item remains hidden")} className="text-amber-200 disabled:opacity-40 text-[10px]">Remove from schedule</button>
                     <button disabled={scheduleBusy || saving} onClick={() => void updateSchedule({ schedule: { id: String(product.id), at: new Date().toISOString() } }, "Item released now")} className="text-[#E8500A] disabled:opacity-40 text-[10px]">Release now</button>
-                  </div></div>)}
+                  </div></div></div>)}
                 </div>)}{Object.keys(upcomingDrops).length === 0 && <p className="text-[#777] text-xs">No upcoming drops. Add a listing to schedule its release.</p>}</div>
               </section>
               <h3 className="font-black mb-1">Manage website products</h3><p className="text-[#555] text-xs mb-4">Your 5 newest listings appear here. Search to find any other item.</p>
@@ -1081,7 +1084,7 @@ export default function AdminPage() {
             </aside>
           </section>
         )}
-        {tab === "scheduler" && <Scheduler products={products} hiddenProductIds={hiddenProductIds} scheduledReleases={scheduledReleases} scheduleConfig={scheduleConfig} now={scheduleNow} busy={scheduleBusy || saving} message={scheduleMessage} updateSchedule={updateSchedule} onEdit={(product) => { editProduct(product); setTab("listings"); }} />}
+        {tab === "scheduler" && <Scheduler products={products} hiddenProductIds={hiddenProductIds} scheduledReleases={scheduledReleases} now={scheduleNow} busy={scheduleBusy || saving} message={scheduleMessage} updateSchedule={updateSchedule} onEdit={(product) => { editProduct(product); setTab("listings"); }} />}
         {tab === "email" && <EmailMarketing />}
         {tab === "analytics" && <AnalyticsDashboard />}
       </div>
