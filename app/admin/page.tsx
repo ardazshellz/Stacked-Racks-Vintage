@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { defaultScheduleConfig, type ScheduleConfig } from "@/lib/listing-schedule";
 import Image from "next/image";
 import EmailMarketing from "@/components/admin/EmailMarketing";
-import Scheduler, { GRID as TILE_GRID, Tile } from "@/components/admin/Scheduler";
+import Scheduler, { GRID as TILE_GRID, Tile, plannedItems } from "@/components/admin/Scheduler";
 import PhotoEditor from "@/components/admin/PhotoEditor";
 import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard";
 import { accountRows, isRecordedSale, orderBoughtFrom, orderCostTaxYear, orderPurchaseCost, orderTax, parseMoney, saleStage, taxSummary, taxYear, toCsv, toTsv } from "@/lib/sales";
@@ -24,7 +24,7 @@ import {
   productSizeLabel,
 } from "@/lib/products";
 
-type Tab = "orders" | "listings" | "scheduler" | "email" | "analytics";
+type Tab = "orders" | "listings" | "drafts" | "scheduler" | "email" | "analytics";
 
 interface OrderRow {
   id: string;
@@ -416,7 +416,7 @@ export default function AdminPage() {
       .filter((product) => query ? `${product.name} ${product.brand} ${product.sku ?? ""}`.toLowerCase().includes(query) : onSale(product))
       .sort((a, b) => since(b).localeCompare(since(a)));
   }, [sellSearch, products, hiddenProductIds, scheduledReleases, scheduleNow]);
-  const draftProducts = useMemo(() => products.filter((product) => product.listingStatus === "draft"), [products]);
+  const waitingProducts = useMemo(() => plannedItems(products, hiddenProductIds, scheduledReleases, scheduleNow).sort((a, b) => a.listedDate.localeCompare(b.listedDate)), [products, hiddenProductIds, scheduledReleases, scheduleNow]);
   const pricingApprovalRequired = form.pricingStatus === "needs_review";
   const vintedSaleByProductId = useMemo(() => {
     const sales = new Map<string, OrderRow>();
@@ -851,7 +851,7 @@ export default function AdminPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
           <div><h1 className="font-black tracking-widest text-sm">STACKED RACKS — ADMIN</h1><p className="text-[#555] text-[10px] mt-1">Live shop management</p></div>
           <nav className="flex gap-1">
-            {(["orders", "listings", "scheduler", "analytics", "email"] as const).map((item) => <button key={item} onClick={() => setTab(item)} className={`px-4 py-2 text-[10px] font-black tracking-[0.16em] uppercase border ${tab === item ? "bg-[#E8500A] border-[#E8500A]" : "border-white/10 text-[#777]"}`}>{item === "orders" ? "Sales" : item === "listings" ? "Listing studio" : item === "scheduler" ? "Scheduler" : item === "analytics" ? "Analytics" : "Email & promos"}</button>)}
+            {(["orders", "listings", "drafts", "scheduler", "analytics", "email"] as const).map((item) => <button key={item} onClick={() => setTab(item)} className={`px-4 py-2 text-[10px] font-black tracking-[0.16em] uppercase border ${tab === item ? "bg-[#E8500A] border-[#E8500A]" : "border-white/10 text-[#777]"}`}>{item === "orders" ? "Sales" : item === "listings" ? "Listing studio" : item === "drafts" ? `Drafts (${waitingProducts.length})` : item === "scheduler" ? "Scheduler" : item === "analytics" ? "Analytics" : "Email & promos"}</button>)}
           </nav>
           <button onClick={handleLogout} className="text-[#666] hover:text-white text-xs">Sign out</button>
         </div>
@@ -911,9 +911,14 @@ export default function AdminPage() {
           </section>
         )}
 
-        {tab === "listings" && draftProducts.length > 0 && <section className="mb-6 border border-amber-400/35 bg-amber-400/[0.05] p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-3 mb-3"><div><h2 className="font-black text-amber-200">To be uploaded</h2><p className="text-[#777] text-[10px] mt-1">Private drafts waiting for your review. Tap one to open it below.</p></div><span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-amber-400 text-black text-xs font-black">{draftProducts.length}</span></div>
-          <div className={`${TILE_GRID} max-h-[34rem] overflow-y-auto`}>{draftProducts.map((product) => <Tile key={String(product.id)} product={product} label="Review listing" note={product.pricingStatus === "needs_review" ? "Price needs review" : undefined} onClick={() => editProduct(product)} />)}</div>
+        {tab === "drafts" && <section className="bg-[#111] border border-white/8 p-5 sm:p-6">
+          <p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">Drafts</p><h2 className="text-xl font-black">Items to be uploaded</h2>
+          <p className="text-[#777] text-xs mt-1 mb-4">{waitingProducts.length} items uploaded but not yet in a drop, oldest first. Tap one to open it in Listing studio. Put them in a drop on the Scheduler tab; an item leaves this list when it is scheduled and comes back if you remove it from the drop.</p>
+          <div className={TILE_GRID}>{waitingProducts.map((product) => {
+            const days = Math.max(0, Math.floor((scheduleNow - Date.parse(product.listedDate)) / 86400000));
+            const missing = [!product.imageUrls?.length && "no photos", !product.description?.trim() && "no description", product.pricingStatus === "needs_review" && "price needs review"].filter(Boolean).join(", ");
+            return <Tile key={String(product.id)} product={product} label="Open in Listing studio" onClick={() => editProduct(product)} note={`Added ${new Date(product.listedDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} · ${days === 0 ? "today" : `${days} day${days === 1 ? "" : "s"} ago`}${product.listingStatus === "draft" ? " · Draft" : " · Ready"}${missing ? ` · Missing: ${missing}` : ""}`} />;
+          })}{!waitingProducts.length && <p className="col-span-full text-[#777] text-xs py-5 text-center">Nothing waiting. Add a listing in Listing studio.</p>}</div>
         </section>}
         {tab === "listings" && (
           <section className="grid xl:grid-cols-[1fr_380px] gap-6 items-start">
