@@ -19,6 +19,14 @@ export function Tile({ product, onClick, label, note, pick }: { product: Product
   </button>;
 }
 
+/** Everything waiting for a drop: drafts and finished hidden listings, in stock and not in a future drop. */
+export function plannedItems(products: Product[], hiddenProductIds: string[], scheduledReleases: Record<string, string>, now: number): Product[] {
+  return products.filter((product) => {
+    const id = String(product.id);
+    return product.stock > 0 && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id) && !(Date.parse(scheduledReleases[id] ?? "") > now) && (product.listingStatus === "draft" || hiddenProductIds.includes(id));
+  });
+}
+
 // The adjustable timer on a planned drop: edit its UK date and time, then save to move every item in it.
 function DropTime({ at, now, busy, onSave }: { at: string; now: number; busy: boolean; onSave: (next: string) => void }) {
   const [date, setDate] = useState(ukDate(at));
@@ -57,11 +65,7 @@ export default function Scheduler({ products, hiddenProductIds, scheduledRelease
   }, [products, scheduledReleases, now]);
 
   const query = search.trim().toLowerCase();
-  // Everything planned but not yet in a drop: drafts and finished hidden listings, in stock.
-  const planned = products.filter((product) => {
-    const id = String(product.id);
-    return product.stock > 0 && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id) && !(Date.parse(scheduledReleases[id] ?? "") > now) && (product.listingStatus === "draft" || hiddenProductIds.includes(id));
-  });
+  const planned = plannedItems(products, hiddenProductIds, scheduledReleases, now);
   const shown = planned.filter((product) => !query || `${product.name} ${product.brand} ${product.sku ?? ""}`.toLowerCase().includes(query));
   const chosen = picked.map((id) => planned.find((product) => String(product.id) === id)).filter((product): product is Product => !!product);
   const at = date && /^\d{2}:\d{2}$/.test(time) ? releaseAtTime(date, time) : "";
