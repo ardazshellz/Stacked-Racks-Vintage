@@ -62,7 +62,9 @@ export default function Scheduler({ products, hiddenProductIds, scheduledRelease
   const [search, setSearch] = useState("");
   const [who, setWho] = useState("");
   const [type, setType] = useState("");
-  const [brand, setBrand] = useState("");
+  // "all", or the brands picked; an empty pick list shows nothing until All or a brand is tapped.
+  const [brand, setBrand] = useState<"all" | string[]>("all");
+  const [brandsOpen, setBrandsOpen] = useState(false);
   const [groupBy, setGroupBy] = useState<"type" | "brand" | "none">("type");
   const [sort, setSort] = useState<"oldest" | "price">("oldest");
   const [picked, setPicked] = useState<string[]>([]);
@@ -85,7 +87,7 @@ export default function Scheduler({ products, hiddenProductIds, scheduledRelease
   const types = CATEGORIES.filter((category) => planned.some((product) => product.category === category));
   const query = search.trim().toLowerCase();
   const shown = planned
-    .filter((product) => (!query || `${product.name} ${product.brand} ${product.sku ?? ""}`.toLowerCase().includes(query)) && (!who || product.gender === who) && (!type || product.category === type) && (!brand || product.brand === brand))
+    .filter((product) => (!query || `${product.name} ${product.brand} ${product.sku ?? ""}`.toLowerCase().includes(query)) && (!who || product.gender === who) && (!type || product.category === type) && (brand === "all" || brand.includes(product.brand)))
     .sort((a, b) => sort === "price" ? b.price - a.price : a.listedDate.localeCompare(b.listedDate));
   const groups = groupBy === "none" ? [["All items", shown] as const] : [...shown.reduce((map, product) => {
     const key = groupBy === "type" ? product.category : product.brand;
@@ -118,9 +120,18 @@ export default function Scheduler({ products, hiddenProductIds, scheduledRelease
       {message && <p role="status" className="text-amber-200 text-xs mt-3">{message}</p>}
       <div className="mt-4 space-y-2">
         <input type="search" aria-label="Search waiting items" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, brand or SKU…" className="w-full bg-[#171717] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-[#E8500A]/70 placeholder:text-[#555]" />
-        <div className="flex flex-wrap items-center gap-1.5"><span className="w-12 text-[11px] text-[#777]">Who</span>{["", ...GENDERS].map((value) => <button key={value || "all"} type="button" aria-pressed={who === value} onClick={() => setWho(value)} className={chip(who === value)}>{value === "" ? "All" : value === "Kids" ? "Children" : value}</button>)}</div>
-        <div className="flex flex-wrap items-center gap-1.5"><span className="w-12 text-[11px] text-[#777]">Type</span>{["", ...types].map((value) => <button key={value || "all"} type="button" aria-pressed={type === value} onClick={() => setType(value)} className={chip(type === value)}>{value || "All"}</button>)}</div>
-        <div className="flex flex-wrap items-center gap-1.5"><span className="w-12 text-[11px] text-[#777]">Brand</span>{["", ...brands].map((value) => <button key={value || "all"} type="button" aria-pressed={brand === value} onClick={() => setBrand(value)} className={chip(brand === value)}>{value || "All"}</button>)}</div>
+        <div className="flex flex-wrap items-center gap-1.5"><span className="w-12 text-[11px] text-[#777]">Who</span>{["", ...GENDERS].map((value) => <button key={value || "all"} type="button" aria-pressed={who === value} onClick={() => setWho(who === value ? "" : value)} className={chip(who === value)}>{value === "" ? "All" : value === "Kids" ? "Children" : value}</button>)}</div>
+        <div className="flex flex-wrap items-center gap-1.5"><span className="w-12 text-[11px] text-[#777]">Type</span>{["", ...types].map((value) => <button key={value || "all"} type="button" aria-pressed={type === value} onClick={() => setType(type === value ? "" : value)} className={chip(type === value)}>{value || "All"}</button>)}</div>
+        <div className="flex flex-wrap items-center gap-1.5"><span className="w-12 text-[11px] text-[#777]">Brand</span>
+          <button type="button" aria-expanded={brandsOpen} onClick={() => setBrandsOpen(!brandsOpen)} className={chip(brandsOpen)}>{brand === "all" ? "All brands" : brand.length ? brand.join(", ") : "None picked"} {brandsOpen ? "▴" : "▾"}</button>
+          {brandsOpen && <>
+            <button type="button" aria-pressed={brand === "all"} onClick={() => setBrand("all")} className={chip(brand === "all")}>All</button>
+            {brands.map((value) => {
+              const on = brand !== "all" && brand.includes(value);
+              return <button key={value} type="button" aria-pressed={on} onClick={() => setBrand(brand === "all" ? [value] : on ? brand.filter((item) => item !== value) : [...brand, value])} className={chip(on)}>{value}</button>;
+            })}
+          </>}
+        </div>
         <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-[#777]">Group by {(["type", "brand", "none"] as const).map((value) => <button key={value} type="button" aria-pressed={groupBy === value} onClick={() => setGroupBy(value)} className={chip(groupBy === value)}>{value === "none" ? "None" : value === "type" ? "Type" : "Brand"}</button>)}<span className="ml-3">Sort</span>{(["oldest", "price"] as const).map((value) => <button key={value} type="button" aria-pressed={sort === value} onClick={() => setSort(value)} className={chip(sort === value)}>{value === "oldest" ? "Oldest first" : "Highest price"}</button>)}</div>
       </div>
       <div className="mt-5 space-y-5">{groups.map(([name, items]) => <div key={name}>
@@ -132,7 +143,7 @@ export default function Scheduler({ products, hiddenProductIds, scheduledRelease
             <button type="button" onClick={() => onEdit(product)} className="mt-1 border border-white/15 hover:border-[#F5C300] text-[9px] font-black uppercase tracking-wider py-1.5">Edit</button>
           </div>;
         })}</div>
-      </div>)}{!shown.length && <p className="text-[#777] text-xs py-5 text-center">{planned.length ? "Nothing matches these filters." : "Nothing waiting. Add a listing in Listing studio."}</p>}</div>
+      </div>)}{!shown.length && <p className="text-[#777] text-xs py-5 text-center">{!planned.length ? "Nothing waiting. Add a listing in Listing studio." : brand !== "all" && !brand.length ? "No brand picked. Tap All or a brand." : "Nothing matches these filters."}</p>}</div>
     </div>
 
     <div className="bg-[#111] border border-white/8 p-5 sm:p-6">
