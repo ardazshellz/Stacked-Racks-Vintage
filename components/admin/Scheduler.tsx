@@ -123,7 +123,9 @@ export default function Scheduler({ products, hiddenProductIds, scheduledRelease
         <div className="flex flex-wrap items-center gap-1.5"><span className="w-12 text-[11px] text-[#777]">Who</span>{["", ...GENDERS].map((value) => <button key={value || "all"} type="button" aria-pressed={who === value} onClick={() => setWho(who === value ? "" : value)} className={chip(who === value)}>{value === "" ? "All" : value === "Kids" ? "Children" : value}</button>)}</div>
         <div className="flex flex-wrap items-center gap-1.5"><span className="w-12 text-[11px] text-[#777]">Type</span>{["", ...types].map((value) => <button key={value || "all"} type="button" aria-pressed={type === value} onClick={() => setType(type === value ? "" : value)} className={chip(type === value)}>{value || "All"}</button>)}</div>
         <div className="flex flex-wrap items-center gap-1.5"><span className="w-12 text-[11px] text-[#777]">Brand</span>
-          <button type="button" aria-expanded={brandsOpen} onClick={() => setBrandsOpen(!brandsOpen)} className={chip(brandsOpen)}>{brand === "all" ? "All brands" : brand.length ? brand.join(", ") : "None picked"} {brandsOpen ? "▴" : "▾"}</button>
+          {brand !== "all" && brand.length
+            ? <button type="button" onClick={() => setBrand("all")} className={chip(false)}>Clear</button>
+            : <button type="button" aria-expanded={brandsOpen} onClick={() => setBrandsOpen(!brandsOpen)} className={chip(brandsOpen)}>Brands {brandsOpen ? "▴" : "▾"}</button>}
           {brandsOpen && <>
             <button type="button" aria-pressed={brand === "all"} onClick={() => setBrand("all")} className={chip(brand === "all")}>All</button>
             {brands.map((value) => {
