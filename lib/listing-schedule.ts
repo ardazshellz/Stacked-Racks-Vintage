@@ -13,6 +13,8 @@ export interface ProductSettings {
   scheduleConfig: ScheduleConfig;
   /** Release times (ISO) whose drop email has already gone out, so it is never sent twice. */
   emailedDrops: string[];
+  /** Release times (ISO) the owner chose to release without the drop email. */
+  quietDrops: string[];
 }
 
 export function ukDate(value: Date | string = new Date()): string {
@@ -33,7 +35,7 @@ export function validScheduleConfig(value: unknown): value is ScheduleConfig {
   return Number.isInteger(c.batchSize) && c.batchSize >= 1 && c.batchSize <= 100 && Number.isInteger(c.everyDays) && c.everyDays >= 1 && c.everyDays <= 365 && validDate(c.startAt) && Number.isInteger(c.releaseHour) && c.releaseHour >= 0 && c.releaseHour <= 23;
 }
 export function parseProductSettings(value: unknown): ProductSettings {
-  const defaults: ProductSettings = { hiddenProductIds: [], deletedProductIds: [], scheduledReleases: {}, scheduleConfig: defaultScheduleConfig(), emailedDrops: [] };
+  const defaults: ProductSettings = { hiddenProductIds: [], deletedProductIds: [], scheduledReleases: {}, scheduleConfig: defaultScheduleConfig(), emailedDrops: [], quietDrops: [] };
   try {
     const parsed = typeof value === "string" ? JSON.parse(value) : value;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return defaults;
@@ -49,6 +51,7 @@ export function parseProductSettings(value: unknown): ProductSettings {
         ? Object.fromEntries(Object.entries(parsed.scheduledReleases).filter(([id, at]) => id && validRelease(at)).map(([id, at]) => [id, new Date(at as string).toISOString()])) : {},
       scheduleConfig: config,
       emailedDrops: Array.isArray(parsed.emailedDrops) ? [...new Set<string>(parsed.emailedDrops.filter(validRelease).map((at: string) => new Date(at).toISOString()))].sort().slice(-60) : [],
+      quietDrops: Array.isArray(parsed.quietDrops) ? [...new Set<string>(parsed.quietDrops.filter(validRelease).map((at: string) => new Date(at).toISOString()))].sort().slice(-100) : [],
     };
   } catch { return defaults; }
 }
@@ -110,7 +113,7 @@ export function dropsToEmail(settings: ProductSettings, now = Date.now(), window
   for (const [id, at] of Object.entries(settings.scheduledReleases)) {
     const time = Date.parse(at);
     if (time > now || time <= now - windowHours * 3600000) continue;
-    if (settings.emailedDrops.includes(at) || settings.hiddenProductIds.includes(id) || settings.deletedProductIds.includes(id)) continue;
+    if (settings.emailedDrops.includes(at) || settings.quietDrops.includes(at) || settings.hiddenProductIds.includes(id) || settings.deletedProductIds.includes(id)) continue;
     drops.set(at, [...(drops.get(at) ?? []), id]);
   }
   return [...drops.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([at, ids]) => ({ at, ids }));

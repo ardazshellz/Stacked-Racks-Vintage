@@ -94,6 +94,16 @@ test("dropsToEmail returns only recently released, not yet emailed drops", () =>
   assert.deepEqual(parseProductSettings(JSON.stringify({ ...s, emailedDrops: ["2026-10-10T19:00:00+01:00", "nonsense"] })).emailedDrops, ["2026-10-10T18:00:00.000Z"]);
 });
 
+test("a drop marked quiet goes live without the drop email", () => {
+  const s = settings();
+  const now = Date.parse("2026-10-10T18:10:00Z");
+  s.scheduledReleases = { a: "2026-10-10T18:00:00.000Z", b: "2026-10-10T17:00:00.000Z" };
+  s.quietDrops = ["2026-10-10T18:00:00.000Z"];
+  assert.deepEqual(dropsToEmail(s, now), [{ at: "2026-10-10T17:00:00.000Z", ids: ["b"] }]);
+  assert.deepEqual(parseProductSettings(JSON.stringify({ ...s, quietDrops: ["2026-10-10T19:00:00+01:00", 7] })).quietDrops, ["2026-10-10T18:00:00.000Z"]);
+  assert.deepEqual(parseProductSettings({}).quietDrops, []);
+});
+
 test("dropEmailsByDay merges a weekend day's two batches into one email", () => {
   const due = [{ at: "2026-10-10T10:00:00.000Z", ids: ["a", "b"] }, { at: "2026-10-10T16:30:00.000Z", ids: ["c"] }, { at: "2026-10-13T18:00:00.000Z", ids: ["d"] }];
   assert.deepEqual(dropEmailsByDay(due), [
