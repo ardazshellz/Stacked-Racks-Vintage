@@ -88,7 +88,7 @@ export async function PATCH(req: Request) {
   }
   if (!sameOrigin(req)) return NextResponse.json({ error: "Invalid request" }, { status: 403 });
   const body = (await req.json()) as {
-    schedule?: { id?: string; at?: string; auto?: string[]; drop?: string[] };
+    schedule?: { id?: string; at?: string; auto?: string[]; drop?: string[]; email?: boolean };
     scheduleConfig?: Partial<ScheduleConfig>;
     id?: string;
     product?: unknown;
@@ -126,6 +126,11 @@ export async function PATCH(req: Request) {
           for (const p of drop ? products.filter(p => p.listingStatus === "draft") : []) {
             const { error: promoteError } = await getSupabaseAdmin().from("products").update(productToRow({ ...p, listingStatus: "live" })).eq("id", p.id);
             if (promoteError) throw promoteError;
+          }
+          // Per-drop email switch: off keeps the drop quiet (no new-drop email at release).
+          if (drop && typeof action.email === "boolean") {
+            const at = new Date(action.at!).toISOString();
+            settings.quietDrops = action.email ? settings.quietDrops.filter((quiet) => quiet !== at) : [...new Set([...settings.quietDrops, at])];
           }
           settings.scheduledReleases = auto ? assignReleaseSlots(settings, ids) : { ...settings.scheduledReleases, ...Object.fromEntries(ids.map(id => [id, new Date(action.at!).toISOString()])) };
           settings.hiddenProductIds = settings.hiddenProductIds.filter(id => !ids.includes(id));

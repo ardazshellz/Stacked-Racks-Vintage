@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { defaultScheduleConfig, type ScheduleConfig } from "@/lib/listing-schedule";
 import Image from "next/image";
 import EmailMarketing from "@/components/admin/EmailMarketing";
-import Scheduler, { GRID as TILE_GRID, Tile, plannedItems } from "@/components/admin/Scheduler";
+import Scheduler, { plannedItems } from "@/components/admin/Scheduler";
 import PhotoEditor from "@/components/admin/PhotoEditor";
 import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard";
 import { accountRows, isRecordedSale, orderBoughtFrom, orderCostTaxYear, orderPurchaseCost, orderTax, parseMoney, saleStage, taxSummary, taxYear, toCsv, toTsv } from "@/lib/sales";
@@ -24,7 +24,7 @@ import {
   productSizeLabel,
 } from "@/lib/products";
 
-type Tab = "orders" | "listings" | "drafts" | "scheduler" | "email" | "analytics";
+type Tab = "orders" | "listings" | "planner" | "email" | "analytics";
 
 interface OrderRow {
   id: string;
@@ -277,6 +277,7 @@ export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [hiddenProductIds, setHiddenProductIds] = useState<string[]>([]);
   const [scheduledReleases, setScheduledReleases] = useState<Record<string, string>>({});
+  const [quietDrops, setQuietDrops] = useState<string[]>([]);
   const [scheduleConfig, setScheduleConfig] = useState<ScheduleConfig>(defaultScheduleConfig);
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [scheduleMessage, setScheduleMessage] = useState("");
@@ -331,6 +332,7 @@ export default function AdminPage() {
       setProducts((productsData.products ?? []).filter((product: Product) => !deletedIds.has(String(product.id))));
       setHiddenProductIds(productsData.hiddenProductIds ?? []);
       setScheduledReleases(productsData.scheduledReleases ?? {});
+      setQuietDrops(productsData.quietDrops ?? []);
       setScheduleConfig(productsData.scheduleConfig ?? defaultScheduleConfig());
     } catch (error) {
       setDataError(error instanceof Error ? error.message : "Could not load dashboard data");
@@ -695,11 +697,11 @@ export default function AdminPage() {
         }
       }
       if (post) {
-        // Post now: make it public and drop any future release. It leaves Drafts and the Scheduler.
+        // Post now: make it public and drop any future release. It leaves the Drop planner.
         const shown = await fetch("/api/products", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ visibility: { id: String(data.product.id), hidden: false } }) });
         if (!shown.ok) { await loadDashboard(); throw new Error("Listing saved, but it could not be posted to the website. It is still hidden; try again."); }
       }
-      setListingMessage(post ? "Posted to the website. It is live now." : schedule ? "Listing added to the release schedule" : listingStatus === "draft" ? "Saved in Drafts — it is not public" : editingId ? "Product updated" : "Product published to the website");
+      setListingMessage(post ? "Posted to the website. It is live now." : schedule ? "Listing added to the release schedule" : listingStatus === "draft" ? "Saved as a draft in the Drop planner — it is not public" : editingId ? "Product updated" : "Product published to the website");
       setEditingId(null);
       setForm({ ...EMPTY_PRODUCT, listedDate: new Date().toISOString().slice(0, 10) });
       setQuickDetails("");
@@ -858,7 +860,7 @@ export default function AdminPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
           <div><h1 className="font-black tracking-widest text-sm">STACKED RACKS — ADMIN</h1><p className="text-[#555] text-[10px] mt-1">Live shop management</p></div>
           <nav className="flex gap-1">
-            {(["orders", "listings", "drafts", "scheduler", "analytics", "email"] as const).map((item) => <button key={item} onClick={() => setTab(item)} className={`px-4 py-2 text-[10px] font-black tracking-[0.16em] uppercase border ${tab === item ? "bg-[#E8500A] border-[#E8500A]" : "border-white/10 text-[#777]"}`}>{item === "orders" ? "Sales" : item === "listings" ? "Listing studio" : item === "drafts" ? `Drafts (${waitingProducts.length})` : item === "scheduler" ? "Scheduler" : item === "analytics" ? "Analytics" : "Email & promos"}</button>)}
+            {(["orders", "listings", "planner", "analytics", "email"] as const).map((item) => <button key={item} onClick={() => setTab(item)} className={`px-4 py-2 text-[10px] font-black tracking-[0.16em] uppercase border ${tab === item ? "bg-[#E8500A] border-[#E8500A]" : "border-white/10 text-[#777]"}`}>{item === "orders" ? "Sales" : item === "listings" ? "Listing studio" : item === "planner" ? `Drop planner (${waitingProducts.length})` : item === "analytics" ? "Analytics" : "Email & promos"}</button>)}
           </nav>
           <button onClick={handleLogout} className="text-[#666] hover:text-white text-xs">Sign out</button>
         </div>
@@ -918,15 +920,6 @@ export default function AdminPage() {
           </section>
         )}
 
-        {tab === "drafts" && <section className="bg-[#111] border border-white/8 p-5 sm:p-6">
-          <p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">Drafts</p><h2 className="text-xl font-black">Items to be uploaded</h2>
-          <p className="text-[#777] text-xs mt-1 mb-4">{waitingProducts.length} items uploaded but not yet in a drop, oldest first. Tap one to open it in Listing studio. Put them in a drop on the Scheduler tab; an item leaves this list when it is scheduled and comes back if you remove it from the drop.</p>
-          <div className={TILE_GRID}>{waitingProducts.map((product) => {
-            const days = Math.max(0, Math.floor((scheduleNow - Date.parse(product.listedDate)) / 86400000));
-            const missing = [!product.imageUrls?.length && "no photos", !product.description?.trim() && "no description", product.pricingStatus === "needs_review" && "price needs review"].filter(Boolean).join(", ");
-            return <Tile key={String(product.id)} product={product} label="Open in Listing studio" onClick={() => editProduct(product)} note={`Added ${new Date(product.listedDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} · ${days === 0 ? "today" : `${days} day${days === 1 ? "" : "s"} ago`}${product.listingStatus === "draft" ? " · Draft" : " · Ready"}${missing ? ` · Missing: ${missing}` : ""}`} />;
-          })}{!waitingProducts.length && <p className="col-span-full text-[#777] text-xs py-5 text-center">Nothing waiting. Add a listing in Listing studio.</p>}</div>
-        </section>}
         {tab === "listings" && (
           <section className="grid xl:grid-cols-[1fr_380px] gap-6 items-start">
             <div className="space-y-5">
@@ -1013,7 +1006,7 @@ export default function AdminPage() {
                   </div>
                   {form.pricingReason && <p className="mt-3 text-[#bbb] text-xs leading-relaxed">{form.pricingReason}</p>}
                   {form.pricingSearchQuery && <div className="mt-3 flex flex-wrap gap-3 text-[10px] font-black uppercase tracking-wider"><a href={`https://www.ebay.co.uk/sch/i.html?_nkw=${encodeURIComponent(form.pricingSearchQuery)}&LH_Sold=1&LH_Complete=1`} target="_blank" rel="noopener noreferrer" className="text-[#F5C300]">Check eBay sold ↗</a><a href={`https://www.vinted.co.uk/catalog?search_text=${encodeURIComponent(form.pricingSearchQuery)}`} target="_blank" rel="noopener noreferrer" className="text-[#F5C300]">Check Vinted ↗</a><a href={`https://www.google.com/search?q=${encodeURIComponent(`${form.pricingSearchQuery} vintage sold price`)}`} target="_blank" rel="noopener noreferrer" className="text-[#F5C300]">Check the web ↗</a></div>}
-                  {pricingApprovalRequired && <div className="mt-4 border-t border-amber-300/20 pt-4"><p className="text-amber-100 text-[11px] mb-3">This item may be collectible, rare or hard to price. Check the comparisons, choose the customer price above, then approve it. Until then it can only be saved privately in Drafts.</p><button type="button" onClick={() => setForm({ ...form, pricingStatus: "approved", pricingReviewedAt: new Date().toISOString() })} disabled={form.price <= 0} className="bg-[#F5C300] disabled:opacity-40 text-black px-4 py-2.5 text-[10px] font-black uppercase tracking-wider">Approve {form.price > 0 ? money(form.price) : "price"}</button></div>}
+                  {pricingApprovalRequired && <div className="mt-4 border-t border-amber-300/20 pt-4"><p className="text-amber-100 text-[11px] mb-3">This item may be collectible, rare or hard to price. Check the comparisons, choose the customer price above, then approve it. Until then it can only be saved privately as a draft.</p><button type="button" onClick={() => setForm({ ...form, pricingStatus: "approved", pricingReviewedAt: new Date().toISOString() })} disabled={form.price <= 0} className="bg-[#F5C300] disabled:opacity-40 text-black px-4 py-2.5 text-[10px] font-black uppercase tracking-wider">Approve {form.price > 0 ? money(form.price) : "price"}</button></div>}
                 </div>
                 <div className="border border-white/8 bg-[#161616] p-4">
                   <p className="text-[#E8500A] text-[10px] font-black tracking-[0.18em] uppercase mb-3">Garment details & measurements</p>
@@ -1040,8 +1033,8 @@ export default function AdminPage() {
                 <p className="text-[#777] text-[10px] -mt-2">Paste the public item link after publishing on Vinted. Product links will then open this exact listing for every visitor.</p>
                 {listingMessage && <p className="text-[#F5C300] text-xs border border-[#F5C300]/20 bg-[#F5C300]/5 p-3">{listingMessage}</p>}
                 <div className="flex flex-wrap gap-3"><button onClick={() => void saveProduct("live")} disabled={saving || pricingApprovalRequired || !form.name || !form.brand || form.price <= 0} className="bg-[#E8500A] disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">{saving ? "Saving…" : editingId && form.listingStatus === "draft" && !editingHidden ? "Approve and publish" : editingId ? "Save changes" : "Publish to website"}</button><button onClick={() => void saveProduct("live", true)} disabled={saving || scheduleBusy || pricingApprovalRequired || !form.name || !form.brand || form.price <= 0} className="border border-[#E8500A] text-[#E8500A] disabled:opacity-40 px-5 py-3 text-xs font-black uppercase tracking-wider">Add to schedule</button><button onClick={() => void saveProduct("draft")} disabled={saving || !form.name || !form.brand || form.price <= 0} className="border border-amber-400/50 text-amber-200 disabled:opacity-40 px-5 py-3 text-xs font-bold">Save as draft</button><button onClick={() => navigator.clipboard.writeText(`${form.vintedTitle}\n\n${form.vintedDescription}`)} className="border border-white/15 text-[#aaa] px-5 py-3 text-xs font-bold">Copy full Vinted listing</button><a href="https://www.vinted.co.uk/items/new" target="_blank" rel="noopener noreferrer" className="border border-[#F5C300]/40 text-[#F5C300] px-5 py-3 text-xs font-bold">Open Vinted ↗</a></div>
-                {editingId && editingHidden && <div className="border-t border-white/10 pt-4"><button onClick={() => void saveProduct("live", false, true)} disabled={saving || scheduleBusy || pricingApprovalRequired || !form.name || !form.brand || form.price <= 0 || form.stock < 1} className="w-full sm:w-auto bg-[#F5C300] text-black disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">Post to website now</button><p className="text-[#777] text-[10px] mt-2">Saves your changes and makes this item live straight away. It leaves Drafts and the Scheduler. No drop email is sent.</p></div>}
-                {editingId && !editingHidden && form.stock > 0 && <div className="border-t border-white/10 pt-4"><button onClick={() => void toggleProductVisibility({ id: editingId, ...form }).then(() => setListingMessage("Taken off the website. It is back in Drafts and the Scheduler."))} disabled={saving || scheduleBusy} className="w-full sm:w-auto border border-amber-400/50 text-amber-200 disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">Take off website</button><p className="text-[#777] text-[10px] mt-2">This item is live. Taking it off hides it and puts it back in Drafts and the Scheduler.</p></div>}
+                {editingId && editingHidden && <div className="border-t border-white/10 pt-4"><button onClick={() => void saveProduct("live", false, true)} disabled={saving || scheduleBusy || pricingApprovalRequired || !form.name || !form.brand || form.price <= 0 || form.stock < 1} className="w-full sm:w-auto bg-[#F5C300] text-black disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">Post to website now</button><p className="text-[#777] text-[10px] mt-2">Saves your changes and makes this item live straight away. It leaves the Drop planner. No drop email is sent.</p></div>}
+                {editingId && !editingHidden && form.stock > 0 && <div className="border-t border-white/10 pt-4"><button onClick={() => void toggleProductVisibility({ id: editingId, ...form }).then(() => setListingMessage("Taken off the website. It is back in the Drop planner."))} disabled={saving || scheduleBusy} className="w-full sm:w-auto border border-amber-400/50 text-amber-200 disabled:opacity-40 font-black text-xs tracking-[0.16em] uppercase px-6 py-3">Take off website</button><p className="text-[#777] text-[10px] mt-2">This item is live. Taking it off hides it and puts it back in the Drop planner.</p></div>}
               </div>
             </div>
 
@@ -1098,7 +1091,7 @@ export default function AdminPage() {
             </aside>
           </section>
         )}
-        {tab === "scheduler" && <Scheduler products={products} hiddenProductIds={hiddenProductIds} scheduledReleases={scheduledReleases} now={scheduleNow} busy={scheduleBusy || saving} message={scheduleMessage} updateSchedule={updateSchedule} onEdit={(product) => { editProduct(product); setTab("listings"); }} />}
+        {tab === "planner" && <Scheduler products={products} hiddenProductIds={hiddenProductIds} scheduledReleases={scheduledReleases} quietDrops={quietDrops} now={scheduleNow} busy={scheduleBusy || saving} message={scheduleMessage} updateSchedule={updateSchedule} onEdit={(product) => { editProduct(product); setTab("listings"); }} />}
         {tab === "email" && <EmailMarketing />}
         {tab === "analytics" && <AnalyticsDashboard />}
       </div>
