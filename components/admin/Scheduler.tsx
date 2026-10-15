@@ -48,7 +48,9 @@ const added = (product: Product, now: number) => {
   return `Added ${new Date(product.listedDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} · ${days === 0 ? "today" : `${days}d ago`} · ${product.listingStatus === "draft" ? "Draft" : "Ready"}`;
 };
 
-export default function Scheduler({ products, hiddenProductIds, scheduledReleases, quietDrops, now, busy, message, updateSchedule, onEdit }: {
+// mode "plan": the Drop planner. mode "browse": the Drafts page, same filters, tapping a photo opens it in Listing studio.
+export default function Scheduler({ mode = "plan", products, hiddenProductIds, scheduledReleases, quietDrops, now, busy, message, updateSchedule, onEdit }: {
+  mode?: "plan" | "browse";
   products: Product[];
   hiddenProductIds: string[];
   scheduledReleases: Record<string, string>;
@@ -66,7 +68,8 @@ export default function Scheduler({ products, hiddenProductIds, scheduledRelease
   const [brand, setBrand] = useState<"all" | string[]>("all");
   const [brandsOpen, setBrandsOpen] = useState(false);
   const [groupBy, setGroupBy] = useState<"type" | "brand" | "none">("type");
-  const [sort, setSort] = useState<"oldest" | "price">("oldest");
+  // Newest first is the default; tapping the active sort again goes back to it.
+  const [sort, setSort] = useState<"newest" | "oldest" | "high" | "low">("newest");
   const [picked, setPicked] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState("");
@@ -88,7 +91,7 @@ export default function Scheduler({ products, hiddenProductIds, scheduledRelease
   const query = search.trim().toLowerCase();
   const shown = planned
     .filter((product) => (!query || `${product.name} ${product.brand} ${product.sku ?? ""}`.toLowerCase().includes(query)) && (!who || product.gender === who) && (!type || product.category === type) && (brand === "all" || brand.includes(product.brand)))
-    .sort((a, b) => sort === "price" ? b.price - a.price : a.listedDate.localeCompare(b.listedDate));
+    .sort((a, b) => sort === "high" ? b.price - a.price : sort === "low" ? a.price - b.price : sort === "oldest" ? a.listedDate.localeCompare(b.listedDate) : b.listedDate.localeCompare(a.listedDate));
   const groups = groupBy === "none" ? [["All items", shown] as const] : [...shown.reduce((map, product) => {
     const key = groupBy === "type" ? product.category : product.brand;
     return map.set(key, [...(map.get(key) ?? []), product]);
@@ -114,9 +117,9 @@ export default function Scheduler({ products, hiddenProductIds, scheduledRelease
 
   return <section className="space-y-6">
     <div className="bg-[#111] border border-white/8 p-5 sm:p-6">
-      <p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">Drop planner</p>
-      <h2 className="text-xl font-black">Plan a drop</h2>
-      <p className="text-[#777] text-xs mt-1">{planned.length} items uploaded and waiting, not public. Filter, tap photos to pick them in order, then set the date and time in the panel. Edit opens an item in Listing studio.</p>
+      <p className="text-[#E8500A] text-[9px] font-black tracking-[0.25em] uppercase mb-2">{mode === "browse" ? "Drafts" : "Drop planner"}</p>
+      <h2 className="text-xl font-black">{mode === "browse" ? "Items to be uploaded" : "Plan a drop"}</h2>
+      {mode === "browse" ? <p className="text-[#777] text-xs mt-1">{planned.length} items uploaded and waiting, not public. Tap a photo to open it in Listing studio. Build drops on the Drop planner tab.</p> : <p className="text-[#777] text-xs mt-1">{planned.length} items uploaded and waiting, not public. Filter, tap photos to pick them in order, then set the date and time in the panel. Edit opens an item in Listing studio.</p>}
       {message && <p role="status" className="text-amber-200 text-xs mt-3">{message}</p>}
       <div className="mt-4 space-y-2">
         <input type="search" aria-label="Search waiting items" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, brand or SKU…" className="w-full bg-[#171717] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-[#E8500A]/70 placeholder:text-[#555]" />
@@ -134,20 +137,25 @@ export default function Scheduler({ products, hiddenProductIds, scheduledRelease
             })}
           </>}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-[#777]">Group by {(["type", "brand", "none"] as const).map((value) => <button key={value} type="button" aria-pressed={groupBy === value} onClick={() => setGroupBy(value)} className={chip(groupBy === value)}>{value === "none" ? "None" : value === "type" ? "Type" : "Brand"}</button>)}<span className="ml-3">Sort</span>{(["oldest", "price"] as const).map((value) => <button key={value} type="button" aria-pressed={sort === value} onClick={() => setSort(value)} className={chip(sort === value)}>{value === "oldest" ? "Oldest first" : "Highest price"}</button>)}</div>
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-[#777]">Group by {(["type", "brand", "none"] as const).map((value) => <button key={value} type="button" aria-pressed={groupBy === value} onClick={() => setGroupBy(value)} className={chip(groupBy === value)}>{value === "none" ? "None" : value === "type" ? "Type" : "Brand"}</button>)}<span className="ml-3">Sort</span>{(["newest", "oldest", "high", "low"] as const).map((value) => <button key={value} type="button" aria-pressed={sort === value} onClick={() => setSort(sort === value ? "newest" : value)} className={chip(sort === value)}>{{ newest: "Newest first", oldest: "Oldest first", high: "Highest price", low: "Lowest price" }[value]}</button>)}</div>
       </div>
       <div className="mt-5 space-y-5">{groups.map(([name, items]) => <div key={name}>
         <h3 className="text-sm font-black mb-2">{name} <span className="font-normal text-[#777]">{items.length}</span></h3>
         <div className={GRID}>{items.map((product) => {
           const review = product.pricingStatus === "needs_review";
           return <div key={String(product.id)} className="min-w-0 flex flex-col">
-            <Tile product={product} pick={picked.indexOf(String(product.id)) + 1} label={review ? "Price needs review: open in Listing studio" : "Pick for this drop"} note={review ? "Price needs review" : added(product, now)} onClick={() => toggle(product)} />
-            <button type="button" onClick={() => onEdit(product)} className="mt-1 border border-white/15 hover:border-[#F5C300] text-[9px] font-black uppercase tracking-wider py-1.5">Edit</button>
+            {mode === "browse"
+              ? <Tile product={product} label="Open in Listing studio" note={review ? "Price needs review" : added(product, now)} onClick={() => onEdit(product)} />
+              : <>
+                <Tile product={product} pick={picked.indexOf(String(product.id)) + 1} label={review ? "Price needs review: open in Listing studio" : "Pick for this drop"} note={review ? "Price needs review" : added(product, now)} onClick={() => toggle(product)} />
+                <button type="button" onClick={() => onEdit(product)} className="mt-1 border border-white/15 hover:border-[#F5C300] text-[9px] font-black uppercase tracking-wider py-1.5">Edit</button>
+              </>}
           </div>;
         })}</div>
       </div>)}{!shown.length && <p className="text-[#777] text-xs py-5 text-center">{!planned.length ? "Nothing waiting. Add a listing in Listing studio." : brand !== "all" && !brand.length ? "No brand picked. Tap All or a brand." : "Nothing matches these filters."}</p>}</div>
     </div>
 
+    {mode === "plan" && <>
     <div className="bg-[#111] border border-white/8 p-5 sm:p-6">
       <h2 className="text-xl font-black">Drops planned</h2><p className="text-[#777] text-xs mt-1">Each drop goes live by itself at its UK date and time. Change the date, time or email switch and press Save to update the whole drop.</p>
       <div className="mt-4 space-y-3">{drops.map((drop, index) => <div key={drop.at} className="border border-white/10 p-3">
@@ -184,5 +192,6 @@ export default function Scheduler({ products, hiddenProductIds, scheduledRelease
       <button type="button" disabled={busy || !chosen.length || !at || Date.parse(at) <= now} onClick={() => void accept()} className="mt-4 w-full bg-[#E8500A] px-5 py-3 text-[11px] font-black uppercase tracking-wider disabled:opacity-40">Schedule drop {dropNumber}</button>
       {!!chosen.length && <button type="button" onClick={() => setPicked([])} className="mt-2 w-full px-3 py-2 text-[10px] font-black uppercase tracking-wider text-[#aaa]">Clear picks</button>}
     </aside>}
+    </>}
   </section>;
 }
