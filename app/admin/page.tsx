@@ -24,7 +24,7 @@ import {
   productSizeLabel,
 } from "@/lib/products";
 
-type Tab = "orders" | "listings" | "planner" | "email" | "analytics";
+type Tab = "orders" | "listings" | "drafts" | "planner" | "email" | "analytics";
 
 interface OrderRow {
   id: string;
@@ -860,7 +860,7 @@ export default function AdminPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
           <div><h1 className="font-black tracking-widest text-sm">STACKED RACKS — ADMIN</h1><p className="text-[#555] text-[10px] mt-1">Live shop management</p></div>
           <nav className="flex gap-1">
-            {(["orders", "listings", "planner", "analytics", "email"] as const).map((item) => <button key={item} onClick={() => setTab(item)} className={`px-4 py-2 text-[10px] font-black tracking-[0.16em] uppercase border ${tab === item ? "bg-[#E8500A] border-[#E8500A]" : "border-white/10 text-[#777]"}`}>{item === "orders" ? "Sales" : item === "listings" ? "Listing studio" : item === "planner" ? `Drop planner (${waitingProducts.length})` : item === "analytics" ? "Analytics" : "Email & promos"}</button>)}
+            {(["orders", "listings", "drafts", "planner", "analytics", "email"] as const).map((item) => <button key={item} onClick={() => setTab(item)} className={`px-4 py-2 text-[10px] font-black tracking-[0.16em] uppercase border ${tab === item ? "bg-[#E8500A] border-[#E8500A]" : "border-white/10 text-[#777]"}`}>{item === "orders" ? "Sales" : item === "listings" ? "Listing studio" : item === "drafts" ? `Drafts (${waitingProducts.length})` : item === "planner" ? "Drop planner" : item === "analytics" ? "Analytics" : "Email & promos"}</button>)}
           </nav>
           <button onClick={handleLogout} className="text-[#666] hover:text-white text-xs">Sign out</button>
         </div>
@@ -1092,6 +1092,7 @@ export default function AdminPage() {
           </section>
         )}
         {tab === "planner" && <Scheduler products={products} hiddenProductIds={hiddenProductIds} scheduledReleases={scheduledReleases} quietDrops={quietDrops} now={scheduleNow} busy={scheduleBusy || saving} message={scheduleMessage} updateSchedule={updateSchedule} onEdit={(product) => { editProduct(product); setTab("listings"); }} />}
+        {tab === "drafts" && <Scheduler mode="browse" products={products} hiddenProductIds={hiddenProductIds} scheduledReleases={scheduledReleases} quietDrops={quietDrops} now={scheduleNow} busy={scheduleBusy || saving} message={scheduleMessage} updateSchedule={updateSchedule} onEdit={(product) => { editProduct(product); setTab("listings"); }} />}
         {tab === "email" && <EmailMarketing />}
         {tab === "analytics" && <AnalyticsDashboard />}
       </div>
