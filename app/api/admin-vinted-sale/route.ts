@@ -3,7 +3,7 @@ import { productToRow, rowToProduct, type ProductRow } from "@/lib/product-db";
 import { isAdminRequest } from "@/lib/server/admin-auth";
 import { sameOrigin } from "@/lib/server/request-security";
 import { getSupabaseAdmin } from "@/lib/server/supabase";
-import { isTaxYear } from "@/lib/sales";
+import { isSaleChannel, isTaxYear, RECORDED_SALE_SOURCES, salesChannel } from "@/lib/sales";
 
 export async function POST(req: Request) {
   if (!(await isAdminRequest())) {
@@ -19,7 +19,8 @@ export async function POST(req: Request) {
     boughtFrom?: string;
     costTaxYear?: string;
   };
-  const channel = body.channel === "other" ? "other" : "vinted";
+  // "other" is the old "somewhere else" choice; it stays a manual sale.
+  const channel = isSaleChannel(body.channel) ? body.channel : body.channel === "other" ? "manual" : "vinted";
   const productId = String(body.productId ?? "").trim();
   const purchasePrice = Number(body.purchasePrice);
   const soldPrice = Number(body.soldPrice);
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
   const { data: existingSale, error: existingSaleError } = await supabase
     .from("orders")
     .select("id")
-    .in("source", ["vinted", "manual"])
+    .in("source", RECORDED_SALE_SOURCES)
     .eq("item_id", productId)
     .limit(1)
     .maybeSingle();
@@ -75,20 +76,20 @@ export async function POST(req: Request) {
   const orderId = channel === "vinted" ? `VINTED-${stamp}` : `SR-${stamp}`;
   const orderRow = {
     id: orderId,
-    source: channel === "vinted" ? "vinted" : "manual",
+    source: channel,
     item_id: productId,
     item_name: originalProduct.name,
     brand: originalProduct.brand,
     price: soldPrice,
     postage: 0,
     total: soldPrice,
-    customer_name: channel === "vinted" ? "Vinted buyer" : "Direct buyer",
+    customer_name: channel === "manual" || channel === "website" ? "Direct buyer" : `${salesChannel(channel)} buyer`,
     customer_email: "",
     customer_phone: "",
     customer_address: "",
     payment_status: "paid",
     fulfilment_status: "paid",
-    notes: channel === "vinted" ? "Sold on Vinted" : "Sold directly",
+    notes: channel === "manual" ? "Sold directly" : `Sold on ${salesChannel(channel)}`,
     items: [{
       id: productId,
       name: originalProduct.name,
