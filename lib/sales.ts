@@ -138,9 +138,19 @@ export function taxSummary(orders: SaleOrder[], products: CostProduct[]) {
   return [...years.values()].sort((a, b) => b.year.localeCompare(a.year));
 }
 
+// Where an admin-recorded sale happened. "manual" is the old catch-all, kept for older rows.
+export const SALE_CHANNELS = ["website", "vinted", "depop", "ebay"] as const;
+export const RECORDED_SALE_SOURCES: string[] = [...SALE_CHANNELS, "manual"];
+
+export function isSaleChannel(value: unknown): value is (typeof SALE_CHANNELS)[number] {
+  return (SALE_CHANNELS as readonly unknown[]).includes(value);
+}
+
 export function salesChannel(source: string) {
   const normalisedSource = String(source ?? "").trim().toLowerCase();
   if (normalisedSource === "vinted") return "Vinted";
+  if (normalisedSource === "depop") return "Depop";
+  if (normalisedSource === "ebay") return "eBay";
   if (normalisedSource === "stripe" || normalisedSource === "website") return "Stacked Racks Website";
   if (normalisedSource === "manual") return "Manual sale";
   return source || "Unknown";
@@ -201,5 +211,5 @@ export function parseMoney(value: unknown): number | null {
 
 // A sale recorded against a product from the admin (Vinted or direct), as opposed to a website checkout.
 export function isRecordedSale(order: { source: string; item_id?: string }) {
-  return ["vinted", "manual"].includes(order.source) && Boolean(order.item_id);
+  return RECORDED_SALE_SOURCES.includes(order.source) && Boolean(order.item_id);
 }

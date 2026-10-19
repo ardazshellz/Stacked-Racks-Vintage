@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { accountRows, isRecordedSale, isTaxYear, orderPurchaseCost, parseMoney, saleStage, taxEstimate, taxSummary, taxYear, toCsv, toTsv, type SaleOrder } from "../lib/sales.ts";
+import { accountRows, isRecordedSale, isSaleChannel, isTaxYear, orderPurchaseCost, parseMoney, saleStage, taxEstimate, taxSummary, taxYear, toCsv, toTsv, type SaleOrder } from "../lib/sales.ts";
 
 const base: SaleOrder = { id: "VINTED-1", item_id: "p1", source: "vinted", item_name: "Carhartt Jacket", brand: "Carhartt", price: 27, postage: 0, total: 27, customer_name: "Vinted buyer", payment_status: "paid", fulfilment_status: "paid", date_of_sale: "2026-10-03T10:00:00Z", items: [{ id: "p1", costPrice: 15 }] };
 
@@ -57,6 +57,10 @@ test("isRecordedSale covers Vinted and direct sales linked to a product", () => 
   assert.equal(isRecordedSale({ source: "manual", item_id: "p1" }), true);
   assert.equal(isRecordedSale({ source: "manual", item_id: "" }), false);
   assert.equal(isRecordedSale({ source: "stripe", item_id: "p1" }), false);
+  for (const source of ["website", "depop", "ebay"]) assert.equal(isRecordedSale({ source, item_id: "p1" }), true);
+  assert.equal(isSaleChannel("ebay"), true);
+  assert.equal(isSaleChannel("stripe"), false);
+  assert.equal(isSaleChannel("manual"), false);
 });
 
 test("taxYear switches on 6 April", () => {
