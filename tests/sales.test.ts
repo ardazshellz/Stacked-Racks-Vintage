@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { accountRows, isRecordedSale, isSaleChannel, isTaxYear, orderPurchaseCost, parseMoney, saleStage, taxEstimate, taxSummary, taxYear, toCsv, toTsv, type SaleOrder } from "../lib/sales.ts";
+import { accountRows, isRecordedSale, isSaleChannel, isTaxYear, taxByStockAge, orderPurchaseCost, parseMoney, saleStage, taxEstimate, taxSummary, taxYear, toCsv, toTsv, type SaleOrder } from "../lib/sales.ts";
 
 const base: SaleOrder = { id: "VINTED-1", item_id: "p1", source: "vinted", item_name: "Carhartt Jacket", brand: "Carhartt", price: 27, postage: 0, total: 27, customer_name: "Vinted buyer", payment_status: "paid", fulfilment_status: "paid", date_of_sale: "2026-10-03T10:00:00Z", items: [{ id: "p1", costPrice: 15 }] };
 
@@ -84,8 +84,8 @@ test("taxEstimate: same or unknown year deducts cost, earlier year taxes the ful
   assert.equal(taxEstimate(23, 6.85, "2026-27", "2026-27"), 3.23);
   assert.equal(taxEstimate(23, 6.85, "2026-27", ""), 3.23);
   assert.equal(taxEstimate(27, 15, "2026-27", "2024-25"), 5.4);
-  // Bought 2025-26, sold 2026-27: not yet deducted, so only the profit is taxed.
-  assert.equal(taxEstimate(30, 10, "2026-27", "2025-26"), 4);
+  // Bought 2025-26, sold 2026-27: claimed on the 2025-26 return, so the whole price is taxed.
+  assert.equal(taxEstimate(30, 10, "2026-27", "2025-26"), 6);
   assert.equal(taxEstimate(10, 15, "2026-27", "2026-27"), -1);
 });
 
@@ -131,4 +131,11 @@ test("multi-item orders are taxed per item with each item's own cost year", () =
   const summary = taxSummary([order], []);
   assert.deepEqual(summary.find((line) => line.year === "2026-27"), { year: "2026-27", sales: 1, revenue: 50, costsDeducted: 5, tax: 9, costsToClaim: 0 });
   assert.equal(summary.find((line) => line.year === "2024-25")?.costsToClaim, 15);
+});
+
+test("taxByStockAge taxes old stock on the sale price and new stock on profit", () => {
+  const sale = (price: number, costPrice: number, costTaxYear: string) => ({ id: "o", source: "vinted", item_id: "", item_name: "x", price, total: price, payment_status: "paid", date_of_sale: "2026-10-10", items: [{ id: "p", price, costPrice, costTaxYear }] });
+  const { old, recent } = taxByStockAge([sale(30, 15, "2023-24"), sale(40, 25, "2024-25"), sale(85, 50, "2026-27")] as never, []);
+  assert.deepEqual(old, { items: 2, revenue: 70, tax: 14 });
+  assert.deepEqual(recent, { items: 1, profit: 35, tax: 7 });
 });

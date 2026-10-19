@@ -7,7 +7,7 @@ import EmailMarketing from "@/components/admin/EmailMarketing";
 import Scheduler, { plannedItems } from "@/components/admin/Scheduler";
 import PhotoEditor from "@/components/admin/PhotoEditor";
 import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard";
-import { accountRows, isRecordedSale, SALE_CHANNELS, salesChannel, orderBoughtFrom, orderCostTaxYear, orderPurchaseCost, orderTax, parseMoney, saleStage, taxSummary, taxYear, toCsv, toTsv } from "@/lib/sales";
+import { accountRows, isRecordedSale, SALE_CHANNELS, salesChannel, orderBoughtFrom, orderCostTaxYear, orderPurchaseCost, orderTax, parseMoney, saleStage, taxByStockAge, taxSummary, taxYear, toCsv, toTsv } from "@/lib/sales";
 import {
   ALL_BRANDS,
   CATEGORIES,
@@ -295,7 +295,6 @@ export default function AdminPage() {
   const [copyFallback, setCopyFallback] = useState("");
   const [exportTo, setExportTo] = useState("");
   const [showManualSale, setShowManualSale] = useState(false);
-  const [thirtyDaysAgo] = useState(() => Date.now() - 30 * 24 * 60 * 60 * 1000);
   const [manualSale, setManualSale] = useState({ item_id: "", customer_name: "", item_name: "", brand: "", price: 0, cost_price: 0, postage: 0, total: 0, notes: "Vinted sale" });
   const [vintedSaleProduct, setVintedSaleProduct] = useState<Product | null>(null);
   const [vintedSale, setVintedSale] = useState({ purchasePrice: "", soldPrice: "", channel: "vinted" });
@@ -388,18 +387,15 @@ export default function AdminPage() {
 
   const paidOrders = orders.filter((order) => order.payment_status === "paid");
   const revenue = paidOrders.reduce((sum, order) => sum + Number(order.total), 0);
-  const recentRevenue = paidOrders
-    .filter((order) => new Date(order.date_of_sale).getTime() >= thirtyDaysAgo)
-    .reduce((sum, order) => sum + Number(order.total), 0);
   const pendingFulfilment = orders.filter((order) => order.payment_status === "paid" && !["dispatched", "delivered"].includes(order.fulfilment_status ?? "paid")).length;
-  const averageOrder = paidOrders.length ? revenue / paidOrders.length : 0;
-  const inventoryCost = products.filter((product) => product.stock > 0).reduce((sum, product) => sum + (Number(product.costPrice) || 0) * product.stock, 0);
   const soldStockCost = paidOrders.reduce((sum, order) => sum + orderPurchaseCost(order, products), 0);
   const grossProfitBeforeFees = paidOrders.reduce((sum, order) => sum + Number(order.price) - orderPurchaseCost(order, products), 0);
   // 20% estimate over every paid sale (delivered or not), so it shows what to set aside as sales come in.
   const taxToSetAside = paidOrders.reduce((sum, order) => sum + orderTax(order, products), 0);
   const currentTaxYear = taxYear(new Date().toISOString());
-  const taxThisYear = paidOrders.filter((order) => taxYear(order.date_of_sale) === currentTaxYear).reduce((sum, order) => sum + orderTax(order, products), 0);
+  const thisYearOrders = paidOrders.filter((order) => taxYear(order.date_of_sale) === currentTaxYear);
+  const taxThisYear = thisYearOrders.reduce((sum, order) => sum + orderTax(order, products), 0);
+  const stockTax = taxByStockAge(thisYearOrders, products);
   const accountRowList = accountRows(orders, products, exportFrom, exportTo);
   const taxRows = taxSummary(orders, products);
   const managedProducts = useMemo(() => {
@@ -875,8 +871,16 @@ export default function AdminPage() {
 
         {tab === "orders" && (
           <section>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-7">
-              {[{ label: "Paid orders", value: paidOrders.length }, { label: "All-time revenue", value: money(revenue) }, { label: "Last 30 days", value: money(recentRevenue) }, { label: "Average order", value: money(averageOrder) }, { label: "Needs packing", value: pendingFulfilment }, { label: "Unsold stock cost", value: money(inventoryCost) }, { label: "Sold stock cost", value: money(soldStockCost) }, { label: "Gross profit before fees", value: money(grossProfitBeforeFees) }, { label: `Tax likely to pay · year ending April ${Number(currentTaxYear.slice(0, 4)) + 1} (20% est.)`, value: money(taxThisYear) }, { label: "Profit after cost and tax", value: money(grossProfitBeforeFees - taxToSetAside) }].map((stat) => <div key={stat.label} className="bg-[#111] border border-white/8 p-5"><p className="text-[#888] text-[9px] uppercase tracking-[0.2em] mb-2">{stat.label}</p><p className="text-2xl font-black">{stat.value}</p></div>)}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+              {[{ label: "Paid orders", value: paidOrders.length }, { label: "All-time revenue", value: money(revenue) }, { label: "Needs packing", value: pendingFulfilment }, { label: "Sold stock cost", value: money(soldStockCost) }, { label: "Gross profit before fees", value: money(grossProfitBeforeFees) }, { label: "Profit after cost and tax", value: money(grossProfitBeforeFees - taxToSetAside) }].map((stat) => <div key={stat.label} className="bg-[#111] border border-white/8 p-5"><p className="text-[#888] text-[9px] uppercase tracking-[0.2em] mb-2">{stat.label}</p><p className="text-2xl font-black">{stat.value}</p></div>)}
+            </div>
+            <div className="grid md:grid-cols-2 gap-3 mb-3">
+              {[{ label: `Tax ${currentTaxYear} · old stock`, note: `Bought before ${currentTaxYear}, already claimed: 20% of the whole sale price. ${stockTax.old.items} items, ${money(stockTax.old.revenue)} sold.`, value: stockTax.old.tax }, { label: `Tax ${currentTaxYear} · new stock`, note: `Bought in ${currentTaxYear}: 20% of profit. ${stockTax.recent.items} items, ${money(stockTax.recent.profit)} profit.`, value: stockTax.recent.tax }].map((box) => <div key={box.label} className="bg-[#111] border border-white/20 p-6"><p className="text-[#F5C300] text-[10px] font-black uppercase tracking-[0.2em] mb-1">{box.label}</p><p className="text-[#888] text-[11px] mb-4">{box.note}</p><p className="text-4xl font-black">{money(box.value)}</p></div>)}
+            </div>
+            <div className="bg-[#F5C300] text-[#0a0a0a] p-6 mb-7">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1">Set aside for tax · all years</p>
+              <p className="text-5xl font-black">{money(taxToSetAside)}</p>
+              <p className="text-[11px] mt-3">Year ending April {Number(currentTaxYear.slice(0, 4)) + 1}: {money(taxThisYear)}. A 20% estimate on every paid sale; check with your accountant.</p>
             </div>
             <div className="bg-[#111] border border-white/8 p-5 mb-7 max-w-4xl">
               <div className="flex flex-wrap items-end justify-between gap-3 mb-4"><div><h2 className="text-xl font-black">Mark an item sold</h2><p className="text-[#777] text-xs mt-1">{sellSearch.trim() ? `${sellableProducts.length} in-stock items match` : `${sellableProducts.length} items on sale now, newest first`} · Tap one to record where it sold. Scroll down for more.</p></div><input type="search" aria-label="Search items to mark sold" value={sellSearch} onChange={(event) => setSellSearch(event.target.value)} placeholder="Search any in-stock item…" className={`${INPUT} sm:max-w-xs`} /></div>
@@ -900,7 +904,7 @@ export default function AdminPage() {
             <p className="text-[#666] text-[10px] mb-4">HMRC CSV and Google Sheets copy include confirmed sales only (marked delivered), with what you paid and gross profit before fees.</p>
             {taxRows.length > 0 && <div className="bg-[#111] border border-white/8 mb-6 overflow-x-auto">
               <p className="px-4 pt-4 text-[#F5C300] text-[10px] font-black uppercase tracking-[0.2em]">Tax calculation (estimate at 20%)</p>
-              <p className="px-4 pt-1 text-[#777] text-[10px]">Confirmed sales only. Items bought in 2024-25 or earlier were already deducted, so they are taxed on the full sale price and their cost is listed under the year it was bought. Items bought from 2025-26 on are taxed on profit only. An estimate only: no personal allowance or other rates; check with an accountant.</p>
+              <p className="px-4 pt-1 text-[#777] text-[10px]">Confirmed sales only. Items bought in an earlier tax year than the sale were already deducted that year, so they are taxed on the full sale price and their cost is listed under the year it was bought. Items bought in the same tax year as the sale are taxed on profit only. An estimate only: no personal allowance or other rates; check with an accountant.</p>
               <table className="w-full min-w-[720px] text-left mt-2">
                 <thead><tr className="border-b border-white/10">{["Tax year", "Confirmed sales", "Revenue", "Costs deducted", "Tax estimate (20%)", "Costs to claim this year"].map((heading) => <th key={heading} className="px-4 py-2 text-[#888] text-[9px] tracking-[0.18em] uppercase">{heading}</th>)}</tr></thead>
                 <tbody>{taxRows.map((row) => <tr key={row.year} className="border-b border-white/5"><td className="px-4 py-2 font-bold">{row.year}</td><td className="px-4 py-2">{row.sales}</td><td className="px-4 py-2">{money(row.revenue)}</td><td className="px-4 py-2">{money(row.costsDeducted)}</td><td className="px-4 py-2 text-[#F5C300] font-black">{money(row.tax)}</td><td className="px-4 py-2">{money(row.costsToClaim)}</td></tr>)}</tbody>
