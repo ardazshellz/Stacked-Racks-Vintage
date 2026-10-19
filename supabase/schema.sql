@@ -265,7 +265,6 @@ create table if not exists public.purchases (
   quantity integer not null default 1 check (quantity > 0),
   photo_url text not null default '',
   personal boolean not null default false,
-  product_id text,
   notes text not null default '',
   created_at timestamptz not null default now()
 );

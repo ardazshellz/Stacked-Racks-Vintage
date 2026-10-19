@@ -55,12 +55,11 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const denied = await guard(req, true);
   if (denied) return denied;
-  const body = (await req.json()) as { id?: string; personal?: boolean; photo_url?: string; product_id?: string | null; notes?: string };
+  const body = (await req.json()) as { id?: string; personal?: boolean; photo_url?: string; notes?: string };
   if (!body.id) return NextResponse.json({ error: "Missing purchase id" }, { status: 400 });
   const changes: Record<string, unknown> = {};
   if (typeof body.personal === "boolean") changes.personal = body.personal;
   if (typeof body.photo_url === "string") changes.photo_url = body.photo_url;
-  if (body.product_id === null || typeof body.product_id === "string") changes.product_id = body.product_id || null;
   if (typeof body.notes === "string") changes.notes = body.notes.slice(0, 500);
   const { data, error } = await getSupabaseAdmin().from("purchases").update(changes).eq("id", body.id).select("*").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

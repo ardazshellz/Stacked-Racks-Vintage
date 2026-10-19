@@ -5,18 +5,20 @@ import type { Product } from "@/lib/products";
 import { taxYear } from "@/lib/sales";
 import { optimisePhotoForUpload, SAFE_UPLOAD_BYTES } from "@/lib/photo-upload";
 
-type Purchase = { id: string; source: "vinted" | "fleek" | "other"; external_id: string | null; title: string; seller: string; purchased_at: string; price: number; quantity: number; photo_url: string; personal: boolean; product_id: string | null; notes: string };
+type Purchase = { id: string; source: "vinted" | "fleek" | "other"; external_id: string | null; title: string; seller: string; purchased_at: string; price: number; quantity: number; photo_url: string; personal: boolean; notes: string };
 
 const INPUT = "w-full bg-[#171717] border border-white/10 text-white text-xs px-2 py-2 outline-none focus:border-[#E8500A]/70 placeholder:text-[#555]";
 const SOURCE_NAME = { vinted: "Vinted", fleek: "Fleek", other: "Other" } as const;
 const money = (value: number) => `£${Number(value).toFixed(2)}`;
 const isDatabaseProduct = (product: Product) => /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(product.id));
+// A listing matched to a purchase carries "[ref]" in its supplier field, so one bundle can feed many listings.
+const purchaseTag = (purchase: Purchase) => `[${purchase.external_id ?? purchase.id}]`;
 
 export default function PurchasedStock({ products, onProductsChanged }: { products: Product[]; onProductsChanged: () => void }) {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
-  const [year, setYear] = useState("");
+  const [year, setYear] = useState(() => taxYear(new Date().toISOString()));
   const [show, setShow] = useState<"stock" | "unmatched" | "personal">("stock");
   const [busyId, setBusyId] = useState("");
 
@@ -60,17 +62,17 @@ export default function PurchasedStock({ products, onProductsChanged }: { produc
   // Matching copies the cost (per piece for bundles), tax year and supplier onto the listing, so its sale is taxed correctly.
   const match = async (purchase: Purchase, productName: string) => {
     const product = products.find((candidate) => candidate.name === productName && isDatabaseProduct(candidate));
-    if (productName && !product) return;
+    if (!product) return setMessage(productName ? `No listing called "${productName}"` : "");
     setBusyId(purchase.id);
-    if (await save(purchase, { product_id: product ? String(product.id) : null }) && product) {
-      const { id, ...details } = product;
-      const costPrice = Math.round((purchase.price / purchase.quantity) * 100) / 100;
-      const response = await fetch("/api/products", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, product: { ...details, costPrice, costTaxYear: taxYear(purchase.purchased_at), source: `${SOURCE_NAME[purchase.source]}${purchase.seller ? `: ${purchase.seller}` : ""}` } }) });
-      setMessage(response.ok ? `Matched: ${product.name} now has cost ${money(costPrice)} (${taxYear(purchase.purchased_at)})` : "Matched, but the listing cost could not be updated");
-      onProductsChanged();
-    }
+    const { id, ...details } = product;
+    const costPrice = Math.round((purchase.price / purchase.quantity) * 100) / 100;
+    const source = `${SOURCE_NAME[purchase.source]}${purchase.seller ? ` ${purchase.seller}` : ""} ${purchaseTag(purchase)}`;
+    const response = await fetch("/api/products", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, product: { ...details, costPrice, costTaxYear: taxYear(purchase.purchased_at), source } }) });
+    setMessage(response.ok ? `Matched: ${product.name} now has cost ${money(costPrice)} (${taxYear(purchase.purchased_at)})` : "Could not update the listing");
+    onProductsChanged();
     setBusyId("");
   };
+  const matchedTo = (purchase: Purchase) => products.filter((product) => product.source?.includes(purchaseTag(purchase)));
 
   const years = useMemo(() => [...new Set(purchases.map((purchase) => taxYear(purchase.purchased_at)))].sort().reverse(), [purchases]);
   const totals = useMemo(() => years.map((label) => {
@@ -79,12 +81,11 @@ export default function PurchasedStock({ products, onProductsChanged }: { produc
   }), [purchases, years]);
   const visible = purchases.filter((purchase) => {
     if (show === "personal" ? !purchase.personal : purchase.personal) return false;
-    if (show === "unmatched" && purchase.product_id) return false;
+    if (show === "unmatched" && matchedTo(purchase).length >= purchase.quantity) return false;
     if (year && taxYear(purchase.purchased_at) !== year) return false;
     const query = search.trim().toLowerCase();
     return !query || `${purchase.title} ${purchase.seller} ${purchase.external_id ?? ""}`.toLowerCase().includes(query);
   });
-  const productName = (id: string | null) => products.find((product) => String(product.id) === id)?.name ?? "";
 
   return (
     <section>
@@ -110,12 +111,15 @@ export default function PurchasedStock({ products, onProductsChanged }: { produc
               <input type="file" accept="image/*" className="sr-only" disabled={busyId === purchase.id} onChange={(event) => void addPhoto(purchase, event.target.files?.[0])} />
             </label>
             <div className="min-w-0">
-              <p className="text-sm font-semibold truncate" title={purchase.title}>{purchase.title}</p>
+              <p className="text-sm font-semibold truncate" title={purchase.title}>{purchase.title}{purchase.quantity > 1 && <span className="text-[#F5C300]"> × {purchase.quantity}</span>}</p>
               <p className="text-[#888] text-[10px] mt-0.5">{SOURCE_NAME[purchase.source]}{purchase.seller ? ` · ${purchase.seller}` : ""}{purchase.external_id ? ` · #${purchase.external_id}` : ""} · {new Date(purchase.purchased_at).toLocaleDateString("en-GB")} · {taxYear(purchase.purchased_at)}</p>
               {purchase.notes && <p className="text-[#666] text-[10px] mt-0.5">{purchase.notes}</p>}
             </div>
             <div className="text-sm font-black">{money(purchase.price)}{purchase.quantity > 1 && <p className="text-[#888] text-[10px] font-normal">{purchase.quantity} pcs · {money(purchase.price / purchase.quantity)} each</p>}</div>
-            <input list="purchase-match-products" aria-label={`Matched listing for ${purchase.title}`} key={`${purchase.id}-${purchase.product_id}`} defaultValue={productName(purchase.product_id)} placeholder="Matched to my listing…" disabled={busyId === purchase.id} onBlur={(event) => { const value = event.target.value.trim(); if (value !== productName(purchase.product_id)) void match(purchase, value); }} className={INPUT} />
+            <div>
+              <input list="purchase-match-products" aria-label={`Match a listing to ${purchase.title}`} key={`${purchase.id}-${matchedTo(purchase).length}`} placeholder={purchase.quantity > 1 ? "Add a listing from this bundle…" : "Matched to my listing…"} disabled={busyId === purchase.id} onBlur={(event) => { const value = event.target.value.trim(); if (value) void match(purchase, value); }} className={INPUT} />
+              {matchedTo(purchase).length > 0 && <p className="text-[#888] text-[10px] mt-1 truncate" title={matchedTo(purchase).map((product) => product.name).join("\n")}>Matched {matchedTo(purchase).length} of {purchase.quantity}: {matchedTo(purchase).map((product) => product.name).join(", ")}</p>}
+            </div>
             <label className="flex items-center gap-2 text-[10px] text-[#888] uppercase"><input type="checkbox" checked={purchase.personal} onChange={(event) => void save(purchase, { personal: event.target.checked })} />Personal</label>
           </div>
         ))}
