@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { defaultScheduleConfig, type ScheduleConfig } from "@/lib/listing-schedule";
 import Image from "next/image";
 import EmailMarketing from "@/components/admin/EmailMarketing";
+import PurchasedStock from "@/components/admin/PurchasedStock";
 import Scheduler, { plannedItems } from "@/components/admin/Scheduler";
 import PhotoEditor from "@/components/admin/PhotoEditor";
 import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard";
 import { accountRows, isRecordedSale, SALE_CHANNELS, salesChannel, orderBoughtFrom, orderCostTaxYear, orderPurchaseCost, orderTax, parseMoney, saleStage, taxByStockAge, taxSummary, taxYear, toCsv, toTsv } from "@/lib/sales";
+import { optimisePhotoForUpload, SAFE_UPLOAD_BYTES } from "@/lib/photo-upload";
 import {
   ALL_BRANDS,
   CATEGORIES,
@@ -24,7 +26,7 @@ import {
   productSizeLabel,
 } from "@/lib/products";
 
-type Tab = "orders" | "listings" | "drafts" | "planner" | "email" | "analytics";
+type Tab = "orders" | "purchases" | "listings" | "drafts" | "planner" | "email" | "analytics";
 
 interface OrderRow {
   id: string;
@@ -92,51 +94,6 @@ const EMPTY_PRODUCT: Omit<Product, "id"> = {
 
 const INPUT = "w-full bg-[#171717] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-[#E8500A]/70 placeholder:text-[#444]";
 const LABEL = "block text-[#666] text-[9px] font-black tracking-[0.18em] uppercase mb-1.5";
-const SAFE_UPLOAD_BYTES = 3.5 * 1024 * 1024;
-
-function assertCanvasHasVisiblePhoto(canvas: HTMLCanvasElement) {
-  const sample = document.createElement("canvas");
-  sample.width = 32;
-  sample.height = 32;
-  const context = sample.getContext("2d", { willReadFrequently: true });
-  if (!context) throw new Error("This browser could not verify the photo");
-  context.drawImage(canvas, 0, 0, sample.width, sample.height);
-  const pixels = context.getImageData(0, 0, sample.width, sample.height).data;
-  let brightest = 0;
-  let darkest = 255;
-  for (let index = 0; index < pixels.length; index += 4) {
-    const brightness = (pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3;
-    brightest = Math.max(brightest, brightness);
-    darkest = Math.min(darkest, brightness);
-  }
-  if (brightest < 8 || darkest > 247 || brightest - darkest < 3) {
-    throw new Error("The prepared photo was blank. Please use the original JPG; it has not been uploaded.");
-  }
-}
-
-async function optimisePhotoForUpload(file: File) {
-  if (file.size <= SAFE_UPLOAD_BYTES && file.type.startsWith("image/")) return file;
-
-  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-  try {
-    const scale = Math.min(1, 1800 / bitmap.width, 2400 / bitmap.height);
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("This browser could not prepare the photo");
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    assertCanvasHasVisiblePhoto(canvas);
-
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((result) => result ? resolve(result) : reject(new Error("This photo could not be prepared")), "image/jpeg", 0.84);
-    });
-    return new File([blob], `${file.name.replace(/\.[^.]+$/, "") || "photo"}.jpg`, { type: "image/jpeg" });
-  } finally {
-    bitmap.close();
-  }
-}
-
 const LISTING_WORDS = [
   ...ALL_BRANDS,
   "jacket",
@@ -859,7 +816,7 @@ export default function AdminPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
           <div><h1 className="font-black tracking-widest text-sm">STACKED RACKS — ADMIN</h1><p className="text-[#555] text-[10px] mt-1">Live shop management</p></div>
           <nav className="flex gap-1">
-            {(["orders", "listings", "drafts", "planner", "analytics", "email"] as const).map((item) => <button key={item} onClick={() => setTab(item)} className={`px-4 py-2 text-[10px] font-black tracking-[0.16em] uppercase border ${tab === item ? "bg-[#E8500A] border-[#E8500A]" : "border-white/10 text-[#777]"}`}>{item === "orders" ? "Sales" : item === "listings" ? "Listing studio" : item === "drafts" ? `Drafts (${waitingProducts.length})` : item === "planner" ? "Drop planner" : item === "analytics" ? "Analytics" : "Email & promos"}</button>)}
+            {(["orders", "purchases", "listings", "drafts", "planner", "analytics", "email"] as const).map((item) => <button key={item} onClick={() => setTab(item)} className={`px-4 py-2 text-[10px] font-black tracking-[0.16em] uppercase border ${tab === item ? "bg-[#E8500A] border-[#E8500A]" : "border-white/10 text-[#777]"}`}>{item === "orders" ? "Sales" : item === "purchases" ? "Purchased stock" : item === "listings" ? "Listing studio" : item === "drafts" ? `Drafts (${waitingProducts.length})` : item === "planner" ? "Drop planner" : item === "analytics" ? "Analytics" : "Email & promos"}</button>)}
           </nav>
           <button onClick={handleLogout} className="text-[#666] hover:text-white text-xs">Sign out</button>
         </div>
@@ -1100,6 +1057,7 @@ export default function AdminPage() {
         )}
         {tab === "planner" && <Scheduler products={products} hiddenProductIds={hiddenProductIds} scheduledReleases={scheduledReleases} quietDrops={quietDrops} now={scheduleNow} busy={scheduleBusy || saving} message={scheduleMessage} updateSchedule={updateSchedule} onEdit={(product) => { editProduct(product); setTab("listings"); }} />}
         {tab === "drafts" && <Scheduler mode="browse" products={products} hiddenProductIds={hiddenProductIds} scheduledReleases={scheduledReleases} quietDrops={quietDrops} now={scheduleNow} busy={scheduleBusy || saving} message={scheduleMessage} updateSchedule={updateSchedule} onEdit={(product) => { editProduct(product); setTab("listings"); }} />}
+        {tab === "purchases" && <PurchasedStock products={products} onProductsChanged={() => void loadDashboard()} />}
         {tab === "email" && <EmailMarketing />}
         {tab === "analytics" && <AnalyticsDashboard />}
       </div>
