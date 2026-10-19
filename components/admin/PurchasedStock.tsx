@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Product } from "@/lib/products";
 import { taxYear } from "@/lib/sales";
-import { optimisePhotoForUpload, SAFE_UPLOAD_BYTES } from "@/lib/photo-upload";
+import { uploadAdminPhoto } from "@/lib/photo-upload";
 
 type Purchase = { id: string; source: "vinted" | "fleek" | "other"; external_id: string | null; title: string; seller: string; purchased_at: string; price: number; quantity: number; photo_url: string; personal: boolean; notes: string };
 
@@ -44,14 +44,7 @@ export default function PurchasedStock({ products, onProductsChanged }: { produc
     setBusyId(purchase.id);
     setMessage(`Uploading photo for ${purchase.title}…`);
     try {
-      const prepared = await optimisePhotoForUpload(file);
-      if (prepared.size > SAFE_UPLOAD_BYTES) throw new Error("Photo is still too large after preparing. Crop it and try again.");
-      const body = new FormData();
-      body.append("file", prepared);
-      const response = await fetch("/api/admin/upload", { method: "POST", body });
-      const uploaded = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(uploaded.error ?? "Photo upload failed");
-      if (await save(purchase, { photo_url: uploaded.url })) setMessage("Photo added");
+      if (await save(purchase, { photo_url: await uploadAdminPhoto(file) })) setMessage("Photo added");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Photo upload failed");
     } finally {
