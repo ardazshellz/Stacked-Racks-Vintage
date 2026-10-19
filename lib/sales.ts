@@ -84,17 +84,14 @@ export function orderCostTaxYear(order: SaleOrder, products: CostProduct[]) {
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
-// Stock costs were deducted on Zakery's returns up to and including this tax year (his rule, 6 Oct 2026).
-// Raise it when a later year's return is filed with that year's stock costs deducted.
-export const COSTS_DEDUCTED_UP_TO = "2024-25";
-
-// True when the cost was already claimed in an earlier return, so it cannot be set against the sale again.
+// Stock is deducted on the return for the year it was bought (Zakery's rule, 19 Oct 2026), so stock bought in an
+// earlier tax year than the sale is already claimed and cannot be set against the sale again.
 export function costAlreadyDeducted(costYear: string, saleYear: string) {
-  return Boolean(costYear) && costYear < saleYear && costYear <= COSTS_DEDUCTED_UP_TO;
+  return Boolean(costYear) && costYear < saleYear;
 }
 
-// Zakery's 20% estimate: stock already deducted (bought 2024-25 or earlier) is taxed on the whole sale price;
-// stock bought later (2025-26 onward) is taxed on the profit only.
+// Zakery's 20% estimate: stock bought in an earlier tax year than the sale is taxed on the whole sale price;
+// stock bought in the same tax year is taxed on the profit only.
 export function taxEstimate(price: number, cost: number, saleYear: string, costYear: string) {
   return round2(0.2 * (costAlreadyDeducted(costYear, saleYear) ? price : price - cost));
 }
@@ -114,6 +111,29 @@ function orderLines(order: SaleOrder, products: CostProduct[]): SaleLine[] {
 export function orderTax(order: SaleOrder, products: CostProduct[]) {
   const saleYear = taxYear(order.date_of_sale);
   return round2(orderLines(order, products).reduce((sum, line) => sum + taxEstimate(line.price, line.cost, saleYear, line.costYear), 0));
+}
+
+// Splits the 20% estimate by when the stock was bought: old stock (cost already claimed on an earlier return)
+// is taxed on the whole sale price, newer stock on profit only. Counts items, so baskets split per item.
+export function taxByStockAge(orders: SaleOrder[], products: CostProduct[]) {
+  const old = { items: 0, revenue: 0, tax: 0 };
+  const recent = { items: 0, profit: 0, tax: 0 };
+  for (const order of orders) {
+    const saleYear = taxYear(order.date_of_sale);
+    for (const line of orderLines(order, products)) {
+      const tax = taxEstimate(line.price, line.cost, saleYear, line.costYear);
+      if (costAlreadyDeducted(line.costYear, saleYear)) {
+        old.items += 1;
+        old.revenue = round2(old.revenue + line.price);
+        old.tax = round2(old.tax + tax);
+      } else {
+        recent.items += 1;
+        recent.profit = round2(recent.profit + line.price - line.cost);
+        recent.tax = round2(recent.tax + tax);
+      }
+    }
+  }
+  return { old, recent };
 }
 
 function orderCostYearLabel(order: SaleOrder, products: CostProduct[]) {
