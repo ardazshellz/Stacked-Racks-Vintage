@@ -34,6 +34,7 @@ export async function GET() {
     if (row.event_name === "add_to_cart") item.carts += 1;
     products.set(row.product_id, item);
   }
+  const { data: parcelCode } = await getSupabaseAdmin().from("promotion_codes").select("redemption_count").eq("code", "PARCEL10").maybeSingle();
   const referrers = new Map<string, number>();
   for (const row of views) {
     const source = row.referrer_host || "Direct / unknown";
@@ -47,6 +48,8 @@ export async function GET() {
     sessions: new Set(views.map((row) => row.session_id)).size,
     productViews: rows.filter((row) => row.event_name === "product_view").length,
     checkoutStarts: rows.filter((row) => row.event_name === "checkout_started").length,
+    parcelVisits: rows.filter((row) => row.event_name === "parcel_visit").length,
+    parcelOrders: parcelCode?.redemption_count ?? 0,
     products: [...products.values()].sort((a, b) => (b.views + b.clicks + b.carts) - (a.views + a.clicks + a.carts)).slice(0, 20),
     referrers: [...referrers].map(([source, count]) => ({ source, count })).sort((a, b) => b.count - a.count).slice(0, 10),
   });
