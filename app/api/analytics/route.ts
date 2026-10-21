@@ -18,6 +18,11 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   const eventName = clean(body?.event, 40);
+  // A parcel card scan is a plain tally: no visitor id, so no cookie consent is needed.
+  if (eventName === "parcel_visit") {
+    const { error } = await getSupabaseAdmin().from("site_events").insert({ event_name: "parcel_visit", visitor_hash: "parcel-card", session_id: "parcel-card", path: "/" });
+    return error ? NextResponse.json({ error: "Analytics is not ready" }, { status: 503 }) : new NextResponse(null, { status: 204 });
+  }
   const visitorId = clean(body?.visitorId, 120);
   const sessionId = clean(body?.sessionId, 120);
   if (!body || !EVENTS.has(eventName) || visitorId.length < 16 || sessionId.length < 8) {
