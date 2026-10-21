@@ -67,7 +67,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!sameOrigin(req)) return NextResponse.json({ error: "Invalid request" }, { status: 403 });
-  const body = (await req.json()) as { id?: string; payment_status?: string; fulfilment_status?: string; tracking_number?: string; notes?: string; price?: number; cost_price?: number; bought_from?: string; cost_tax_year?: string; source?: string };
+  const body = (await req.json()) as { id?: string; payment_status?: string; fulfilment_status?: string; tracking_number?: string; notes?: string; price?: number; cost_price?: number; bought_from?: string; cost_tax_year?: string; source?: string; photo_url?: string };
   if (!body.id) return NextResponse.json({ error: "Missing order id" }, { status: 400 });
   const allowedStatuses = new Set(["paid", "packing", "dispatched", "delivered", "returned", "refunded"]);
   const changes: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -75,6 +75,7 @@ export async function PATCH(req: Request) {
   if (body.fulfilment_status && allowedStatuses.has(body.fulfilment_status)) changes.fulfilment_status = body.fulfilment_status;
   if (typeof body.tracking_number === "string") changes.tracking_number = body.tracking_number.trim().slice(0, 100);
   if (typeof body.notes === "string") changes.notes = body.notes;
+  if (typeof body.photo_url === "string") changes.photo_url = body.photo_url.slice(0, 500);
   if (body.fulfilment_status === "dispatched") changes.dispatched_at = new Date().toISOString();
   if (body.source !== undefined && !isSaleChannel(body.source)) return NextResponse.json({ error: "Unknown sale channel" }, { status: 400 });
   if (body.source !== undefined) changes.source = body.source;

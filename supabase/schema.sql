@@ -33,6 +33,7 @@ alter table public.orders add column if not exists refunded_amount numeric(10,2)
 alter table public.orders add column if not exists stripe_fee numeric(10,2) not null default 0;
 alter table public.orders add column if not exists items jsonb not null default '[]'::jsonb;
 alter table public.orders add column if not exists updated_at timestamptz not null default now();
+alter table public.orders add column if not exists photo_url text not null default '';
 
 create index if not exists orders_payment_intent_idx on public.orders (stripe_payment_intent);
 create index if not exists orders_fulfilment_idx on public.orders (fulfilment_status, date_of_sale desc);

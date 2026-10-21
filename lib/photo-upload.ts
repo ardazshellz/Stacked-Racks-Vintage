@@ -43,3 +43,15 @@ export async function optimisePhotoForUpload(file: File) {
     bitmap.close();
   }
 }
+
+// Prepares and uploads one admin photo (screenshots of buys and sales), returning its storage URL.
+export async function uploadAdminPhoto(file: File) {
+  const prepared = await optimisePhotoForUpload(file);
+  if (prepared.size > SAFE_UPLOAD_BYTES) throw new Error("Photo is still too large after preparing. Crop it and try again.");
+  const body = new FormData();
+  body.append("file", prepared);
+  const response = await fetch("/api/admin/upload", { method: "POST", body });
+  const uploaded = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(uploaded.error ?? "Photo upload failed");
+  return String(uploaded.url);
+}
