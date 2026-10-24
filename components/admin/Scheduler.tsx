@@ -49,6 +49,9 @@ const added = (product: Product, now: number) => {
 };
 
 // mode "plan": the Drop planner. mode "browse": the Drafts page, same filters, tapping a photo opens it in Listing studio.
+// "" is the All chip: it clears the picks. Any other value is switched on or off.
+const togglePick = (list: string[], value: string) => !value ? [] : list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+
 export default function Scheduler({ mode = "plan", products, hiddenProductIds, scheduledReleases, quietDrops, now, busy, message, updateSchedule, onEdit }: {
   mode?: "plan" | "browse";
   products: Product[];
@@ -62,8 +65,9 @@ export default function Scheduler({ mode = "plan", products, hiddenProductIds, s
   onEdit: (product: Product) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [who, setWho] = useState("");
-  const [type, setType] = useState("");
+  // Picked genders and types; empty means All. Tapping a chip toggles it, so several can be on at once.
+  const [who, setWho] = useState<string[]>([]);
+  const [type, setType] = useState<string[]>([]);
   // "all", or the brands picked; an empty pick list shows nothing until All or a brand is tapped.
   const [brand, setBrand] = useState<"all" | string[]>("all");
   const [brandsOpen, setBrandsOpen] = useState(false);
@@ -90,7 +94,7 @@ export default function Scheduler({ mode = "plan", products, hiddenProductIds, s
   const types = CATEGORIES.filter((category) => planned.some((product) => product.category === category));
   const query = search.trim().toLowerCase();
   const shown = planned
-    .filter((product) => (!query || `${product.name} ${product.brand} ${product.sku ?? ""}`.toLowerCase().includes(query)) && (!who || product.gender === who) && (!type || product.category === type) && (brand === "all" || brand.includes(product.brand)))
+    .filter((product) => (!query || `${product.name} ${product.brand} ${product.sku ?? ""}`.toLowerCase().includes(query)) && (!who.length || who.includes(product.gender)) && (!type.length || type.includes(product.category)) && (brand === "all" || brand.includes(product.brand)))
     .sort((a, b) => sort === "high" ? b.price - a.price : sort === "low" ? a.price - b.price : sort === "oldest" ? a.listedDate.localeCompare(b.listedDate) : b.listedDate.localeCompare(a.listedDate));
   const groups = groupBy === "none" ? [["All items", shown] as const] : [...shown.reduce((map, product) => {
     const key = groupBy === "type" ? product.category : product.brand;
@@ -123,8 +127,8 @@ export default function Scheduler({ mode = "plan", products, hiddenProductIds, s
       {message && <p role="status" className="text-amber-200 text-xs mt-3">{message}</p>}
       <div className="mt-4 space-y-2">
         <input type="search" aria-label="Search waiting items" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, brand or SKU…" className="w-full bg-[#171717] border border-white/10 text-white text-sm px-3 py-2.5 outline-none focus:border-[#E8500A]/70 placeholder:text-[#555]" />
-        <div className="flex flex-wrap items-center gap-1.5"><span className="w-12 text-[11px] text-[#777]">Who</span>{["", ...GENDERS].map((value) => <button key={value || "all"} type="button" aria-pressed={who === value} onClick={() => setWho(who === value ? "" : value)} className={chip(who === value)}>{value === "" ? "All" : value === "Kids" ? "Children" : value}</button>)}</div>
-        <div className="flex flex-wrap items-center gap-1.5"><span className="w-12 text-[11px] text-[#777]">Type</span>{["", ...types].map((value) => <button key={value || "all"} type="button" aria-pressed={type === value} onClick={() => setType(type === value ? "" : value)} className={chip(type === value)}>{value || "All"}</button>)}</div>
+        <div className="flex flex-wrap items-center gap-1.5"><span className="w-12 text-[11px] text-[#777]">Who</span>{["", ...GENDERS].map((value) => <button key={value || "all"} type="button" aria-pressed={value ? who.includes(value) : !who.length} onClick={() => setWho(togglePick(who, value))} className={chip(value ? who.includes(value) : !who.length)}>{value === "" ? "All" : value === "Kids" ? "Children" : value}</button>)}</div>
+        <div className="flex flex-wrap items-center gap-1.5"><span className="w-12 text-[11px] text-[#777]">Type</span>{["", ...types].map((value) => <button key={value || "all"} type="button" aria-pressed={value ? type.includes(value) : !type.length} onClick={() => setType(togglePick(type, value))} className={chip(value ? type.includes(value) : !type.length)}>{value || "All"}</button>)}</div>
         <div className="flex flex-wrap items-center gap-1.5"><span className="w-12 text-[11px] text-[#777]">Brand</span>
           {brand !== "all" && brand.length
             ? <button type="button" onClick={() => setBrand("all")} className={chip(false)}>Clear</button>
