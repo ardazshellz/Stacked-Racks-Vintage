@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { defaultScheduleConfig, type ScheduleConfig } from "@/lib/listing-schedule";
 import Image from "next/image";
 import EmailMarketing from "@/components/admin/EmailMarketing";
@@ -9,6 +9,7 @@ import Scheduler, { plannedItems } from "@/components/admin/Scheduler";
 import PhotoEditor from "@/components/admin/PhotoEditor";
 import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard";
 import { accountRows, isRecordedSale, SALE_CHANNELS, salesChannel, orderBoughtFrom, orderCostTaxYear, orderPurchaseCost, orderTax, parseMoney, saleStage, taxByStockAge, taxSummary, taxYear, toCsv, toTsv } from "@/lib/sales";
+import { goldilocksPrice, platformProfits } from "@/lib/appraisal";
 import { optimisePhotoForUpload, SAFE_UPLOAD_BYTES, uploadAdminPhoto } from "@/lib/photo-upload";
 import {
   ALL_BRANDS,
@@ -269,6 +270,9 @@ export default function AdminPage() {
   const [uploading, setUploading] = useState(false);
   const [editingPhoto, setEditingPhoto] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [prePurchase, setPrePurchase] = useState(false);
+  // True while the price box holds the AI's pick; a price the owner typed or loaded is never overwritten.
+  const aiSetPrice = useRef(false);
   const [saving, setSaving] = useState(false);
   const [listingMessage, setListingMessage] = useState("");
 
@@ -548,6 +552,7 @@ export default function AdminPage() {
           notes: combinedNotes,
           imageUrls: listingForm.imageUrls,
           mode,
+          prePurchase,
         }),
       });
       const data = await response.json();
@@ -555,7 +560,11 @@ export default function AdminPage() {
       const suggestedPriceLow = aiPrice(data.suggestedPriceLow);
       const suggestedPriceHigh = aiPrice(data.suggestedPriceHigh);
       const needsPricingReview = String(data.pricingReview).toLowerCase().includes("needs");
-      setForm((current) => ({
+      const aiPick = goldilocksPrice(suggestedPriceLow, suggestedPriceHigh);
+      setForm((current) => {
+        const keepPrice = current.price > 0 && !aiSetPrice.current;
+        if (!keepPrice && aiPick) aiSetPrice.current = true;
+        return {
         ...current,
         ...overrides,
         name: data.websiteTitle || overrides.name || current.name,
@@ -577,14 +586,15 @@ export default function AdminPage() {
           material: data.suggestedMaterial || current.garmentDetails?.material,
           flaws: data.visibleFlaws || current.garmentDetails?.flaws,
         },
-        price: current.price > 0 ? current.price : suggestedPriceLow ?? suggestedPriceHigh ?? current.price,
+        price: keepPrice ? current.price : aiPick ?? current.price,
         pricingStatus: needsPricingReview ? "needs_review" : "standard",
         suggestedPriceLow,
         suggestedPriceHigh,
         pricingReason: data.pricingReason || "",
         pricingSearchQuery: data.pricingSearchQuery || data.vintedTitle || data.websiteTitle || "",
         pricingReviewedAt: undefined,
-      }));
+        };
+      });
       if (mode === "photos") setPhotoAnalysis(data.photoFindings || "Photos analysed successfully.");
       setListingMessage(mode === "photos" ? "Pictures analysed and fields populated — add any extra details above, then merge with AI" : "Draft generated — check the details before publishing");
     } catch (error) {
@@ -596,6 +606,7 @@ export default function AdminPage() {
 
   const generateQuickListing = async () => {
     const parsed = parseQuickListing(quickDetails, form);
+    if (parsed.price) aiSetPrice.current = false;
     setForm((current) => ({ ...current, ...parsed }));
     setSellerNotes(quickDetails);
     await generateListing(parsed, quickDetails);
@@ -686,6 +697,7 @@ export default function AdminPage() {
   const editProduct = (product: Product) => {
     const { id, ...details } = product;
     setEditingId(String(id));
+    aiSetPrice.current = false;
     setForm({ ...EMPTY_PRODUCT, ...details, imageUrls: details.imageUrls ?? [] });
     setQuickDetails("");
     setPhotoAnalysis("");
@@ -908,7 +920,7 @@ export default function AdminPage() {
                 {editingId && <button type="button" onClick={() => void updateStock({ id: editingId, ...form })} className={`mb-5 w-full border px-5 py-4 text-sm font-black uppercase tracking-[0.16em] ${form.stock > 0 ? "border-red-500/60 bg-red-500/10 text-red-300 hover:bg-red-500/20" : "border-emerald-500/60 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"}`}>{form.stock > 0 ? "Mark as sold — remove from site" : "Relist on site"}</button>}
                 <label className="block border-2 border-dashed border-white/10 hover:border-[#E8500A]/50 p-7 text-center cursor-pointer mb-4"><input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple className="hidden" onChange={(event) => { void uploadPhotos(event.target.files); event.target.value = ""; }} disabled={uploading} /><span className="text-sm font-bold">{uploading ? "Uploading and preparing photos…" : "Choose product photos"}</span><span className="block text-[#777] text-[10px] mt-1">JPG, PNG, WEBP or HEIC · up to 50MB each · orientation fixed automatically</span></label>
                 {!!form.imageUrls?.length && <><p className="text-[#888] text-[10px] mb-2">Photos appear here when ready. The preview shows the whole image without cropping. Tap <strong className="text-white">Crop / rotate</strong> only when an adjustment is needed.</p><div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">{form.imageUrls.map((url, index) => <div key={url} className="relative bg-[#1a1a1a] group border border-white/10"><div className="relative aspect-[3/4]"><Image src={url} alt={`Product photo ${index + 1}`} fill sizes="(max-width: 640px) 50vw, 150px" className="object-contain p-1" /><span className="absolute top-1 left-1 bg-black/80 px-1.5 py-1 text-[8px] font-black">{index === 0 ? "COVER" : index + 1}</span><button aria-label={`Remove photo ${index + 1}`} onClick={() => void removePhoto(url)} className="absolute top-1 right-1 bg-black/80 w-7 h-7 text-xs">×</button></div><button onClick={() => setEditingPhoto(url)} className="w-full bg-[#E8500A] py-2 text-[9px] font-black uppercase tracking-wider">Crop / rotate</button><div className="p-1 flex justify-between"><button aria-label="Move photo left" disabled={index === 0} onClick={() => movePhoto(index, -1)} className="bg-black/80 disabled:opacity-30 w-8 h-7">←</button>{index > 0 && <button onClick={() => { const urls = [...(form.imageUrls ?? [])]; urls.splice(index, 1); urls.unshift(url); setForm({ ...form, imageUrls: urls }); }} className="bg-black/80 px-2 text-[8px]">Make cover</button>}<button aria-label="Move photo right" disabled={index === (form.imageUrls?.length ?? 0) - 1} onClick={() => movePhoto(index, 1)} className="bg-black/80 disabled:opacity-30 w-8 h-7">→</button></div></div>)}</div></>}
-                <div className="mb-5 flex flex-wrap items-center gap-3"><button onClick={() => void analysePhotos()} disabled={generating || !form.imageUrls?.length} className="bg-[#E8500A] disabled:opacity-40 text-white font-black text-xs tracking-[0.16em] uppercase px-5 py-3">{generating ? "Reading pictures…" : "Analyse pictures"}</button><span className="text-[#666] text-[10px]">Reads labels, logos, colours, item details and visible condition. Paid web search stays off.</span></div>
+                <div className="mb-5 flex flex-wrap items-center gap-3"><button onClick={() => void analysePhotos()} disabled={generating || !form.imageUrls?.length} className="bg-[#E8500A] disabled:opacity-40 text-white font-black text-xs tracking-[0.16em] uppercase px-5 py-3">{generating ? "Reading pictures…" : "Analyse pictures"}</button><span className="text-[#666] text-[10px]">Reads labels, logos, colours, item details and visible condition. Paid web search stays off.</span><label className="flex items-center gap-2 text-[11px] text-[#bbb]"><input type="checkbox" checked={prePurchase} onChange={(event) => setPrePurchase(event.target.checked)} />Not bought yet: check authenticity</label></div>
                 {photoAnalysis && <div className="mb-5 border border-[#E8500A]/25 bg-[#E8500A]/[0.05] p-4"><p className="text-[#E8500A] text-[9px] font-black tracking-[0.18em] uppercase mb-2">What the pictures show</p><p className="text-[#bbb] text-xs leading-relaxed">{photoAnalysis}</p><a href={`https://www.google.com/search?q=${encodeURIComponent([form.brand, form.name, form.era, form.garmentDetails?.colour].filter(Boolean).join(" "))}`} target="_blank" rel="noopener noreferrer" className="inline-block mt-3 text-[#F5C300] text-[10px] font-black uppercase tracking-wider">Search the web for a matching item ↗</a></div>}
                 <div className="mb-5 border border-[#F5C300]/25 bg-[#F5C300]/[0.04] p-4">
                   <label className="block text-[#F5C300] text-[10px] font-black tracking-[0.2em] uppercase mb-2">Quick listing — add what the photos cannot show</label>
@@ -932,7 +944,7 @@ export default function AdminPage() {
                       secondarySize: kids || form.secondaryGender === gender ? undefined : form.secondarySize,
                     });
                   }} />
-                  <Field label="Customer sale price (£)" value={form.price || ""} type="number" onChange={(value) => setForm({ ...form, price: Number(value), pricingStatus: form.pricingStatus === "approved" ? "needs_review" : form.pricingStatus, pricingReviewedAt: undefined })} />
+                  <Field label="Customer sale price (£)" value={form.price || ""} type="number" onChange={(value) => { aiSetPrice.current = false; setForm({ ...form, price: Number(value), pricingStatus: form.pricingStatus === "approved" ? "needs_review" : form.pricingStatus, pricingReviewedAt: undefined }); }} />
                   <Field label="Item cost (£) — private" value={form.costPrice || ""} type="number" onChange={(value) => setForm({ ...form, costPrice: Math.max(0, Number(value)) })} placeholder="Optional" />
                   <Select label="Era" value={form.era} options={ERAS} onChange={(value) => setForm({ ...form, era: value as Era })} />
                   <Select label="Condition" value={form.condition} options={["Excellent", "Good", "Fair"]} onChange={(value) => setForm({ ...form, condition: value as Condition })} />
@@ -979,12 +991,13 @@ export default function AdminPage() {
                     <div>
                       <p className="text-[#F5C300] text-[10px] font-black tracking-[0.18em] uppercase">Suggested pricing</p>
                       {form.suggestedPriceLow && form.suggestedPriceHigh
-                        ? <p className="mt-2 text-2xl font-black">£{form.suggestedPriceLow}–£{form.suggestedPriceHigh}</p>
+                        ? <><p className="mt-2 text-2xl font-black">£{form.suggestedPriceLow}–£{form.suggestedPriceHigh}</p><p className="text-[#aaa] text-[11px]">Goldilocks price: £{goldilocksPrice(form.suggestedPriceLow, form.suggestedPriceHigh)}</p></>
                         : <p className="mt-2 text-sm font-bold text-[#888]">Run Analyse pictures to receive a pricing assessment.</p>}
                     </div>
                     <span className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${pricingApprovalRequired ? "bg-amber-400 text-black" : form.pricingStatus === "approved" ? "bg-emerald-500 text-black" : "bg-white/10 text-[#aaa]"}`}>{pricingApprovalRequired ? "Review required" : form.pricingStatus === "approved" ? "Price approved" : "Standard item"}</span>
                   </div>
                   {form.pricingReason && <p className="mt-3 text-[#bbb] text-xs leading-relaxed">{form.pricingReason}</p>}
+                  {form.price > 0 && <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">{platformProfits(Number(form.price), Number(form.costPrice || 0)).map((row) => <div key={row.platform} className="bg-black/30 border border-white/10 p-2"><p className="text-[9px] font-black uppercase tracking-wider text-[#888]">{row.platform}</p><p className="text-sm font-black">{money(row.profit)} profit</p><p className="text-[#777] text-[9px]">Fee {money(row.fee)} · {row.note}</p></div>)}<p className="col-span-full text-[#666] text-[9px]">Profit = price − seller fee − item cost{form.costPrice ? "" : " (add the item cost to include it)"}. Postage is paid by the buyer.</p></div>}
                   {form.pricingSearchQuery && <div className="mt-3 flex flex-wrap gap-3 text-[10px] font-black uppercase tracking-wider"><a href={`https://www.ebay.co.uk/sch/i.html?_nkw=${encodeURIComponent(form.pricingSearchQuery)}&LH_Sold=1&LH_Complete=1`} target="_blank" rel="noopener noreferrer" className="text-[#F5C300]">Check eBay sold ↗</a><a href={`https://www.vinted.co.uk/catalog?search_text=${encodeURIComponent(form.pricingSearchQuery)}`} target="_blank" rel="noopener noreferrer" className="text-[#F5C300]">Check Vinted ↗</a><a href={`https://www.google.com/search?q=${encodeURIComponent(`${form.pricingSearchQuery} vintage sold price`)}`} target="_blank" rel="noopener noreferrer" className="text-[#F5C300]">Check the web ↗</a></div>}
                   {pricingApprovalRequired && <div className="mt-4 border-t border-amber-300/20 pt-4"><p className="text-amber-100 text-[11px] mb-3">This item may be collectible, rare or hard to price. Check the comparisons, choose the customer price above, then approve it. Until then it can only be saved privately as a draft.</p><button type="button" onClick={() => setForm({ ...form, pricingStatus: "approved", pricingReviewedAt: new Date().toISOString() })} disabled={form.price <= 0} className="bg-[#F5C300] disabled:opacity-40 text-black px-4 py-2.5 text-[10px] font-black uppercase tracking-wider">Approve {form.price > 0 ? money(form.price) : "price"}</button></div>}
                 </div>

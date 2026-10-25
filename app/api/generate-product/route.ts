@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/server/admin-auth";
 import { sameOrigin, withinRateLimit } from "@/lib/server/request-security";
+import { pickAnalysisPhotos } from "@/lib/appraisal";
 
 export const runtime = "nodejs";
 
@@ -115,7 +116,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "The free AI listing key has not been connected yet" }, { status: 503 });
   }
 
-  const { brand, category, era, condition, size, fit, gender, badge, notes, imageUrls, mode } = await req.json();
+  const { brand, category, era, condition, size, fit, gender, badge, notes, imageUrls, mode, prePurchase } = await req.json();
   const photoMode = mode === "photos";
 
   const prompt = `You create accurate resale listings for Stacked Racks Vintage, a UK vintage clothing shop.
@@ -139,7 +140,7 @@ Writing style:
 - websiteDescription: concise and useful; 3-4 short sentences and no more than 80 words total. Cover the strongest design details, condition and fit without flowery filler. Put every sentence on its own line.
 - vintedDescription: very easy to scan; 2-3 short factual sentences and no more than 240 characters total. Put every sentence on its own line and include visible flaws.
 - Titles must be factual, search-friendly and free from unsupported claims.
-- Treat every item as genuine, as confirmed by the seller. Do not use authenticity uncertainty as a reason to lower the price.
+${prePurchase ? `- PRE-PURCHASE APPRAISAL: the owner has not bought this item yet and is deciding whether to buy it. Check authenticity cues closely (labels, tags, stitching, logos, fonts, codes, hardware) and say in photoFindings what supports or weakens authenticity. Never assume the item is genuine. If authenticity is uncertain, set pricingReview to Needs review and say so in pricingReason.` : `- Treat every item as genuine, as confirmed by the seller. Do not use authenticity uncertainty as a reason to lower the price.`}
 - Assess pricing conservatively but never default a potentially collectible piece to an ordinary second-hand price.
 - pricingReview must be Needs review for vintage band merchandise, single-stitch or all-over-print T-shirts, dated tour/event pieces, rare football shirts, player-name shirts, tournament patches, designer pieces, unusual collaborations, discontinued models, pre-2005 items with collectible cues, or anything whose identity/value is uncertain. Use Standard for ordinary modern/general sportswear and common high-street pieces.
 - suggestedPriceLow and suggestedPriceHigh are realistic GBP resale ranges based on the visible item, condition, size and general market knowledge. They are guidance, not claims of live web research.
@@ -171,9 +172,8 @@ Return ONLY valid JSON:
   "pricingSearchQuery": "precise search phrase for comparable listings"
 }`;
 
-  const safeImageUrls = (Array.isArray(imageUrls) ? imageUrls : [])
-    .filter(isProductImageUrl)
-    .slice(0, 4);
+  // ponytail: up to 8 photos of up to 4 MB each could pass Gemini's 20 MB inline limit; studio uploads are compressed well below that.
+  const safeImageUrls = pickAnalysisPhotos((Array.isArray(imageUrls) ? imageUrls : []).filter(isProductImageUrl));
   const loadedImages = await Promise.all(safeImageUrls.map(imageToGeminiPart));
   if (photoMode && !loadedImages.some(Boolean)) {
     return NextResponse.json({ error: "Upload at least one supported photo before analysing" }, { status: 400 });
