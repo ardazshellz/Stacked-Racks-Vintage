@@ -5,7 +5,7 @@ import type { Product } from "@/lib/products";
 import { taxYear } from "@/lib/sales";
 import { uploadAdminPhoto } from "@/lib/photo-upload";
 
-type Purchase = { id: string; source: "vinted" | "fleek" | "other"; external_id: string | null; title: string; seller: string; purchased_at: string; price: number; quantity: number; photo_url: string; personal: boolean; notes: string };
+type Purchase = { id: string; source: "vinted" | "fleek" | "other"; external_id: string | null; title: string; seller: string; purchased_at: string; price: number; quantity: number; photo_url: string; personal: boolean; notes: string; invoice_path: string };
 
 const INPUT = "w-full bg-[#171717] border border-white/10 text-white text-xs px-2 py-2 outline-none focus:border-[#E8500A]/70 placeholder:text-[#555]";
 const SOURCE_NAME = { vinted: "Vinted", fleek: "Fleek", other: "Other" } as const;
@@ -21,6 +21,7 @@ export default function PurchasedStock({ products, onProductsChanged }: { produc
   const [year, setYear] = useState(() => taxYear(new Date().toISOString()));
   const [show, setShow] = useState<"stock" | "unmatched" | "personal">("stock");
   const [busyId, setBusyId] = useState("");
+  const [invoiceOpen, setInvoiceOpen] = useState<Purchase | null>(null);
 
   const load = useCallback(async () => {
     const response = await fetch("/api/admin-purchases");
@@ -51,6 +52,27 @@ export default function PurchasedStock({ products, onProductsChanged }: { produc
       setBusyId("");
     }
   };
+
+  const addInvoice = async (purchase: Purchase, file: File | undefined) => {
+    if (!file) return;
+    setBusyId(purchase.id);
+    setMessage(`Uploading invoice for ${purchase.title}…`);
+    const body = new FormData();
+    body.append("id", purchase.id);
+    body.append("file", file);
+    const response = await fetch("/api/admin-purchases/invoice", { method: "POST", body });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) setPurchases((current) => current.map((row) => (row.id === purchase.id ? data.purchase : row)));
+    setMessage(response.ok ? "Invoice added" : data.error ?? "Invoice upload failed");
+    setBusyId("");
+  };
+  // Escape closes the invoice pop-up.
+  useEffect(() => {
+    if (!invoiceOpen) return;
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setInvoiceOpen(null); };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [invoiceOpen]);
 
   // Matching copies the cost (per piece for bundles), tax year and supplier onto the listing, so its sale is taxed correctly.
   const match = async (purchase: Purchase, productName: string) => {
@@ -107,6 +129,13 @@ export default function PurchasedStock({ products, onProductsChanged }: { produc
               <p className="text-sm font-semibold truncate" title={purchase.title}>{purchase.title}{purchase.quantity > 1 && <span className="text-[#F5C300]"> × {purchase.quantity}</span>}</p>
               <p className="text-[#888] text-[10px] mt-0.5">{SOURCE_NAME[purchase.source]}{purchase.seller ? ` · ${purchase.seller}` : ""}{purchase.external_id ? ` · #${purchase.external_id}` : ""} · {new Date(purchase.purchased_at).toLocaleDateString("en-GB")} · {taxYear(purchase.purchased_at)}</p>
               {purchase.notes && <p className="text-[#666] text-[10px] mt-0.5">{purchase.notes}</p>}
+              <div className="flex gap-3 mt-1 text-[10px] uppercase tracking-wider">
+                {purchase.invoice_path && <button type="button" onClick={() => setInvoiceOpen(purchase)} className="text-[#E8500A] font-bold hover:underline">Invoice</button>}
+                <label className="text-[#666] hover:text-white cursor-pointer">
+                  {busyId === purchase.id ? "Uploading…" : purchase.invoice_path ? "Replace invoice" : "Add invoice"}
+                  <input type="file" accept="application/pdf" className="sr-only" disabled={busyId === purchase.id} onChange={(event) => void addInvoice(purchase, event.target.files?.[0])} />
+                </label>
+              </div>
             </div>
             <div className="text-sm font-black">{money(purchase.price)}{purchase.quantity > 1 && <p className="text-[#888] text-[10px] font-normal">{purchase.quantity} pcs · {money(purchase.price / purchase.quantity)} each</p>}</div>
             <div>
@@ -117,6 +146,17 @@ export default function PurchasedStock({ products, onProductsChanged }: { produc
           </div>
         ))}
       </div>
+      {invoiceOpen && (
+        <div role="dialog" aria-modal="true" aria-label={`Invoice for ${invoiceOpen.title}`} className="fixed inset-0 z-50 bg-black/80 p-4 flex items-center justify-center" onClick={() => setInvoiceOpen(null)}>
+          <div className="bg-[#111] border border-white/10 w-full max-w-4xl h-[90vh] flex flex-col" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 p-3 border-b border-white/10">
+              <p className="text-sm font-semibold truncate">Invoice · {invoiceOpen.title}</p>
+              <button type="button" onClick={() => setInvoiceOpen(null)} className="text-xs uppercase tracking-wider text-[#888] hover:text-white">Close</button>
+            </div>
+            <iframe title={`Invoice for ${invoiceOpen.title}`} src={`/api/admin-purchases/invoice?id=${invoiceOpen.id}&v=${encodeURIComponent(invoiceOpen.invoice_path)}`} className="flex-1 w-full bg-white" />
+          </div>
+        </div>
+      )}
     </section>
   );
 }

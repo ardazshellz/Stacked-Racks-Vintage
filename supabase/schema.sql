@@ -272,3 +272,5 @@ create table if not exists public.purchases (
 
 create index if not exists purchases_purchased_at_idx on public.purchases (purchased_at desc);
 alter table public.purchases enable row level security;
+alter table public.purchases add column if not exists invoice_path text not null default '';
+insert into storage.buckets (id, name, public) values ('invoices', 'invoices', false) on conflict (id) do nothing;
