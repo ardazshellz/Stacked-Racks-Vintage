@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
+    // Product photos never change at the same URL: keep optimised copies 31 days so the Hobby plan's monthly transformation quota lasts.
+    minimumCacheTTL: 2678400,
     remotePatterns: [
       {
         protocol: "https",
