@@ -34,7 +34,7 @@ export async function GET() {
     if (row.event_name === "add_to_cart") item.carts += 1;
     products.set(row.product_id, item);
   }
-  const { data: parcelCode } = await getSupabaseAdmin().from("promotion_codes").select("redemption_count").eq("code", "PARCEL10").maybeSingle();
+  const { data: parcelCode } = await getSupabaseAdmin().from("promotion_codes").select("redemption_count").eq("code", "STACKER10").maybeSingle();
   const referrers = new Map<string, number>();
   for (const row of views) {
     const source = row.referrer_host || "Direct / unknown";
