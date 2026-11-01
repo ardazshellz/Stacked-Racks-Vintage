@@ -95,10 +95,10 @@ export default function Hero() {
           </p>
 
           {/* CTAs */}
-          <div className="animate-fade-in-up-delay-3 mt-7 flex flex-col sm:flex-row gap-3">
+          <div className="animate-fade-in-up-delay-3 mt-7 grid grid-cols-2 sm:flex sm:flex-wrap gap-3">
             <a
               href="#shop"
-              className="w-full sm:w-auto bg-[#E8500A] border-2 border-[#E8500A] text-[#0a0a0a] font-plexmono font-medium text-[13px] tracking-[0.12em] uppercase px-7 py-4 hover:bg-[#FF6A24] hover:border-[#FF6A24] transition-colors text-center"
+              className="col-span-2 sm:w-auto bg-[#E8500A] border-2 border-[#E8500A] text-[#0a0a0a] font-plexmono font-medium text-[13px] tracking-[0.12em] uppercase px-7 py-4 hover:bg-[#FF6A24] hover:border-[#FF6A24] transition-colors text-center"
             >
               Shop the latest drop →
             </a>
@@ -106,9 +106,22 @@ export default function Hero() {
               href="https://www.vinted.co.uk/member/59714764-stackedracks"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full sm:w-auto border-2 border-[#F5C300] text-[#F5C300] font-plexmono font-medium text-[13px] tracking-[0.12em] uppercase px-7 py-4 hover:bg-[#F5C300] hover:text-[#0a0a0a] transition-colors text-center"
+              className="border-2 border-[#F5C300] text-[#F5C300] font-plexmono font-medium text-[12px] sm:text-[13px] tracking-[0.08em] sm:tracking-[0.12em] uppercase px-3 sm:px-7 py-4 hover:bg-[#F5C300] hover:text-[#0a0a0a] transition-colors text-center"
             >
               View on Vinted
+            </a>
+            <a
+              href="https://instagram.com/stacked_racks_vintage"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 border-2 border-white text-white font-plexmono font-medium text-[12px] sm:text-[13px] tracking-[0.08em] sm:tracking-[0.12em] uppercase px-3 sm:px-7 py-4 hover:bg-white hover:text-[#0a0a0a] transition-colors"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 shrink-0" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="5" />
+                <circle cx="12" cy="12" r="4" />
+                <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor" />
+              </svg>
+              Instagram
             </a>
           </div>
         </div>
