@@ -115,3 +115,9 @@ body {
   100% { transform: rotate(6deg); }
 }
 .rail-tag { transform-origin: 50% 0; animation: rail-tag-in 1.1s ease-out both; }
+/* The piece facing you turns gently on its hanger so its depth shows. */
+@keyframes rail-sway {
+  from { transform: rotateY(-9deg); }
+  to { transform: rotateY(9deg); }
+}
+.rail-sway { animation: rail-sway 4.5s ease-in-out infinite alternate; }
