@@ -1,131 +1,126 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { type Product, railPicks, productSizeLabel, websiteProductTitle } from "@/lib/products";
 import { productPath } from "@/lib/product-url";
 import AddToCartButton from "./AddToCartButton";
+import CUTOUTS from "@/lib/rail-cutouts.json";
 
-function Hanger({ className = "" }: { className?: string }) {
+const BOTTOMS = new Set(["Trousers", "Joggers & Tracksuit Bottoms", "Shorts"]);
+
+function Hanger({ clip }: { clip: boolean }) {
   return (
-    <svg viewBox="0 0 60 34" aria-hidden="true" className={className}>
-      <path d="M30 14V8a5 5 0 1 1 5-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M30 14 4 31h52Z" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+    <svg viewBox="0 0 120 52" aria-hidden="true" className="relative z-10 mx-auto -mb-3 block w-[46%] text-[#c9c9c9] drop-shadow-[0_2px_2px_rgba(0,0,0,.6)]">
+      <path d="M60 22V12a7 7 0 1 1 7-7" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+      {clip ? (
+        <>
+          <path d="M14 30h92" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+          <path d="M60 22 40 30M60 22l20 8" stroke="currentColor" strokeWidth="3" />
+          <rect x="18" y="30" width="10" height="16" rx="2" fill="currentColor" />
+          <rect x="92" y="30" width="10" height="16" rx="2" fill="currentColor" />
+        </>
+      ) : (
+        <path d="M60 22 6 46h108Z" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinejoin="round" />
+      )}
     </svg>
   );
 }
 
-/** Newest pieces hung on a rail; picking one opens it up close, like browsing a real rack. */
+/** Newest pieces hanging side-on along a rail; the one in the middle turns to face you. */
 export default function OnTheRail({ products, onSelect }: { products: Product[]; onSelect: (product: Product) => void }) {
-  const rail = railPicks(products);
-  const [active, setActive] = useState<number | null>(null);
-  const [photo, setPhoto] = useState(0);
-  if (rail.length < 3) return null;
+  const cut = new Set<string>(CUTOUTS);
+  const rail = railPicks(products.filter((p) => cut.has(String(p.id))), CUTOUTS.length);
+  const scroller = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+  const count = rail.length;
 
-  const open = (i: number) => { setActive((i + rail.length) % rail.length); setPhoto(0); };
-  const item = active === null ? null : rail[active];
-  const prev = active === null ? null : rail[(active - 1 + rail.length) % rail.length];
-  const next = active === null ? null : rail[(active + 1) % rail.length];
-  const photos = item?.imageUrls?.slice(0, 4) ?? [];
+  const slot = () => (scroller.current?.firstElementChild?.firstElementChild as HTMLElement | null)?.offsetWidth ?? 1;
+  const goTo = (i: number, behavior: ScrollBehavior = "smooth") =>
+    scroller.current?.scrollTo({ left: Math.max(0, Math.min(count - 1, i)) * slot(), behavior });
+
+  // Start mid-rail so there are pieces either side; the scroll event then sets the active piece.
+  useEffect(() => { goTo(Math.floor(count / 2), "instant"); }, [count]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (count < 3) return null;
+  const item = rail[Math.min(active, count - 1)];
 
   return (
-    <section
-      aria-labelledby="on-the-rail-heading"
-      className="relative overflow-hidden border-t border-white/5 bg-[radial-gradient(60%_60%_at_50%_0%,#2a1608_0%,#0a0a0a_70%)] py-12 sm:py-16"
-      onKeyDown={(e) => {
-        if (active === null) return;
-        if (e.key === "ArrowLeft") open(active - 1);
-        if (e.key === "ArrowRight") open(active + 1);
-        if (e.key === "Escape") setActive(null);
-      }}
-    >
+    <section aria-labelledby="on-the-rail-heading" className="relative overflow-hidden border-t border-white/5 bg-[radial-gradient(55%_65%_at_50%_30%,#2a1608_0%,#0a0a0a_72%)] py-12 sm:py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <h2 id="on-the-rail-heading" className="font-display text-white text-4xl sm:text-5xl font-extrabold uppercase leading-[0.9]">
           Fresh off the rack
         </h2>
-        <p className="mt-2 text-sm text-[#aaa]">
-          {item ? "Use the arrows to move along the rail." : "Our newest pieces, hung up. Pick one to see it up close."}
-        </p>
+        <p className="mt-2 text-sm text-[#aaa]">Our newest pieces. Scroll along the rail; the one in the middle turns to face you.</p>
       </div>
 
-      {item && prev && next ? (
-        <div key={item.id} className="rail-focus-in mx-auto mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:grid-cols-[1fr_auto_1fr] sm:gap-8">
-            <button type="button" onClick={() => open(active! - 1)} aria-label={`Previous: ${websiteProductTitle(prev.name)}`} className="group flex items-center justify-end gap-6">
-              <span className="relative hidden aspect-[3/4] w-32 opacity-40 blur-[5px] transition group-hover:opacity-70 group-hover:blur-[2px] lg:block">
-                <Image src={prev.imageUrls![0]} alt="" fill sizes="128px" className="object-cover" />
-              </span>
-              <span className="grid h-11 w-11 place-items-center rounded-full border border-white/30 text-white transition-colors group-hover:border-[#E8500A] group-hover:text-[#E8500A]">←</span>
-            </button>
-
-            <div className="flex flex-col items-center">
-              <div className="h-1.5 w-[min(64vw,340px)] rounded-full bg-gradient-to-b from-[#ffd9b8] via-[#E8500A] to-[#6b2504] shadow-[0_3px_8px_rgba(0,0,0,.6)]" />
-              <Hanger className="-mt-0.5 h-7 w-12 text-[#bbb]" />
-              <div className="relative -mt-1 w-[min(56vw,300px)]">
-                <button type="button" onClick={() => setPhoto((photo + 1) % photos.length)} aria-label="Next photo" className="relative block aspect-[3/4] w-full shadow-[0_18px_40px_rgba(0,0,0,.7)]">
-                  <Image src={photos[photo]} alt={item.name} fill sizes="300px" className="object-cover" priority />
-                </button>
-                <div className="rail-tag pointer-events-none absolute -right-4 top-6 w-16 rounded-sm bg-[#F5C300] px-1.5 pb-2 pt-3 text-center text-[#0a0a0a] shadow-[0_6px_10px_rgba(0,0,0,.5)] sm:-right-6">
-                  <span className="absolute left-1/2 top-1 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[#0a0a0a]" />
-                  <span className="block font-plexmono text-[10px] uppercase leading-tight">Size {item.size}</span>
-                  <span className="block font-display text-2xl font-extrabold leading-none">£{item.price}</span>
-                </div>
-              </div>
-              {photos.length > 1 && (
-                <div className="mt-3 flex gap-2">
-                  {photos.map((_, i) => (
-                    <button key={i} type="button" onClick={() => setPhoto(i)} aria-label={`Photo ${i + 1}`} aria-pressed={photo === i}
-                      className={`h-2 w-6 transition-colors ${photo === i ? "bg-[#E8500A]" : "bg-white/20 hover:bg-white/40"}`} />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <button type="button" onClick={() => open(active! + 1)} aria-label={`Next: ${websiteProductTitle(next.name)}`} className="group flex items-center gap-6">
-              <span className="grid h-11 w-11 place-items-center rounded-full border border-white/30 text-white transition-colors group-hover:border-[#E8500A] group-hover:text-[#E8500A]">→</span>
-              <span className="relative hidden aspect-[3/4] w-32 opacity-40 blur-[5px] transition group-hover:opacity-70 group-hover:blur-[2px] lg:block">
-                <Image src={next.imageUrls![0]} alt="" fill sizes="128px" className="object-cover" />
-              </span>
-            </button>
-          </div>
-
-          <h3 className="mx-auto mt-6 max-w-xl text-center font-display text-3xl font-extrabold uppercase leading-[0.95] text-white sm:text-4xl">
-            {websiteProductTitle(item.name)}
-          </h3>
-          <p className="mt-2 text-center text-sm text-[#aaa]">{item.brand} · Fits {productSizeLabel(item)}{item.era ? ` · ${item.era}` : ""}</p>
-          <div className="mx-auto mt-5 flex max-w-sm flex-col gap-2 sm:flex-row">
-            <AddToCartButton product={item} className="flex-1 bg-[#E8500A] py-3 text-[11px] font-black tracking-[0.14em] text-white transition-colors hover:bg-[#F5C300] hover:text-black" />
-            <button type="button" onClick={() => onSelect(item)} className="flex-1 border border-white/30 py-3 text-[11px] font-black tracking-[0.14em] text-white transition-colors hover:border-[#E8500A] hover:text-[#E8500A]">
-              QUICK VIEW
-            </button>
-          </div>
-          <div className="mt-4 flex justify-center gap-6 text-xs">
-            <Link href={productPath(item)} className="font-bold text-[#aaa] underline underline-offset-4 hover:text-white">Full details</Link>
-            <button type="button" onClick={() => setActive(null)} className="font-bold text-[#aaa] underline underline-offset-4 hover:text-white">Back to the rail</button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-8 overflow-x-auto pb-4 scrollbar-none">
-          <div className="relative mx-auto w-max px-4 sm:px-6 lg:px-8">
-            <div className="absolute inset-x-2 top-0 h-1.5 rounded-full bg-gradient-to-b from-[#ffd9b8] via-[#E8500A] to-[#6b2504] shadow-[0_3px_8px_rgba(0,0,0,.6)]" />
-            <ul className="flex gap-2 sm:gap-3">
-              {rail.map((product, i) => (
-                <li key={product.id}>
-                  <button type="button" onClick={() => open(i)} aria-label={`See ${websiteProductTitle(product.name)} up close`}
-                    className="rail-hang group flex w-28 flex-col items-center sm:w-32">
-                    <Hanger className="-mt-0.5 h-6 w-11 text-[#bbb] transition-colors group-hover:text-[#F5C300]" />
-                    <span className="relative -mt-1 block aspect-[3/4] w-full shadow-[0_10px_18px_rgba(0,0,0,.6)] outline-2 outline-offset-2 outline-transparent transition-[outline-color] group-hover:outline-[#E8500A]">
-                      <Image src={product.imageUrls![0]} alt="" fill sizes="128px" className="object-cover" />
+      <div className="relative mt-8">
+        {/* The rail itself stays put; the clothes slide along it. */}
+        <div className="pointer-events-none absolute inset-x-0 top-[9px] z-[60] h-2 bg-gradient-to-b from-[#f4f4f4] via-[#9a9a9a] to-[#3d3d3d] shadow-[0_4px_8px_rgba(0,0,0,.7)]" />
+        <div
+          ref={scroller}
+          tabIndex={0}
+          aria-label="Clothes rail. Use the arrow keys to move along it."
+          onScroll={(e) => {
+            const next = Math.round(e.currentTarget.scrollLeft / slot());
+            if (next !== active) setActive(Math.max(0, Math.min(count - 1, next)));
+          }}
+          className="scrollbar-none snap-x snap-mandatory overflow-x-auto overflow-y-hidden focus-visible:outline-offset-[-4px]"
+        >
+          <ul className="flex w-max px-[calc(50vw-28px)] sm:px-[calc(50vw-36px)]">
+            {rail.map((product, i) => {
+              const d = i - active;
+              const side = Math.sign(d);
+              const facing = d === 0;
+              return (
+                <li key={product.id} className="relative h-[330px] w-14 shrink-0 snap-center [perspective:900px] sm:h-[420px] sm:w-[72px]" style={{ zIndex: 50 - Math.abs(d) }}>
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => (facing ? onSelect(product) : goTo(i))}
+                    aria-label={facing ? `Quick view ${websiteProductTitle(product.name)}` : `Turn ${websiteProductTitle(product.name)} to face you`}
+                    className="absolute left-1/2 top-0 w-[210px] origin-top transition-[transform,filter] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] sm:w-[270px]"
+                    style={{
+                      transform: `translateX(-50%) translateX(${side * (facing ? 0 : 92)}px) rotateY(${side * -80}deg) scale(${facing ? 1 : 0.94})`,
+                      filter: facing ? "none" : `brightness(${Math.max(0.35, 0.7 - Math.abs(d) * 0.04)})`,
+                    }}
+                  >
+                    <Hanger clip={BOTTOMS.has(product.category)} />
+                    <span className="relative block aspect-[4/5] w-full">
+                      <Image src={`/rail/${product.id}.webp`} alt="" fill sizes="270px" className="object-contain object-top drop-shadow-[0_14px_18px_rgba(0,0,0,.55)]" />
                     </span>
-                    <span className="mt-2 font-plexmono text-[11px] uppercase tracking-[0.08em] text-[#bbb] group-hover:text-[#F5C300]">£{product.price}</span>
+                    {facing && (
+                      <span className="rail-tag absolute right-1 top-10 w-16 rounded-sm bg-[#F5C300] px-1.5 pb-2 pt-3 text-center text-[#0a0a0a] shadow-[0_6px_10px_rgba(0,0,0,.5)]">
+                        <span className="absolute left-1/2 top-1 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[#0a0a0a]" />
+                        <span className="block font-plexmono text-[10px] uppercase leading-tight">Size {product.size}</span>
+                        <span className="block font-display text-2xl font-extrabold leading-none">£{product.price}</span>
+                      </span>
+                    )}
                   </button>
                 </li>
-              ))}
-            </ul>
-          </div>
+              );
+            })}
+          </ul>
         </div>
-      )}
+
+        <button type="button" onClick={() => goTo(active - 1)} disabled={active === 0} aria-label="Previous piece"
+          className="absolute left-3 top-1/2 z-[70] hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/30 bg-[#0a0a0a]/70 text-white transition-colors hover:border-[#E8500A] hover:text-[#E8500A] disabled:opacity-30 sm:left-8 sm:grid">←</button>
+        <button type="button" onClick={() => goTo(active + 1)} disabled={active === count - 1} aria-label="Next piece"
+          className="absolute right-3 top-1/2 z-[70] hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/30 bg-[#0a0a0a]/70 text-white transition-colors hover:border-[#E8500A] hover:text-[#E8500A] disabled:opacity-30 sm:right-8 sm:grid">→</button>
+      </div>
+
+      <div className="mx-auto mt-4 max-w-xl px-4 text-center" aria-live="polite">
+        <h3 className="font-display text-3xl font-extrabold uppercase leading-[0.95] text-white sm:text-4xl">{websiteProductTitle(item.name)}</h3>
+        <p className="mt-2 text-sm text-[#aaa]">{item.brand} · Fits {productSizeLabel(item)}{item.era ? ` · ${item.era}` : ""} · £{item.price}</p>
+        <div className="mx-auto mt-5 flex max-w-sm flex-col gap-2 sm:flex-row">
+          <AddToCartButton product={item} className="flex-1 bg-[#E8500A] py-3 text-[11px] font-black tracking-[0.14em] text-white transition-colors hover:bg-[#F5C300] hover:text-black" />
+          <button type="button" onClick={() => onSelect(item)} className="flex-1 border border-white/30 py-3 text-[11px] font-black tracking-[0.14em] text-white transition-colors hover:border-[#E8500A] hover:text-[#E8500A]">
+            QUICK VIEW
+          </button>
+        </div>
+        <Link href={productPath(item)} className="mt-4 inline-block text-xs font-bold text-[#aaa] underline underline-offset-4 hover:text-white">Full details</Link>
+      </div>
     </section>
   );
 }
