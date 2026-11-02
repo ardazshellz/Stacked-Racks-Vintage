@@ -9,6 +9,7 @@ import MarqueeBanner from "@/components/MarqueeBanner";
 import SectionBoxes from "@/components/SectionBoxes";
 import CustomerReviews from "@/components/CustomerReviews";
 import RecentlySold from "@/components/RecentlySold";
+import OnTheRail from "@/components/OnTheRail";
 import ProductCard from "@/components/ProductCard";
 import ProductModal from "@/components/ProductModal";
 import { Product } from "@/lib/products";
@@ -417,6 +418,7 @@ export default function HomePageClient({ initialProducts }: { initialProducts: P
       <Hero />
       <MarqueeBanner />
       <SectionBoxes />
+      <OnTheRail products={products} onSelect={setSelectedProduct} />
       <CustomerReviews />
 
       {/* ── Browse section ── */}

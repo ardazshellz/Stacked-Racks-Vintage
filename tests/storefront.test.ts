@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { calculatePostage, FREE_SHIPPING_THRESHOLD, STANDARD_POSTAGE } from "../lib/shipping.ts";
 import { productPath, productSlug } from "../lib/product-url.ts";
 import { correctMarketingText, discountedPrices, generateCampaignDraft, normalizePromotionCode } from "../lib/promotions.ts";
-import { productGenderLabel, productMatchesGender, productMatchesSize, productSizeLabel, publicProduct, websiteProductTitle, type Product } from "../lib/products.ts";
+import { productGenderLabel, productMatchesGender, productMatchesSize, productSizeLabel, publicProduct, railPicks, websiteProductTitle, type Product } from "../lib/products.ts";
 
 test("postage is charged below £50", () => {
   assert.equal(calculatePostage(FREE_SHIPPING_THRESHOLD - 0.01), STANDARD_POSTAGE);
@@ -92,4 +92,18 @@ test("children's department is labelled and filtered like the others", async () 
   assert.equal(label(kit), "Children's");
   assert.equal(matches(kit, "Kids"), true);
   assert.equal(matches(kit, "Mens"), false);
+});
+
+test("homepage rail shows newest in-stock pieces, two per brand at most", () => {
+  const item = (id: string, brand: string, listedDate: string, stock = 1, imageUrls = ["x.jpg"]) =>
+    ({ id, brand, listedDate, stock, imageUrls }) as unknown as Product;
+  const picks = railPicks([
+    item("old", "Nike", "2026-01-01"),
+    item("c1", "Carhartt", "2026-11-03"),
+    item("c2", "Carhartt", "2026-11-02"),
+    item("c3", "Carhartt", "2026-11-01"),
+    item("sold", "Nike", "2026-11-04", 0),
+    item("nophoto", "Nike", "2026-11-04", 1, []),
+  ]);
+  assert.deepEqual(picks.map((p) => p.id), ["c1", "c2", "old"]);
 });

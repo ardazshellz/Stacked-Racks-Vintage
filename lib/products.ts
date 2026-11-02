@@ -163,6 +163,20 @@ export function isNew(p: Product): boolean {
   return age >= 0 && age < 14 * 24 * 60 * 60 * 1000;
 }
 
+/** Newest in-stock pieces with photos for the homepage rail, at most two per brand so one batch can't fill it. */
+export function railPicks(prods: Product[], limit = 12): Product[] {
+  const perBrand = new Map<string, number>();
+  return prods
+    .filter((p) => p.stock > 0 && p.imageUrls?.length)
+    .sort((a, b) => b.listedDate.localeCompare(a.listedDate))
+    .filter((p) => {
+      const n = perBrand.get(p.brand) ?? 0;
+      perBrand.set(p.brand, n + 1);
+      return n < 2;
+    })
+    .slice(0, limit);
+}
+
 /**
  * Returns brands that have ≥1 in-stock item, ordered by item-count desc.
  * Ties are broken alphabetically so the order is always deterministic.
