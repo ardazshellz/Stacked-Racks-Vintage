@@ -106,3 +106,26 @@ body {
 .animate-fade-in-up-delay-2 { animation: fade-in-up 0.7s ease 0.3s both; }
 .animate-fade-in-up-delay-3 { animation: fade-in-up 0.7s ease 0.45s both; }
 .animate-fade-in-up-delay-4 { animation: fade-in-up 0.7s ease 0.6s both; }
+
+/* Homepage rail: pieces swing on their hangers when pointed at; the picked piece settles in. */
+@keyframes rail-swing {
+  0% { transform: rotate(0); }
+  25% { transform: rotate(3deg); }
+  55% { transform: rotate(-2deg); }
+  80% { transform: rotate(1deg); }
+  100% { transform: rotate(0); }
+}
+.rail-hang { transform-origin: 50% 0; }
+.rail-hang:hover, .rail-hang:focus-visible { animation: rail-swing 0.9s ease-out; }
+@keyframes rail-focus-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.rail-focus-in { animation: rail-focus-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes rail-tag-in {
+  0% { transform: rotate(-14deg); }
+  45% { transform: rotate(12deg); }
+  75% { transform: rotate(3deg); }
+  100% { transform: rotate(6deg); }
+}
+.rail-tag { transform-origin: 50% 0; animation: rail-tag-in 1.1s ease-out both; }
