@@ -68,7 +68,7 @@ export default function OnTheRail({ products, onSelect }: { products: Product[];
         <h2 id="on-the-rail-heading" className="font-display text-white text-4xl sm:text-5xl font-extrabold uppercase leading-[0.9]">
           Fresh off the rack
         </h2>
-        <p className="mt-2 text-sm text-[#aaa]">Our newest pieces. Scroll along the rail; the one in the middle turns to face you.</p>
+        <p className="mt-2 text-sm text-[#aaa]">Marquee and standout pieces. Scroll along the rail; the one in the middle turns to face you.</p>
       </div>
 
       <div className="relative mt-8">
