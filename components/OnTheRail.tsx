@@ -12,7 +12,7 @@ const BOTTOMS = new Set(["Trousers", "Joggers & Tracksuit Bottoms", "Shorts"]);
 const SHAPES = CUTOUTS as Record<string, { back: number | null }>;
 // Garment thickness in px, built from stacked copies of the cut-out so side-on pieces look solid.
 const DEPTH = 18;
-const LAYERS = 6;
+const LAYERS = 4;
 const SHADE = "linear-gradient(90deg, rgba(0,0,0,.5), rgba(0,0,0,0) 28%, rgba(255,255,255,.07) 50%, rgba(0,0,0,0) 72%, rgba(0,0,0,.5))";
 
 function Hanger({ clip }: { clip: boolean }) {
@@ -49,6 +49,8 @@ export default function OnTheRail({ products, onSelect }: { products: Product[];
   const scroller = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const [showBack, setShowBack] = useState(false);
+  // The facing piece opens on a second click, so a quick double click while browsing doesn't jump to it.
+  const [armed, setArmed] = useState(false);
   const count = rail.length;
 
   const slot = () => (scroller.current?.firstElementChild?.firstElementChild as HTMLElement | null)?.offsetWidth ?? 1;
@@ -80,7 +82,7 @@ export default function OnTheRail({ products, onSelect }: { products: Product[];
           aria-label="Clothes rail. Use the arrow keys to move along it."
           onScroll={(e) => {
             const next = Math.max(0, Math.min(count - 1, Math.round(e.currentTarget.scrollLeft / slot())));
-            if (next !== active) { setActive(next); setShowBack(false); }
+            if (next !== active) { setActive(next); setShowBack(false); setArmed(false); }
           }}
           className="scrollbar-none snap-x snap-mandatory overflow-x-auto overflow-y-hidden focus-visible:outline-offset-[-4px]"
         >
@@ -90,7 +92,7 @@ export default function OnTheRail({ products, onSelect }: { products: Product[];
               const d = i - active;
               const side = Math.sign(d);
               const facing = d === 0;
-              const dim = facing ? 1 : Math.max(0.35, 0.7 - Math.abs(d) * 0.04);
+              const dim = facing ? 1 : 0.6;
               const front = `/rail/${id}.webp`;
               const back = SHAPES[id]?.back != null ? `/rail/${id}-back.webp` : front;
               return (
@@ -98,9 +100,9 @@ export default function OnTheRail({ products, onSelect }: { products: Product[];
                   <button
                     type="button"
                     tabIndex={-1}
-                    onClick={() => (facing ? onSelect(product) : goTo(i))}
-                    aria-label={facing ? `Quick view ${websiteProductTitle(product.name)}` : `Turn ${websiteProductTitle(product.name)} to face you`}
-                    className="absolute left-1/2 top-0 w-[210px] origin-top transition-transform duration-500 ease-[cubic-bezier(.2,.8,.2,1)] [transform-style:preserve-3d] sm:w-[270px]"
+                    onClick={() => (!facing ? goTo(i) : armed ? onSelect(product) : setArmed(true))}
+                    aria-label={facing ? `${armed ? "Open" : "Select"} ${websiteProductTitle(product.name)}` : `Turn ${websiteProductTitle(product.name)} to face you`}
+                    className="absolute left-1/2 top-0 w-[210px] origin-top will-change-transform transition-transform duration-500 ease-[cubic-bezier(.2,.8,.2,1)] [transform-style:preserve-3d] sm:w-[270px]"
                     style={{ transform: `translateX(-50%) translateX(${side * (facing ? 0 : 92)}px) rotateY(${side * -80}deg) scale(${facing ? 1 : 0.94})` }}
                   >
                     <span className={`block origin-top [transform-style:preserve-3d] ${facing && !showBack ? "rail-sway" : ""}`}>
@@ -113,7 +115,7 @@ export default function OnTheRail({ products, onSelect }: { products: Product[];
                           <Face src={front} dim={dim} />
                           {Array.from({ length: LAYERS - 1 }, (_, k) => (
                             <span key={k} className="absolute inset-0" style={{ transform: `translateZ(${DEPTH / 2 - ((k + 1) * DEPTH) / LAYERS}px)` }}>
-                              <Image src={front} alt="" fill sizes="270px" className="object-contain object-top" style={{ filter: `brightness(${dim * 0.3})` }} />
+                              <Image src={front} alt="" fill sizes="270px" className="object-contain object-top" style={{ filter: "brightness(.25)" }} />
                             </span>
                           ))}
                           <Face src={back} dim={dim} back />
@@ -127,6 +129,11 @@ export default function OnTheRail({ products, onSelect }: { products: Product[];
                           <span className="block font-plexmono text-[10px] uppercase leading-tight">Size {product.size}</span>
                           <span className="block font-display text-2xl font-extrabold leading-none">£{product.price}</span>
                         </span>
+                      </span>
+                    )}
+                    {facing && armed && (
+                      <span className="absolute inset-x-0 bottom-6 text-center" style={{ transform: `translateZ(${DEPTH}px)` }}>
+                        <span className="rounded-full bg-[#0a0a0a]/85 px-3 py-1.5 text-[11px] font-black tracking-[0.14em] text-white">TAP AGAIN TO OPEN</span>
                       </span>
                     )}
                   </button>
