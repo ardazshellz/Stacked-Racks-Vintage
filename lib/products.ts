@@ -163,17 +163,16 @@ export function isNew(p: Product): boolean {
   return age >= 0 && age < 14 * 24 * 60 * 60 * 1000;
 }
 
-/** Newest in-stock pieces with photos for the homepage rail, at most two per brand so one batch can't fill it. */
-export function railPicks(prods: Product[], limit = 12): Product[] {
-  const perBrand = new Map<string, number>();
+/** Homepage rail: Marquee pieces first, then the highest prices, with at most two reworked pieces at a time. */
+export function railPicks(prods: Product[], limit = 16): Product[] {
+  let reworks = 0;
   return prods
     .filter((p) => p.stock > 0 && p.imageUrls?.length)
-    .sort((a, b) => b.listedDate.localeCompare(a.listedDate))
-    .filter((p) => {
-      const n = perBrand.get(p.brand) ?? 0;
-      perBrand.set(p.brand, n + 1);
-      return n < 2;
-    })
+    .sort((a, b) =>
+      Number(b.badge === "RARE") - Number(a.badge === "RARE") ||
+      b.price - a.price ||
+      b.listedDate.localeCompare(a.listedDate))
+    .filter((p) => !/rework/i.test(p.name) || ++reworks <= 2)
     .slice(0, limit);
 }
 

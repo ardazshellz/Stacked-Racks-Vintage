@@ -94,16 +94,18 @@ test("children's department is labelled and filtered like the others", async () 
   assert.equal(matches(kit, "Mens"), false);
 });
 
-test("homepage rail shows newest in-stock pieces, two per brand at most", () => {
-  const item = (id: string, brand: string, listedDate: string, stock = 1, imageUrls = ["x.jpg"]) =>
-    ({ id, brand, listedDate, stock, imageUrls }) as unknown as Product;
+test("homepage rail puts Marquee then pricier pieces first, with two reworks at most", () => {
+  const item = (id: string, price: number, badge = "NEW", name = id, stock = 1, imageUrls = ["x.jpg"]) =>
+    ({ id, name, price, badge, stock, imageUrls, listedDate: "2026-11-01" }) as unknown as Product;
   const picks = railPicks([
-    item("old", "Nike", "2026-01-01"),
-    item("c1", "Carhartt", "2026-11-03"),
-    item("c2", "Carhartt", "2026-11-02"),
-    item("c3", "Carhartt", "2026-11-01"),
-    item("sold", "Nike", "2026-11-04", 0),
-    item("nophoto", "Nike", "2026-11-04", 1, []),
+    item("cheap", 20),
+    item("pricey", 90),
+    item("marquee", 40, "RARE"),
+    item("r1", 45, "RARE", "Carhartt Reworked Jacket 1"),
+    item("r2", 45, "RARE", "Carhartt Reworked Jacket 2"),
+    item("r3", 45, "RARE", "Carhartt Reworked Jacket 3"),
+    item("sold", 200, "RARE", "sold", 0),
+    item("nophoto", 200, "RARE", "nophoto", 1, []),
   ]);
-  assert.deepEqual(picks.map((p) => p.id), ["c1", "c2", "old"]);
+  assert.deepEqual(picks.map((p) => p.id), ["r1", "r2", "marquee", "pricey", "cheap"]);
 });

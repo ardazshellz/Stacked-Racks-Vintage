@@ -14,7 +14,7 @@ import { railPicks, type Product } from "../lib/products.ts";
 const SITE = process.env.SITE_URL ?? "https://stackedracksvintage.co.uk";
 const OUT = "public/rail";
 const LIST = "lib/rail-cutouts.json";
-const LIMIT = 20;
+const LIMIT = 16;
 
 const previous: Record<string, { back: number | null }> = JSON.parse(readFileSync(LIST, "utf8"));
 const data = await (await fetch(`${SITE}/api/products`)).json();
