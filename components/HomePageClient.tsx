@@ -417,9 +417,9 @@ export default function HomePageClient({ initialProducts }: { initialProducts: P
 
       <Hero />
       <MarqueeBanner />
-      <SectionBoxes />
-      <OnTheRail products={products} onSelect={setSelectedProduct} />
       <CustomerReviews />
+      <OnTheRail products={products} onSelect={setSelectedProduct} />
+      <SectionBoxes />
 
       {/* ── Browse section ── */}
       <div id="shop" className="border-t border-white/5">
