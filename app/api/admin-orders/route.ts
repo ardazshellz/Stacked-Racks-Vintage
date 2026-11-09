@@ -67,7 +67,7 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!sameOrigin(req)) return NextResponse.json({ error: "Invalid request" }, { status: 403 });
-  const body = (await req.json()) as { id?: string; payment_status?: string; fulfilment_status?: string; tracking_number?: string; notes?: string; price?: number; cost_price?: number; bought_from?: string; cost_tax_year?: string; source?: string; photo_url?: string; customer_name?: string };
+  const body = (await req.json()) as { id?: string; payment_status?: string; fulfilment_status?: string; tracking_number?: string; notes?: string; price?: number; cost_price?: number; bought_from?: string; cost_tax_year?: string; source?: string; photo_url?: string; customer_name?: string; unlink_item?: boolean };
   if (!body.id) return NextResponse.json({ error: "Missing order id" }, { status: 400 });
   const allowedStatuses = new Set(["paid", "packing", "dispatched", "delivered", "returned", "refunded"]);
   const changes: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -89,7 +89,9 @@ export async function PATCH(req: Request) {
   if (price === null || costPrice === null) {
     return NextResponse.json({ error: "Prices must be numbers of 0 or more" }, { status: 400 });
   }
-  if (price !== undefined || costPrice !== undefined || body.bought_from !== undefined || body.cost_tax_year !== undefined) {
+  // unlink_item detaches a sale recorded against the wrong product, so that product can be sold and recorded again.
+  if (body.unlink_item === true) changes.item_id = null;
+  if (price !== undefined || costPrice !== undefined || body.bought_from !== undefined || body.cost_tax_year !== undefined || body.unlink_item === true) {
     const { data: current, error: currentError } = await supabase.from("orders").select("postage, items").eq("id", body.id).single();
     if (currentError || !current) return NextResponse.json({ error: currentError?.message ?? "Order not found" }, { status: 404 });
     const items = Array.isArray(current.items) && current.items.length ? current.items : [{}];
@@ -103,11 +105,12 @@ export async function PATCH(req: Request) {
     if (costPrice !== undefined) item.costPrice = costPrice;
     if (typeof body.bought_from === "string") item.boughtFrom = body.bought_from.trim().slice(0, 100);
     if (typeof body.cost_tax_year === "string") item.costTaxYear = body.cost_tax_year;
+    if (body.unlink_item === true) item.id = "";
     changes.items = [item];
   }
-  // Website checkout orders (source "stripe") keep their source and customer; only admin-recorded sales can change them.
+  // Website checkout orders (source "stripe") keep their source, customer and product link; only admin-recorded sales can change them.
   const update = supabase.from("orders").update(changes).eq("id", body.id);
-  const { data, error } = await (changes.source || changes.customer_name ? update.neq("source", "stripe") : update).select("*").single();
+  const { data, error } = await (changes.source || changes.customer_name || body.unlink_item === true ? update.neq("source", "stripe") : update).select("*").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   await supabase.from("admin_audit_log").insert({ action: "order.updated", target_type: "order", target_id: body.id, details: changes });
 
