@@ -2,8 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    // Product photos never change at the same URL: keep optimised copies 31 days so the Hobby plan's monthly transformation quota lasts.
-    minimumCacheTTL: 2678400,
+    // The Hobby plan's image-optimisation quota ran out (Nov 2026): new photos returned 402 and showed as broken.
+    // Serve the Supabase photos directly instead; uploads are already resized to 1800x2400 JPEG by /api/admin/upload.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",
