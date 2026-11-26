@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Product } from "@/lib/products";
 import { taxYear } from "@/lib/sales";
 import { uploadAdminPhoto } from "@/lib/photo-upload";
+import { bundleSold } from "@/lib/batch-stock";
 
 type Purchase = { id: string; source: "vinted" | "fleek" | "other"; external_id: string | null; title: string; seller: string; purchased_at: string; price: number; quantity: number; photo_url: string; personal: boolean; notes: string; invoice_path: string };
 
@@ -16,6 +17,7 @@ const purchaseTag = (purchase: Purchase) => `[${purchase.external_id ?? purchase
 
 export default function PurchasedStock({ products, onProductsChanged }: { products: Product[]; onProductsChanged: () => void }) {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [sales, setSales] = useState<{ notes?: string; fulfilment_status?: string; payment_status?: string; items?: { boughtFrom?: string }[] }[]>([]);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [year, setYear] = useState(() => taxYear(new Date().toISOString()));
@@ -28,6 +30,8 @@ export default function PurchasedStock({ products, onProductsChanged }: { produc
     const data = await response.json();
     if (!response.ok) return setMessage(data.error ?? "Could not load purchases");
     setPurchases(data.purchases);
+    const orders = await fetch("/api/admin-orders").then((res) => (res.ok ? res.json() : { orders: [] })).catch(() => ({ orders: [] }));
+    setSales(orders.orders ?? []);
   }, []);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- first load from the API
   useEffect(() => { void load(); }, [load]);
@@ -126,7 +130,7 @@ export default function PurchasedStock({ products, onProductsChanged }: { produc
               <input type="file" accept="image/*" className="sr-only" disabled={busyId === purchase.id} onChange={(event) => void addPhoto(purchase, event.target.files?.[0])} />
             </label>
             <div className="min-w-0">
-              <p className="text-sm font-semibold truncate" title={purchase.title}>{purchase.title}{purchase.quantity > 1 && <span className="text-[#F5C300]"> × {purchase.quantity}</span>}</p>
+              <p className="text-sm font-semibold truncate" title={purchase.title}>{purchase.title}{purchase.quantity > 1 && <span className="text-[#F5C300]"> × {purchase.quantity}</span>}{purchase.quantity > 1 && (() => { const sold = bundleSold(purchase.notes, sales); return !sold ? null : <span className="text-[#E8500A]"> · {sold} sold · {Math.max(purchase.quantity - sold, 0)} left</span>; })()}</p>
               <p className="text-[#888] text-[10px] mt-0.5">{SOURCE_NAME[purchase.source]}{purchase.seller ? ` · ${purchase.seller}` : ""}{purchase.external_id ? ` · #${purchase.external_id}` : ""} · {new Date(purchase.purchased_at).toLocaleDateString("en-GB")} · {taxYear(purchase.purchased_at)}</p>
               {purchase.notes && <p className="text-[#666] text-[10px] mt-0.5">{purchase.notes}</p>}
               <div className="flex gap-3 mt-1 text-[10px] uppercase tracking-wider">
